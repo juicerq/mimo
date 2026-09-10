@@ -1,10 +1,11 @@
-import { closeSync, mkdirSync, openSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, watch } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawn, type Subprocess } from "bun";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 const AGENT_DIR = join(REPO_ROOT, "apps", "agent");
 const TUI_ENTRY = join(REPO_ROOT, "apps", "mimo", "src", "index.ts");
+const TUI_DIR = join(REPO_ROOT, "apps", "mimo", "src");
 const AGENT_LOG = join(AGENT_DIR, ".eve", "dev-server.log");
 const DATA_DIR = resolve(AGENT_DIR, process.env.MIMO_DATA_DIR ?? ".data");
 const DEFAULT_AGENT_URL = "http://127.0.0.1:2000";
@@ -57,6 +58,16 @@ function startRoutineTick(baseUrl: URL): ReturnType<typeof setInterval> {
 	return setInterval(tick, ROUTINE_TICK_MS);
 }
 
+function spawnTui(): Subprocess {
+	return spawn({
+		cmd: [process.execPath, TUI_ENTRY],
+		cwd: REPO_ROOT,
+		stdin: "inherit",
+		stdout: "inherit",
+		stderr: "inherit",
+	});
+}
+
 async function waitForHealth(baseUrl: string, agent: Subprocess): Promise<boolean> {
 	const deadline = Date.now() + HEALTH_TIMEOUT_MS;
 	while (Date.now() < deadline) {
@@ -97,14 +108,19 @@ async function main(): Promise<void> {
 	}
 
 	const routineTick = isLocal(url) ? startRoutineTick(url) : null;
-	const tui = spawn({
-		cmd: [process.execPath, TUI_ENTRY],
-		cwd: REPO_ROOT,
-		stdin: "inherit",
-		stdout: "inherit",
-		stderr: "inherit",
+	let restarting = false;
+	let tui = spawnTui();
+	const watcher = watch(TUI_DIR, { recursive: true }, () => {
+		restarting = true;
+		tui.kill();
 	});
-	const exitCode = await tui.exited;
+	let exitCode = await tui.exited;
+	while (restarting) {
+		restarting = false;
+		tui = spawnTui();
+		exitCode = await tui.exited;
+	}
+	watcher.close();
 	if (routineTick !== null) {
 		clearInterval(routineTick);
 	}
