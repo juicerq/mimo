@@ -6,6 +6,9 @@
 	"engines": {
 		"node": ">=24"
 	},
+	"scripts": {
+		"gmail:auth": "bun scripts/gmail-auth.ts"
+	},
 	"dependencies": {
 		"@ai-sdk/openai-compatible": "^3.0.47",
 		"@grikomsn/ai-sdk-provider-chatgpt-oauth": "^2.0.2",

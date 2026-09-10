@@ -9,7 +9,8 @@
 		"dev": "bun scripts/dev.ts",
 		"check": "juicerq-check",
 		"check:fix": "juicerq-check --fix",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"gmail:auth": "bun run --cwd apps/agent gmail:auth"
 	},
 	"devDependencies": {
 		"@juicerq/check": "^0.4.0",
