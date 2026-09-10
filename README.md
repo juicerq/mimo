@@ -37,3 +37,9 @@ As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada;
 6. Rode `bun run dev` e peça para o bot listar os não lidos. Com mais de uma conta, diga qual.
 
 Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dias e a conta precisa ser conectada de novo com `bun run gmail:auth`. Para evitar, publique o app em In production; o consentimento passa a mostrar o aviso de app não verificado, e para uso pessoal não é preciso concluir a verificação.
+
+## Rotinas
+
+As rotinas ficam em `apps/agent/.data/routines.json` e são criadas por conversa. Um dispatcher de um minuto entrega o prompt na sessão em que a rotina foi criada.
+
+O `eve dev` não dispara cron sozinho, então o `bun run dev` chama a rota de dispatch a cada minuto. Num `eve build && eve start`, o eve dispara sozinho, mas o processo precisa estar de pé.

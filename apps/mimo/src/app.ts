@@ -14,7 +14,6 @@ import {
 	type InputRequest,
 	type InputResolutionOutcome,
 	type InputResolvedStreamEvent,
-	type MessageResponse,
 	type MessageStreamEvent,
 } from "eve/client";
 import { describeError, type AgentChat } from "./agent";
@@ -28,6 +27,7 @@ const ATTENTION_COLOR = "#EBCB8B";
 const BORDER_COLOR = "#3B4252";
 const COMPOSER_BACKGROUND = "#1C1C1C";
 const COMPOSER_FOCUSED_BACKGROUND = "#262626";
+const FOLLOW_RESTART_MS = 2_000;
 
 const RESOLUTION_TEXT: Record<InputResolutionOutcome, string> = {
 	approved: "aprovado",
@@ -47,6 +47,7 @@ export class MimoApp {
 	private replyText = "";
 	private busy = false;
 	private failed = false;
+	private following = false;
 	private pendingRequests: InputRequest[] = [];
 
 	constructor(renderer: CliRenderer, chat: AgentChat) {
@@ -117,35 +118,57 @@ export class MimoApp {
 		if (responses.length > 0) {
 			const answered = new Set(responses.map((response) => response.requestId));
 			this.pendingRequests = this.pendingRequests.filter((request) => !answered.has(request.requestId));
-			void this.run(() => this.chat.respond(responses));
+			void this.dispatch(() => this.chat.respond(responses));
 			return;
 		}
 		this.sealReply();
 		this.appendLine(`você: ${text}`, USER_COLOR);
-		void this.run(() => this.chat.send(text));
+		void this.dispatch(() => this.chat.send(text));
 	}
 
-	private async run(operation: () => Promise<MessageResponse>): Promise<void> {
-		this.busy = true;
+	private async dispatch(operation: () => Promise<void>): Promise<void> {
 		this.failed = false;
+		this.busy = true;
 		this.setStatus("pensando");
 		try {
-			const response = await operation();
-			for await (const event of response) {
-				this.renderEvent(event);
-			}
-			if (this.failed) {
-				this.setStatus("erro");
-			} else {
-				this.setStatus(this.pendingRequests.length > 0 ? "aguardando resposta" : "pronto");
-			}
+			await operation();
 		} catch (error) {
+			this.busy = false;
 			this.failed = true;
 			this.appendLine(`erro: ${describeError(error)}`, ERROR_COLOR);
 			this.setStatus("erro");
+			return;
+		}
+		await this.follow();
+	}
+
+	private async follow(): Promise<void> {
+		if (this.following) {
+			return;
+		}
+		this.following = true;
+		let reported = false;
+		try {
+			while (this.following) {
+				try {
+					const stream = this.chat.stream();
+					if (stream === null) {
+						return;
+					}
+					for await (const event of stream) {
+						reported = false;
+						this.renderEvent(event);
+					}
+				} catch (error) {
+					if (!reported) {
+						reported = true;
+						this.appendLine(`stream caiu: ${describeError(error)}`, ERROR_COLOR);
+					}
+				}
+				await Bun.sleep(FOLLOW_RESTART_MS);
+			}
 		} finally {
-			this.busy = false;
-			this.sealReply();
+			this.following = false;
 		}
 	}
 
@@ -163,12 +186,21 @@ export class MimoApp {
 			case "action.result":
 				this.renderActionResult(event.data);
 				return;
+			case "turn.started":
+				this.busy = true;
+				this.setStatus("pensando");
+				return;
+			case "turn.completed":
+			case "session.completed":
+				this.busy = false;
+				return;
 			case "step.failed":
 			case "turn.failed":
 			case "session.failed":
 				this.renderFailure(event.data.message);
 				return;
 			case "turn.cancelled":
+				this.busy = false;
 				this.setStatus("cancelado");
 				return;
 			case "input.requested":
@@ -199,6 +231,7 @@ export class MimoApp {
 	}
 
 	private renderFailure(message: string): void {
+		this.busy = false;
 		this.failed = true;
 		this.appendLine(`erro: ${message}`, ERROR_COLOR);
 		this.setStatus("erro");
@@ -209,6 +242,7 @@ export class MimoApp {
 			this.pendingRequests.push(request);
 			this.renderRequest(request);
 		}
+		this.busy = false;
 		this.setStatus("aguardando resposta");
 	}
 
@@ -219,9 +253,14 @@ export class MimoApp {
 			);
 			this.appendLine(`⏸ ${RESOLUTION_TEXT[resolution.outcome]}`, TOOL_COLOR);
 		}
+		if (resolutions.length > 0) {
+			this.busy = true;
+			this.setStatus("pensando");
+		}
 	}
 
 	private renderWaiting(): void {
+		this.busy = false;
 		if (this.failed) {
 			this.setStatus("erro");
 		} else if (this.pendingRequests.length > 0) {

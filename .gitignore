@@ -8,5 +8,6 @@ docs/plano.md
 dist/
 out/
 release/
+.output/
 *.log
 .DS_Store

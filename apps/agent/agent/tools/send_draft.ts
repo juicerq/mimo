@@ -2,7 +2,7 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { resolveAccount } from "../lib/gmail/accounts";
 import { sendDraft } from "../lib/gmail/api";
-import { botMode } from "../lib/mode";
+import { approveInNormalMode } from "../lib/mode";
 
 export default defineTool({
 	description: "Envia um rascunho existente do Gmail. No modo normal, a chamada espera aprovação no terminal.",
@@ -10,7 +10,7 @@ export default defineTool({
 		account: z.string().optional().describe("E-mail da conta conectada. Use list_accounts para ver as opções."),
 		draftId: z.string().min(1).describe("O id do rascunho, como veio de create_draft."),
 	}),
-	approval: () => (botMode.get() === "normal" ? "user-approval" : "not-applicable"),
+	approval: approveInNormalMode,
 	async execute({ account, draftId }) {
 		return sendDraft(await resolveAccount(account), draftId);
 	},
