@@ -5,5 +5,9 @@
 	"type": "module",
 	"bin": {
 		"mimo": "./src/index.ts"
+	},
+	"dependencies": {
+		"@opentui/core": "^0.5.11",
+		"eve": "^0.53.0"
 	}
 }
