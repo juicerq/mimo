@@ -5,12 +5,14 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const DEFAULT_MODEL = "opencode-go/glm-5.3";
+const DEFAULT_MODEL = "opencode-go/deepseek-flash";
+const MAX_CONTEXT_WINDOW = 300_000;
 const FALLBACK_CONTEXT_WINDOW = 200_000;
 const OPENCODE_BASE_URL = "https://opencode.ai/zen/go/v1";
 const OPENCODE_AUTH_PATH = join(homedir(), ".local", "share", "opencode", "auth.json");
 
 const CONTEXT_WINDOWS: Record<string, number> = {
+	"opencode-go/deepseek-flash": 1_000_000,
 	"opencode-go/glm-5.3": 1_000_000,
 	"opencode-go/deepseek-v4-pro": 1_000_000,
 	"opencode-go/kimi-k3": 1_048_576,
@@ -67,10 +69,11 @@ export function resolveModel(
 	spec = process.env.MIMO_MODEL ?? DEFAULT_MODEL,
 ): ResolvedModel {
 	const { provider, id } = splitModel(spec);
+	const declaredContextWindow = Number(
+		process.env.MIMO_CONTEXT_WINDOW ?? CONTEXT_WINDOWS[spec] ?? FALLBACK_CONTEXT_WINDOW,
+	);
 	return {
 		model: createModel(provider, id, sessionId),
-		contextWindowTokens: Number(
-			process.env.MIMO_CONTEXT_WINDOW ?? CONTEXT_WINDOWS[spec] ?? FALLBACK_CONTEXT_WINDOW,
-		),
+		contextWindowTokens: Math.min(declaredContextWindow, MAX_CONTEXT_WINDOW),
 	};
 }
