@@ -15,15 +15,17 @@ CONTROL=.agents/skills/verify-mimo/scripts/control-mimo
 
 ## Launch
 
-Uma instância por vez. A porta 2000 e `apps/agent/.data` são fixos, então o helper recusa `launch` se a sessão tmux `mimo-verify` existe ou se há agente respondendo — nunca dirija uma instância que você não iniciou.
+Uma instância por vez: a porta 2000 é fixa, então o helper recusa `launch` se a sessão tmux `mimo-verify` existe ou se há agente respondendo — nunca dirija uma instância que você não iniciou.
 
 ```sh
 $CONTROL launch
 $CONTROL doctor
 ```
 
-- `launch` sobe `bun run dev` numa sessão tmux 140x42 na raiz do repo e espera até 150 s pelo estado `pronto` na linha `mimo · <url> · pronto`. `bun run dev` sobe o agente, espera o health e só então abre a TUI.
-- Antes de subir, salva `apps/agent/.data/routines.json` e `apps/agent/.data/memory/` em `.verify/runs/<UTC>/state-before/` e grava o HEAD em `head.txt`; ao final, também grava o PID do listener em `agent.pid`.
+- Por padrão o `launch` cria um sandbox em `.verify/runs/<UTC>/data` e sobe `bun run dev` com `MIMO_DATA_DIR` apontando para lá: memória, contas e rotinas da execução não tocam `apps/agent/.data`. `$CONTROL data` imprime o diretório em uso.
+- Para reusar um diretório (por exemplo, entre duas sessões de memória) use `--data <dir>`, relativo à raiz do repo ou absoluto; `MIMO_VERIFY_DATA_DIR` faz o mesmo por ambiente. Só aponte para `apps/agent/.data` quando a receita exigir os dados reais: o snapshot/restore protege memória e rotinas, mas Gmail continua real.
+- `launch` sobe a TUI numa sessão tmux 140x42 na raiz do repo e espera até 150 s pelo estado `pronto` na linha `mimo · <url> · pronto`. `bun run dev` sobe o agente, espera o health e só então abre a TUI.
+- Antes de subir, salva `routines.json` e `memory/` do diretório de dados em `.verify/runs/<UTC>/state-before/` e grava o HEAD em `head.txt`; ao final, também grava o PID do listener em `agent.pid`.
 - O log do agente fica em `apps/agent/.eve/dev-server.log`.
 
 Teardown:
@@ -43,7 +45,7 @@ Se o app não subir, a primeira coisa é ler `$CONTROL log` e o final do pane (`
 
 - sessão `mimo-verify` viva e pane em `pronto`;
 - `GET /eve/v1/health` respondendo;
-- HEAD atual igual ao registrado no launch (se mudou, reinicie: a instância serve o checkout antigo);
+- diretório de dados em uso (sandbox ou reais) e HEAD atual igual ao registrado no launch (se mudou, reinicie: a instância serve o checkout antigo);
 - chave do modelo presente (`OPENCODE_API_KEY` no `.env.local` ou `~/.local/share/opencode/auth.json`) e `GMAIL_CLIENT_ID` no `.env.local`;
 - quantas contas Gmail estão conectadas e quantas rotinas existem.
 
@@ -73,7 +75,7 @@ Padrões de prova:
 
 - exercite o caminho real do usuário pela TUI, não endpoints internos nem atalhos;
 - capture a ação e o estado resultante, não só a tela final;
-- confirme efeitos colaterais onde eles vivem: `apps/agent/.data/routines.json`, `apps/agent/.data/memory/*.md`, log do agente; mensagem de sucesso sozinha não conta;
+- confirme efeitos colaterais onde eles vivem: `routines.json` e `memory/*.md` no diretório de `$CONTROL data`, log do agente; mensagem de sucesso sozinha não conta;
 - o modelo é remoto e a redação varia: asserte tokens únicos, ids, nomes de tool e caminhos, não frases;
 - Gmail, rascunhos e envios são reais. A prova padrão de aprovação é **recusar**; envio aprovado só para endereço próprio, com assunto identificável (`VERIFICACAO ...`), e limpeza manual depois.
 
@@ -84,6 +86,7 @@ $CONTROL stop
 ```
 
 - `stop` mata somente o que o `launch` criou e restaura `routines.json`/`memory/` do snapshot. Se ainda houver um listener que ele não consegue identificar como seu, ele para e avisa em vez de matar.
+- Com o sandbox padrão, os dados reais em `apps/agent/.data` não são tocados; o restore age no diretório da execução. Se o `launch` apontou para os dados reais, o restore devolve o snapshot — mas rascunhos e envios de Gmail continuam reais.
 - Antes de restaurar, o estado atual é copiado para `.verify/runs/<id>/state-after/`: o efeito colateral vira prova.
 - `stop --keep-state` não restaura; `$CONTROL restore [run-dir]` restaura um snapshot específico (padrão: o da execução atual).
 - Rascunhos e e-mails enviados não são restaurados; registre os ids e apague no Gmail.
@@ -96,8 +99,9 @@ $CONTROL stop
 
 | Comando | Efeito |
 | --- | --- |
-| `launch` | sobe a instância em tmux, registra o run dir e o HEAD |
-| `doctor` | checagem somente leitura (sessão, health, HEAD, env, contas, rotinas) |
+| `launch [--data <dir>]` | sobe a instância em tmux com sandbox de dados, registra o run dir e o HEAD |
+| `doctor` | checagem somente leitura (sessão, health, dados, HEAD, env, contas, rotinas) |
+| `data` | imprime o diretório de dados da execução atual |
 | `send <texto>` | digita, envia e espera o turno terminar (recusa se ocupado) |
 | `wait <regex> [s]` | espera o padrão no pane (padrão 180 s) |
 | `capture <arquivo>` | salva o pane atual |

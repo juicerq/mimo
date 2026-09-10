@@ -1,11 +1,12 @@
 import { closeSync, mkdirSync, openSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { spawn, type Subprocess } from "bun";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 const AGENT_DIR = join(REPO_ROOT, "apps", "agent");
 const TUI_ENTRY = join(REPO_ROOT, "apps", "mimo", "src", "index.ts");
 const AGENT_LOG = join(AGENT_DIR, ".eve", "dev-server.log");
+const DATA_DIR = resolve(AGENT_DIR, process.env.MIMO_DATA_DIR ?? ".data");
 const DEFAULT_AGENT_URL = "http://127.0.0.1:2000";
 const HEALTH_TIMEOUT_MS = 90_000;
 const HEALTH_POLL_MS = 500;
@@ -86,7 +87,7 @@ async function main(): Promise<void> {
 			console.error(`agente não respondeu em ${baseUrl}`);
 			process.exit(1);
 		}
-		console.error(`subindo o agente em ${baseUrl} · log: ${AGENT_LOG}`);
+		console.error(`subindo o agente em ${baseUrl} · dados: ${DATA_DIR} · log: ${AGENT_LOG}`);
 		agent = spawnAgent(baseUrl);
 		if (!(await waitForHealth(baseUrl, agent))) {
 			agent.kill();

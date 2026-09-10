@@ -21,9 +21,25 @@ O comando sobe o agente em `http://127.0.0.1:2000`, espera ele responder e abre 
 
 Para usar um agente que já está rodando em outro endereço, defina `MIMO_AGENT_URL`; o comando só abre a TUI. `--version` imprime a versão.
 
+## Dados
+
+Por padrão o agente guarda memória, contas do Gmail e rotinas em `apps/agent/.data`, que são os dados reais. Para experimentar sem tocar neles, rode o sandbox:
+
+```sh
+bun run dev:sandbox
+```
+
+Ele usa `apps/agent/.data-dev` (ignorado pelo git). Qualquer outro diretório serve com `MIMO_DATA_DIR` (relativo ao `apps/agent` ou absoluto); a subida do agente imprime o caminho em uso. Para conectar contas no sandbox:
+
+```sh
+MIMO_DATA_DIR=.data-dev bun run gmail:auth
+```
+
+A verificação de ponta a ponta (`verify-mimo`) também roda em sandbox por padrão e só usa os dados reais se for apontada para eles de propósito.
+
 ## Memória
 
-O Bot lembra fatos e preferências entre sessões no slot `profile`, guardado em `apps/agent/.data/memory/`. Para começar do zero, apague esse diretório.
+O Bot lembra fatos e preferências entre sessões no slot `profile`, guardado em `apps/agent/.data/memory/` (ou no `MIMO_DATA_DIR`). Para começar do zero, apague esse diretório.
 
 ## Gmail
 
@@ -48,6 +64,6 @@ EXA_API_KEY=
 
 ## Rotinas
 
-As rotinas ficam em `apps/agent/.data/routines.json` e são criadas por conversa. Um dispatcher de um minuto entrega o prompt na sessão em que a rotina foi criada.
+As rotinas ficam em `apps/agent/.data/routines.json` (ou no `MIMO_DATA_DIR`) e são criadas por conversa. Um dispatcher de um minuto entrega o prompt na sessão em que a rotina foi criada.
 
 O `eve dev` não dispara cron sozinho, então o `bun run dev` chama a rota de dispatch a cada minuto. Num `eve build && eve start`, o eve dispara sozinho, mas o processo precisa estar de pé.

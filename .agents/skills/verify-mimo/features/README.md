@@ -6,6 +6,7 @@ Este diretório é a fonte mantida para verificar o comportamento visível do mi
 
 - Rode tudo da raiz do repo com `CONTROL=.agents/skills/verify-mimo/scripts/control-mimo`.
 - Uma instância por vez: `$CONTROL launch` exige a porta 2000 livre e a sessão tmux `mimo-verify` ausente.
+- `launch` roda em sandbox de dados por padrão (`.verify/runs/<id>/data`); `$CONTROL data` imprime o caminho. Só use `--data apps/agent/.data` quando a receita exigir os dados reais.
 - `$CONTROL doctor` precisa confirmar health, HEAD, env e pane em `pronto`.
 - Cada abertura da TUI é uma conversa nova; nada é retomado entre aberturas, exceto a memória durável.
 - O modelo é remoto (`opencode-go/deepseek-flash`); turnos levam segundos e a redação varia.

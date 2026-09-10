@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { relative } from "node:path";
+import { dataPath } from "../agent/lib/data";
 import { saveAccount } from "../agent/lib/gmail/accounts";
 import { fetchAccountEmail } from "../agent/lib/gmail/api";
 import {
@@ -39,7 +41,8 @@ try {
 				const tokens = await exchangeAuthorizationCode(code, verifier);
 				const email = await fetchAccountEmail(tokens.accessToken);
 				await saveAccount({ email, refreshToken: tokens.refreshToken });
-				console.log(`\nConta ${email} conectada em apps/agent/.data/gmail/accounts.json.`);
+				const store = relative(process.cwd(), dataPath("gmail", "accounts.json"));
+				console.log(`\nConta ${email} conectada em ${store}.`);
 				return new Response("<h1>Pronto</h1><p>Pode fechar esta aba e voltar ao terminal.</p>", {
 					headers: { "content-type": "text/html; charset=utf-8" },
 				});
