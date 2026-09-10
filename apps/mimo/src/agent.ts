@@ -1,4 +1,4 @@
-import { Client, type ClientSession, type MessageResponse } from "eve/client";
+import { Client, type ClientSession, type InputResponse, type MessageResponse } from "eve/client";
 
 const DEFAULT_AGENT_URL = "http://127.0.0.1:2000";
 
@@ -28,6 +28,13 @@ export class AgentChat {
 		const { session, response } = await this.client.sessions.create({ message: text });
 		this.session = session;
 		return response;
+	}
+
+	async respond(responses: readonly InputResponse[]): Promise<MessageResponse> {
+		if (!this.session) {
+			throw new Error("a sessão do agente ainda não foi criada");
+		}
+		return this.session.respond(responses);
 	}
 }
 

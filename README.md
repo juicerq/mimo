@@ -25,9 +25,9 @@ Para usar um agente que já está rodando em outro endereço, defina `MIMO_AGENT
 
 O Bot lembra fatos e preferências entre sessões no slot `profile`, guardado em `apps/agent/.data/memory/`. Para começar do zero, apague esse diretório.
 
-## Gmail (leitura)
+## Gmail
 
-As tools `list_unread`, `read_thread` e `list_accounts` leem a caixa de entrada pela API do Gmail. Cada conta conectada guarda o refresh token em `apps/agent/.data/gmail/accounts.json`; o client id e o client secret ficam em `apps/agent/.env.local`.
+As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria rascunhos e `send_draft` envia um rascunho com aprovação no terminal. Cada conta conectada guarda o refresh token em `apps/agent/.data/gmail/accounts.json`; o client id e o client secret ficam em `apps/agent/.env.local`.
 
 1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto e ative a Gmail API.
 2. Configure a tela de consentimento OAuth (tipo External, com você como usuário de teste).
