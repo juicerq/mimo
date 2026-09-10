@@ -11,5 +11,3 @@ bun install
 bun run check
 bun apps/mimo/src/index.ts
 ```
-
-O plano por etapas fica em [docs/plano.md](docs/plano.md).

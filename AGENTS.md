@@ -12,4 +12,4 @@ Não crie testes por enquanto. A verificação vem de rodar a coisa de verdade e
 
 # Idioma
 
-README, CONTEXT.md, `docs/plano.md` e os corpos de PR ficam em português. Código, nomes de símbolos e mensagens de commit ficam em inglês.
+README, CONTEXT.md e os corpos de PR ficam em português. Código, nomes de símbolos e mensagens de commit ficam em inglês.
