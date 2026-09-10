@@ -24,7 +24,7 @@ $CONTROL doctor
 
 - Por padrão o `launch` cria um sandbox em `.verify/runs/<UTC>/data` e sobe `bun run dev` com `MIMO_DATA_DIR` apontando para lá: memória, contas e rotinas da execução não tocam `apps/agent/.data`. `$CONTROL data` imprime o diretório em uso.
 - Para reusar um diretório (por exemplo, entre duas sessões de memória) use `--data <dir>`, relativo à raiz do repo ou absoluto; `MIMO_VERIFY_DATA_DIR` faz o mesmo por ambiente. Só aponte para `apps/agent/.data` quando a receita exigir os dados reais: o snapshot/restore protege memória e rotinas, mas Gmail continua real.
-- `launch` sobe a TUI numa sessão tmux 140x42 na raiz do repo e espera até 150 s pela linha `mode: normal · status: ready`. `bun run dev` sobe o agente, espera o health e só então abre a TUI.
+- `launch` sobe a TUI numa sessão tmux 140x42 na raiz do repo e espera até 150 s pela linha `status: ready`. `bun run dev` sobe o agente, espera o health e só então abre a TUI.
 - Antes de subir, salva `routines.json`, `memory/` e `actions.jsonl` do diretório de dados em `.verify/runs/<UTC>/state-before/` e grava o HEAD em `head.txt`; ao final, também grava o PID do listener em `agent.pid`.
 - O log do agente fica em `apps/agent/.eve/dev-server.log`.
 
