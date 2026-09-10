@@ -38,6 +38,14 @@ As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada;
 
 Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dias e a conta precisa ser conectada de novo com `bun run gmail:auth`. Para evitar, publique o app em In production; o consentimento passa a mostrar o aviso de app não verificado, e para uso pessoal não é preciso concluir a verificação.
 
+## Busca na web
+
+A tool `web_search` usa o MCP público da [Exa](https://exa.ai/) (`mcp.exa.ai/mcp`), o mesmo que o OpenCode usa: funciona sem conta e sem chave. Quem tiver uma `EXA_API_KEY` pode colocá-la em `apps/agent/.env.local` para limites maiores.
+
+```sh
+EXA_API_KEY=
+```
+
 ## Rotinas
 
 As rotinas ficam em `apps/agent/.data/routines.json` e são criadas por conversa. Um dispatcher de um minuto entrega o prompt na sessão em que a rotina foi criada.
