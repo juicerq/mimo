@@ -11,16 +11,12 @@ bun install
 bun run check
 ```
 
-Para conversar de verdade, suba o agente e depois o cliente:
+Para conversar de verdade:
 
 ```sh
-cd apps/agent
-bunx eve dev --no-ui
+bun run dev
 ```
 
-```sh
-# noutro terminal, na raiz
-bun apps/mimo/src/index.ts
-```
+O comando sobe o agente em `http://127.0.0.1:2000`, espera ele responder e abre a TUI. `Ctrl+C` encerra os dois. O log do agente fica em `apps/agent/.eve/dev-server.log`.
 
-O `mimo` conecta em `http://127.0.0.1:2000` por padrão. Defina `MIMO_AGENT_URL` para apontar para outro servidor. `--version` imprime a versão.
+Para usar um agente que já está rodando em outro endereço, defina `MIMO_AGENT_URL`; o comando só abre a TUI. `--version` imprime a versão.
