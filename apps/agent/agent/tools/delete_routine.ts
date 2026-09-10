@@ -1,6 +1,7 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { approveInNormalMode } from "../lib/mode";
+import { recordAction, recordFailure } from "../lib/actions";
+import { approveInNormalMode, botMode } from "../lib/mode";
 import { deleteRoutine } from "../lib/routines";
 
 export default defineTool({
@@ -9,10 +10,23 @@ export default defineTool({
 		id: z.string().min(1).describe("O id da rotina, como veio de list_routines."),
 	}),
 	approval: approveInNormalMode,
-	async execute({ id }) {
-		if (!(await deleteRoutine(id))) {
-			throw new Error(`Rotina ${id} não encontrada.`);
+	async execute({ id }, ctx) {
+		const base = {
+			kind: "delete_routine" as const,
+			mode: botMode.get(),
+			sessionId: ctx.session.id,
+			summary: `rotina ${id}`,
+			detail: { routineId: id },
+		};
+		try {
+			if (!(await deleteRoutine(id))) {
+				throw new Error(`Rotina ${id} não encontrada.`);
+			}
+			await recordAction(base);
+			return { deleted: id };
+		} catch (error) {
+			await recordFailure(base, error).catch(() => {});
+			throw error;
 		}
-		return { deleted: id };
 	},
 });

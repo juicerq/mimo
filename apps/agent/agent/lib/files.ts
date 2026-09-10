@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
 
@@ -31,4 +31,9 @@ export async function writeTextFile(path: string, content: string, mode = 0o644)
 	const temporary = `${path}.${randomUUID()}.tmp`;
 	await writeFile(temporary, content, { mode });
 	await rename(temporary, path);
+}
+
+export async function appendJsonLine(path: string, value: unknown): Promise<void> {
+	await mkdir(dirname(path), { recursive: true });
+	await appendFile(path, `${JSON.stringify(value)}\n`, { mode: 0o600 });
 }
