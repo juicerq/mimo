@@ -1,10 +1,8 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { readJsonFile, writeTextFile } from "../files";
 
-const STORE_DIR = join(process.cwd(), ".data", "gmail");
-const STORE_PATH = join(STORE_DIR, "accounts.json");
+const STORE_PATH = join(process.cwd(), ".data", "gmail", "accounts.json");
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const REFRESH_SKEW_MS = 60_000;
 
@@ -24,6 +22,11 @@ const tokenResponseSchema = z.object({
 });
 
 export type GmailAccount = z.infer<typeof accountSchema>;
+
+export const accountField = z
+	.string()
+	.optional()
+	.describe("E-mail da conta conectada. Use list_accounts para ver as opções.");
 
 export interface GmailClient {
 	clientId: string;
@@ -54,10 +57,6 @@ function requiredEnv(name: string): string {
 	return value;
 }
 
-function isMissing(error: unknown): boolean {
-	return error instanceof Error && "code" in error && error.code === "ENOENT";
-}
-
 export function gmailClient(): GmailClient {
 	return {
 		clientId: requiredEnv("GMAIL_CLIENT_ID"),
@@ -82,25 +81,14 @@ export async function requestToken(grant: Record<string, string>): Promise<Token
 }
 
 export async function listAccounts(): Promise<GmailAccount[]> {
-	let raw: string;
-	try {
-		raw = await readFile(STORE_PATH, "utf8");
-	} catch (error) {
-		if (isMissing(error)) {
-			return [];
-		}
-		throw error;
-	}
-	return storeSchema.parse(JSON.parse(raw)).accounts;
+	const store = await readJsonFile(STORE_PATH, storeSchema);
+	return store?.accounts ?? [];
 }
 
 export async function saveAccount(account: GmailAccount): Promise<void> {
 	const accounts = await listAccounts();
 	const updated = [...accounts.filter((existing) => existing.email !== account.email), account];
-	await mkdir(STORE_DIR, { recursive: true });
-	const temporary = `${STORE_PATH}.${randomUUID()}.tmp`;
-	await writeFile(temporary, `${JSON.stringify({ accounts: updated }, null, "\t")}\n`, { mode: 0o600 });
-	await rename(temporary, STORE_PATH);
+	await writeTextFile(STORE_PATH, `${JSON.stringify({ accounts: updated }, null, "\t")}\n`, 0o600);
 }
 
 function accountList(accounts: GmailAccount[]): string {

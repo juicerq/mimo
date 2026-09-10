@@ -1,7 +1,7 @@
-import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { MemoryDocumentConflictError, type MemoryDocument, type MemoryDocumentBackend } from "eve/memory/file";
+import { readTextFile, writeTextFile } from "./lib/files";
 
 const MEMORY_DIR = join(process.cwd(), ".data", "memory");
 
@@ -9,24 +9,16 @@ function versionOf(content: string): string {
 	return createHash("sha256").update(content).digest("hex");
 }
 
-function isMissing(error: unknown): boolean {
-	return error instanceof Error && "code" in error && error.code === "ENOENT";
-}
-
 function documentPath(key: string): string {
 	return join(MEMORY_DIR, `${key}.md`);
 }
 
 async function readDocument(key: string): Promise<MemoryDocument | null> {
-	try {
-		const content = await readFile(documentPath(key), "utf8");
-		return { content, version: versionOf(content) };
-	} catch (error) {
-		if (isMissing(error)) {
-			return null;
-		}
-		throw error;
+	const content = await readTextFile(documentPath(key));
+	if (content === null) {
+		return null;
 	}
+	return { content, version: versionOf(content) };
 }
 
 export function localMemoryBackend(): MemoryDocumentBackend {
@@ -41,11 +33,7 @@ export function localMemoryBackend(): MemoryDocumentBackend {
 			if ((current?.version ?? null) !== expectedVersion) {
 				throw new MemoryDocumentConflictError(key);
 			}
-			await mkdir(MEMORY_DIR, { recursive: true });
-			const target = documentPath(key);
-			const temporary = `${target}.${randomUUID()}.tmp`;
-			await writeFile(temporary, content, "utf8");
-			await rename(temporary, target);
+			await writeTextFile(documentPath(key), content);
 			return { content, version: versionOf(content) };
 		},
 	};
