@@ -18,16 +18,21 @@ import {
 } from "eve/client";
 import { describeError, type AgentChat } from "./agent";
 
-const TEXT_COLOR = "#D8DEE9";
-const USER_COLOR = "#7DA6FF";
-const TOOL_COLOR = "#8F98A8";
-const ERROR_COLOR = "#FF6B6B";
-const STATUS_COLOR = "#8F98A8";
-const ATTENTION_COLOR = "#EBCB8B";
-const BORDER_COLOR = "#3B4252";
-const COMPOSER_BACKGROUND = "#1C1C1C";
-const COMPOSER_FOCUSED_BACKGROUND = "#262626";
+const T1 = "#F2F2F3";
+const T2 = "#C9C9CC";
+const T3 = "#9A9A9E";
+const T4 = "#6B6B6F";
+const TEXT_COLOR = T1;
+const USER_COLOR = T3;
+const TOOL_COLOR = T4;
+const ERROR_COLOR = T1;
+const STATUS_COLOR = T4;
+const ATTENTION_COLOR = T1;
+const COMPOSER_BACKGROUND = "#141416";
+const COMPOSER_FOCUSED_BACKGROUND = "#1D1D20";
 const FOLLOW_RESTART_MS = 2_000;
+
+type BotMode = "normal" | "autonomous";
 
 const RESOLUTION_TEXT: Record<InputResolutionOutcome, string> = {
 	approved: "aprovado",
@@ -48,6 +53,8 @@ export class MimoApp {
 	private busy = false;
 	private failed = false;
 	private following = false;
+	private mode: BotMode = "normal";
+	private lastState = "";
 	private pendingRequests: InputRequest[] = [];
 
 	constructor(renderer: CliRenderer, chat: AgentChat) {
@@ -58,10 +65,6 @@ export class MimoApp {
 			id: "transcript",
 			width: "100%",
 			flexGrow: 1,
-			border: true,
-			borderStyle: "rounded",
-			borderColor: BORDER_COLOR,
-			title: "mimo",
 			padding: 1,
 			stickyScroll: true,
 			stickyStart: "bottom",
@@ -77,8 +80,8 @@ export class MimoApp {
 			placeholder: "mensagem para o bot…",
 			backgroundColor: COMPOSER_BACKGROUND,
 			focusedBackgroundColor: COMPOSER_FOCUSED_BACKGROUND,
-			textColor: "#FFFFFF",
-			cursorColor: USER_COLOR,
+			textColor: T2,
+			cursorColor: T1,
 		});
 		this.input.on(InputRenderableEvents.ENTER, (value) => {
 			this.submit(value);
@@ -104,7 +107,7 @@ export class MimoApp {
 			this.setStatus("pronto");
 			return;
 		}
-		this.appendLine(`agente indisponível: ${problem}`, ERROR_COLOR);
+		this.appendLine(`✗ agente indisponível: ${problem}`, ERROR_COLOR);
 		this.setStatus("offline");
 	}
 
@@ -135,7 +138,7 @@ export class MimoApp {
 		} catch (error) {
 			this.busy = false;
 			this.failed = true;
-			this.appendLine(`erro: ${describeError(error)}`, ERROR_COLOR);
+			this.appendLine(`✗ erro: ${describeError(error)}`, ERROR_COLOR);
 			this.setStatus("erro");
 			return;
 		}
@@ -162,7 +165,7 @@ export class MimoApp {
 				} catch (error) {
 					if (!reported) {
 						reported = true;
-						this.appendLine(`stream caiu: ${describeError(error)}`, ERROR_COLOR);
+						this.appendLine(`✗ stream caiu: ${describeError(error)}`, ERROR_COLOR);
 					}
 				}
 				await Bun.sleep(FOLLOW_RESTART_MS);
@@ -225,15 +228,20 @@ export class MimoApp {
 	}
 
 	private renderActionResult(data: ActionResultStreamEvent["data"]): void {
+		const mode = modeFromToolResult(data.result);
+		if (mode !== null) {
+			this.mode = mode;
+			this.setStatus(this.lastState);
+		}
 		if (data.status === "failed" && data.error) {
-			this.appendLine(`ferramenta falhou: ${data.error.message}`, ERROR_COLOR);
+			this.appendLine(`✗ ferramenta falhou: ${data.error.message}`, ERROR_COLOR);
 		}
 	}
 
 	private renderFailure(message: string): void {
 		this.busy = false;
 		this.failed = true;
-		this.appendLine(`erro: ${message}`, ERROR_COLOR);
+		this.appendLine(`✗ erro: ${message}`, ERROR_COLOR);
 		this.setStatus("erro");
 	}
 
@@ -272,7 +280,7 @@ export class MimoApp {
 
 	private renderRequest(request: InputRequest): void {
 		if (request.kind === "tool-approval") {
-			this.appendLine(`⏸ aprovação: ${request.action.toolName}`, ATTENTION_COLOR);
+			this.appendLine(`▌ ⏸ aprovação: ${request.action.toolName}`, ATTENTION_COLOR);
 			const input = JSON.stringify(request.action.input);
 			if (input !== "{}") {
 				this.appendLine(`   ${truncate(input, 240)}`, TOOL_COLOR);
@@ -280,7 +288,7 @@ export class MimoApp {
 			this.appendLine(`   ${optionLine(request.options ?? [])}`, TEXT_COLOR);
 			return;
 		}
-		this.appendLine(`⏸ ${request.prompt}`, ATTENTION_COLOR);
+		this.appendLine(`▌ ⏸ ${request.prompt}`, ATTENTION_COLOR);
 		const options = request.options ?? [];
 		if (options.length > 0) {
 			this.appendLine(`   ${optionLine(options)}`, TEXT_COLOR);
@@ -333,8 +341,25 @@ export class MimoApp {
 	}
 
 	private setStatus(state: string): void {
-		this.status.content = `mimo · ${this.chat.url} · ${state}`;
+		this.lastState = state;
+		const label = this.mode === "autonomous" ? "autônomo" : "normal";
+		this.status.content = `mimo · ${label} · ${state}`;
 	}
+}
+
+function modeFromToolResult(result: ActionResultStreamEvent["data"]["result"]): BotMode | null {
+	if (result.kind !== "tool-result" || result.toolName !== "set_mode" || result.isError === true) {
+		return null;
+	}
+	const output = result.output;
+	if (typeof output !== "object" || output === null || !("mode" in output)) {
+		return null;
+	}
+	const mode = output["mode"];
+	if (mode === "normal" || mode === "autonomous") {
+		return mode;
+	}
+	return null;
 }
 
 function optionLine(options: readonly InputOption[]): string {

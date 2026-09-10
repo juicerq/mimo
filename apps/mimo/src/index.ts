@@ -11,7 +11,7 @@ async function main(): Promise<void> {
 	}
 	const renderer = await createCliRenderer({
 		exitOnCtrlC: true,
-		backgroundColor: "#16181D",
+		backgroundColor: "#0B0B0C",
 	});
 	const app = new MimoApp(renderer, new AgentChat());
 	await app.start();
