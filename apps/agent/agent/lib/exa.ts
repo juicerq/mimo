@@ -4,6 +4,7 @@ const MCP_URL = "https://mcp.exa.ai/mcp";
 const PROTOCOL_VERSION = "2025-06-18";
 const CLIENT_INFO = { name: "mimo", version: "0.1.0" };
 const REQUEST_TIMEOUT_MS = 30_000;
+const TIMEOUT_SECONDS = REQUEST_TIMEOUT_MS / 1_000;
 
 const envelopeSchema = z.object({
 	id: z.union([z.number(), z.string()]).optional(),
@@ -41,13 +42,29 @@ function headers(): Record<string, string> {
 	return result;
 }
 
-function post(body: unknown): Promise<Response> {
-	return fetch(endpoint(), {
-		method: "POST",
-		headers: headers(),
-		body: JSON.stringify(body),
-		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-	});
+async function post(body: unknown): Promise<Response> {
+	try {
+		return await fetch(endpoint(), {
+			method: "POST",
+			headers: headers(),
+			body: JSON.stringify(body),
+			signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+		});
+	} catch (error) {
+		if (error instanceof Error && error.name === "TimeoutError") {
+			throw new Error(`A busca não respondeu em ${TIMEOUT_SECONDS} segundos e foi cancelada. Tente de novo.`);
+		}
+		throw new Error(
+			`Não consegui falar com a busca (${error instanceof Error ? error.message : String(error)}). Verifique a conexão e tente de novo.`,
+		);
+	}
+}
+
+async function describeFailure(response: Response): Promise<string> {
+	if (response.status === 429) {
+		return "A busca recusou a chamada por excesso de pedidos (429). Espere alguns minutos ou configure EXA_API_KEY em apps/agent/.env.local para limites maiores.";
+	}
+	return `A busca respondeu ${response.status}: ${(await response.text()).slice(0, 300)}`;
 }
 
 function parseEvents(body: string): unknown[] {
@@ -88,15 +105,13 @@ async function openSession(): Promise<void> {
 		params: { protocolVersion: PROTOCOL_VERSION, capabilities: {}, clientInfo: CLIENT_INFO },
 	});
 	if (!initialized.ok) {
-		throw new Error(
-			`A busca respondeu ${initialized.status} ao abrir a sessão: ${(await initialized.text()).slice(0, 300)}`,
-		);
+		throw new Error(await describeFailure(initialized));
 	}
 	sessionId = initialized.headers.get("mcp-session-id");
 	await initialized.text();
 	const ready = await post({ jsonrpc: "2.0", method: "notifications/initialized" });
 	if (!ready.ok) {
-		throw new Error(`A busca respondeu ${ready.status} ao confirmar a sessão.`);
+		throw new Error(await describeFailure(ready));
 	}
 	await ready.text();
 }
@@ -113,7 +128,7 @@ async function callTool(query: string, maxResults: number): Promise<string> {
 		throw new SessionExpiredError("A sessão da busca expirou.");
 	}
 	if (!response.ok) {
-		throw new Error(`A busca respondeu ${response.status}: ${(await response.text()).slice(0, 300)}`);
+		throw new Error(await describeFailure(response));
 	}
 	const envelope = responseEnvelope(await response.text());
 	if (envelope.error) {
