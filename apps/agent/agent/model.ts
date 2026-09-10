@@ -21,10 +21,16 @@ const CONTEXT_WINDOWS: Record<string, number> = {
 	"openai-oauth/gpt-5.4-mini": 272_000,
 };
 
+let cachedOpencodeKey: string | undefined;
+
 function opencodeKey(): string {
+	if (cachedOpencodeKey !== undefined) {
+		return cachedOpencodeKey;
+	}
 	const fromEnv = process.env.OPENCODE_API_KEY;
 	if (fromEnv) {
-		return fromEnv;
+		cachedOpencodeKey = fromEnv;
+		return cachedOpencodeKey;
 	}
 	const auth: { "opencode-go"?: { key?: string } } = JSON.parse(
 		readFileSync(OPENCODE_AUTH_PATH, "utf8"),
@@ -33,7 +39,8 @@ function opencodeKey(): string {
 	if (!stored) {
 		throw new Error("chave do opencode-go ausente");
 	}
-	return stored;
+	cachedOpencodeKey = stored;
+	return cachedOpencodeKey;
 }
 
 function splitModel(spec: string): { provider: string; id: string } {
