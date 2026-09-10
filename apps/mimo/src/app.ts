@@ -28,18 +28,16 @@ const TOOL_COLOR = T4;
 const ERROR_COLOR = T1;
 const STATUS_COLOR = T4;
 const ATTENTION_COLOR = T1;
-const COMPOSER_BACKGROUND = "#141416";
-const COMPOSER_FOCUSED_BACKGROUND = "#1D1D20";
 const FOLLOW_RESTART_MS = 2_000;
 
 type BotMode = "normal" | "autonomous";
 
 const RESOLUTION_TEXT: Record<InputResolutionOutcome, string> = {
-	approved: "aprovado",
-	denied: "recusado",
-	answered: "respondido",
-	ignored: "ignorado",
-	invalid: "inválido",
+	approved: "approved",
+	denied: "denied",
+	answered: "answered",
+	ignored: "ignored",
+	invalid: "invalid",
 };
 
 export class MimoApp {
@@ -77,9 +75,7 @@ export class MimoApp {
 		this.input = new InputRenderable(renderer, {
 			id: "composer",
 			width: "100%",
-			placeholder: "mensagem para o bot…",
-			backgroundColor: COMPOSER_BACKGROUND,
-			focusedBackgroundColor: COMPOSER_FOCUSED_BACKGROUND,
+			placeholder: "message the bot…",
 			textColor: T2,
 			cursorColor: T1,
 		});
@@ -94,20 +90,20 @@ export class MimoApp {
 			flexDirection: "column",
 		});
 		container.add(this.transcript);
-		container.add(this.status);
 		container.add(this.input);
+		container.add(this.status);
 		renderer.root.add(container);
 	}
 
 	async start(): Promise<void> {
 		this.input.focus();
-		this.setStatus("conectando");
+		this.setStatus("connecting");
 		const problem = await this.chat.connectionProblem();
 		if (problem === null) {
-			this.setStatus("pronto");
+			this.setStatus("ready");
 			return;
 		}
-		this.appendLine(`✗ agente indisponível: ${problem}`, ERROR_COLOR);
+		this.appendLine(`✗ agent unavailable: ${problem}`, ERROR_COLOR);
 		this.setStatus("offline");
 	}
 
@@ -125,21 +121,21 @@ export class MimoApp {
 			return;
 		}
 		this.sealReply();
-		this.appendLine(`você: ${text}`, USER_COLOR);
+		this.appendLine(`you: ${text}`, USER_COLOR);
 		void this.dispatch(() => this.chat.send(text));
 	}
 
 	private async dispatch(operation: () => Promise<void>): Promise<void> {
 		this.failed = false;
 		this.busy = true;
-		this.setStatus("pensando");
+		this.setStatus("thinking");
 		try {
 			await operation();
 		} catch (error) {
 			this.busy = false;
 			this.failed = true;
-			this.appendLine(`✗ erro: ${describeError(error)}`, ERROR_COLOR);
-			this.setStatus("erro");
+			this.appendLine(`✗ error: ${describeError(error)}`, ERROR_COLOR);
+			this.setStatus("error");
 			return;
 		}
 		await this.follow();
@@ -165,7 +161,7 @@ export class MimoApp {
 				} catch (error) {
 					if (!reported) {
 						reported = true;
-						this.appendLine(`✗ stream caiu: ${describeError(error)}`, ERROR_COLOR);
+						this.appendLine(`✗ stream dropped: ${describeError(error)}`, ERROR_COLOR);
 					}
 				}
 				await Bun.sleep(FOLLOW_RESTART_MS);
@@ -191,7 +187,7 @@ export class MimoApp {
 				return;
 			case "turn.started":
 				this.busy = true;
-				this.setStatus("pensando");
+				this.setStatus("thinking");
 				return;
 			case "turn.completed":
 			case "session.completed":
@@ -204,7 +200,7 @@ export class MimoApp {
 				return;
 			case "turn.cancelled":
 				this.busy = false;
-				this.setStatus("cancelado");
+				this.setStatus("cancelled");
 				return;
 			case "input.requested":
 				this.renderInputRequests(event.data.requests);
@@ -234,15 +230,15 @@ export class MimoApp {
 			this.setStatus(this.lastState);
 		}
 		if (data.status === "failed" && data.error) {
-			this.appendLine(`✗ ferramenta falhou: ${data.error.message}`, ERROR_COLOR);
+			this.appendLine(`✗ tool failed: ${data.error.message}`, ERROR_COLOR);
 		}
 	}
 
 	private renderFailure(message: string): void {
 		this.busy = false;
 		this.failed = true;
-		this.appendLine(`✗ erro: ${message}`, ERROR_COLOR);
-		this.setStatus("erro");
+		this.appendLine(`✗ error: ${message}`, ERROR_COLOR);
+		this.setStatus("error");
 	}
 
 	private renderInputRequests(requests: readonly InputRequest[]): void {
@@ -251,7 +247,7 @@ export class MimoApp {
 			this.renderRequest(request);
 		}
 		this.busy = false;
-		this.setStatus("aguardando resposta");
+		this.setStatus("waiting");
 	}
 
 	private renderInputResolutions(resolutions: InputResolvedStreamEvent["data"]["resolutions"]): void {
@@ -263,24 +259,24 @@ export class MimoApp {
 		}
 		if (resolutions.length > 0) {
 			this.busy = true;
-			this.setStatus("pensando");
+			this.setStatus("thinking");
 		}
 	}
 
 	private renderWaiting(): void {
 		this.busy = false;
 		if (this.failed) {
-			this.setStatus("erro");
+			this.setStatus("error");
 		} else if (this.pendingRequests.length > 0) {
-			this.setStatus("aguardando resposta");
+			this.setStatus("waiting");
 		} else {
-			this.setStatus("pronto");
+			this.setStatus("ready");
 		}
 	}
 
 	private renderRequest(request: InputRequest): void {
 		if (request.kind === "tool-approval") {
-			this.appendLine(`▌ ⏸ aprovação: ${request.action.toolName}`, ATTENTION_COLOR);
+			this.appendLine(`▌ ⏸ approval: ${request.action.toolName}`, ATTENTION_COLOR);
 			const input = JSON.stringify(request.action.input);
 			if (input !== "{}") {
 				this.appendLine(`   ${truncate(input, 240)}`, TOOL_COLOR);
@@ -342,8 +338,8 @@ export class MimoApp {
 
 	private setStatus(state: string): void {
 		this.lastState = state;
-		const label = this.mode === "autonomous" ? "autônomo" : "normal";
-		this.status.content = `mimo · ${label} · ${state}`;
+		const label = this.mode === "autonomous" ? "auto" : "normal";
+		this.status.content = `mode: ${label} · status: ${state}`;
 	}
 }
 
@@ -369,9 +365,9 @@ function optionLine(options: readonly InputOption[]): string {
 function optionLabel(option: InputOption): string {
 	switch (option.id) {
 		case "approve":
-			return "Aprovar";
+			return "Approve";
 		case "cancel":
-			return "Cancelar";
+			return "Cancel";
 		default:
 			return option.label;
 	}

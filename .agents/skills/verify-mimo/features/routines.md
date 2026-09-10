@@ -8,7 +8,7 @@ O usuário cria uma rotina por conversa; o dispatcher entrega o prompt de volta 
 - `routine-persist` grava `routines.json` com escrita atômica.
 - `routine-fire` entrega o prompt na sessão criadora no próximo tick.
 - `routine-list` lista as rotinas (`⚙ list_routines`).
-- `routine-delete` apaga com aprovação no terminal (`⏸ aprovação: delete_routine`).
+- `routine-delete` apaga com aprovação no terminal (`⏸ approval: delete_routine`).
 
 ## How to get to it (user POV)
 
@@ -23,10 +23,10 @@ Preconditions:
 
 - **Criar.** `$CONTROL send 'crie uma rotina para responder apenas "MIMO-ROTINA-<run-id>" a cada 5 minutos, começando agora'` (o `send` retorna quando o turno termina); `$CONTROL wait '⚙ create_routine' 180` confirma a tool. Anote o id que a resposta mostrar.
 - **Persistiu.** `grep -c 'MIMO-ROTINA' "$DATA/routines.json"` maior que `0`. O estado pós-execução vira prova em `.verify/runs/<id>/state-after/routines.json` no `stop`.
-- **Disparar.** `$CONTROL wait 'MIMO-ROTINA-<run-id>' 240` (tick ≤ 60 s mais o turno do modelo). O prompt chega como novo turno na sessão, com o status passando por `pensando`.
+- **Disparar.** `$CONTROL wait 'MIMO-ROTINA-<run-id>' 240` (tick ≤ 60 s mais o turno do modelo). O prompt chega como novo turno na sessão, com o status passando por `thinking`.
 - **Listar.** `$CONTROL send 'liste minhas rotinas'`; `$CONTROL wait '⚙ list_routines' 180` confirma a tool. A resposta contém o id e o próximo disparo.
-- **Apagar.** `$CONTROL send 'apague a rotina <id>'` → `$CONTROL wait '⏸ aprovação: delete_routine' 180`; `$CONTROL send '1'` (Aprovar) → `$CONTROL wait '⏸ aprovado' 180`. Confirme que `grep <id> "$DATA/routines.json"` não acha mais nada.
-- **Prova.** `$CONTROL capture .verify/runs/<id>/04-routines.txt` com `⚙ create_routine`, o token entregue e `⏸ aprovado` no delete.
+- **Apagar.** `$CONTROL send 'apague a rotina <id>'` → `$CONTROL wait '⏸ approval: delete_routine' 180`; `$CONTROL send '1'` (Aprovar) → `$CONTROL wait '⏸ approved' 180`. Confirme que `grep <id> "$DATA/routines.json"` não acha mais nada.
+- **Prova.** `$CONTROL capture .verify/runs/<id>/04-routines.txt` com `⚙ create_routine`, o token entregue e `⏸ approved` no delete.
 
 ## Gotchas
 

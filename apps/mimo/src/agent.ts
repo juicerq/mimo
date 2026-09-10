@@ -32,7 +32,7 @@ export class AgentChat {
 
 	async respond(responses: readonly InputResponse[]): Promise<void> {
 		if (!this.session) {
-			throw new Error("a sessão do agente ainda não foi criada");
+			throw new Error("the agent session has not been created yet");
 		}
 		await this.session.respond(responses);
 	}

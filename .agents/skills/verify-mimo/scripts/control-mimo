@@ -11,7 +11,7 @@ HEALTH_URL="$AGENT_URL/eve/v1/health"
 AGENT_DIR="$REPO_DIR/apps/agent"
 REAL_DATA_DIR="$AGENT_DIR/.data"
 AGENT_LOG="$AGENT_DIR/.eve/dev-server.log"
-READY_PATTERN="· pronto"
+READY_PATTERN="status: ready"
 LAUNCH_TIMEOUT_SECONDS="${MIMO_VERIFY_LAUNCH_TIMEOUT:-150}"
 WAIT_INTERVAL_SECONDS=2
 WAIT_DEFAULT_SECONDS=180
@@ -49,18 +49,18 @@ pane_text() {
 }
 
 status_state() {
-	pane_text | grep -oE '·[─ ]*(conectando|pronto|pensando|aguardando resposta|cancelado|erro|offline)' | tail -n1 | sed -E 's/^·[─ ]*//' || true
+	pane_text | grep -oE 'status:[─ ]*(connecting|ready|thinking|waiting|cancelled|error|offline)' | tail -n1 | sed -E 's/^status:[─ ]*//' || true
 }
 
 composer_line() {
 	local pane
 	local status_line
 	pane="$(pane_text)"
-	status_line="$(printf '%s\n' "$pane" | grep -nE 'mimo.*·.*(conectando|pronto|pensando|aguardando resposta|cancelado|erro|offline)' | tail -n1 | cut -d: -f1 || true)"
-	if [ -z "$status_line" ]; then
+	status_line="$(printf '%s\n' "$pane" | grep -nE 'status:.*(connecting|ready|thinking|waiting|cancelled|error|offline)' | tail -n1 | cut -d: -f1 || true)"
+	if [ -z "$status_line" ] || [ "$status_line" -le 1 ]; then
 		return 0
 	fi
-	printf '%s\n' "$pane" | tail -n +$((status_line + 1)) | tail -n1
+	printf '%s\n' "$pane" | sed -n "$((status_line - 1))p"
 }
 
 agent_port() {
@@ -277,8 +277,8 @@ doctor() {
 		echo "agente: sem resposta em $AGENT_URL"
 	fi
 	if session_up; then
-		if [ "$(status_state)" = "pronto" ]; then
-			echo "pane: em pronto"
+		if [ "1000 3 90 955 956 979 982 983 985 989 995 998 1000status_state)" = "ready" ]; then
+			echo "pane: ready"
 		else
 			echo "pane: fora de pronto (veja: $0 capture <arquivo>)"
 		fi

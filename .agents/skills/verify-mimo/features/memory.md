@@ -16,7 +16,7 @@ O bot guarda fatos e preferências entre sessões no slot `profile` (`memory/*.m
 
 Preconditions:
 
-- Instância em `pronto`; anote o run dir do launch como `RUN1` e `DATA=$($CONTROL data)`.
+- Instância em `ready`; anote o run dir do launch como `RUN1` e `DATA=$($CONTROL data)`.
 - Um token único por execução: `MIMO-MEM-<run-id>`.
 - A receita roda no sandbox padrão; nada toca a memória real. Use um fato banal (o bot recusa salvar o que parece segredo).
 
