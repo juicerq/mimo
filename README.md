@@ -9,5 +9,14 @@ O comando `mimo` abre uma sessão no terminal, conversa com o agente e mostra ap
 ```sh
 bun install
 bun run check
-bun apps/mimo/src/index.ts
 ```
+
+Para conversar de verdade:
+
+```sh
+bun run dev
+```
+
+O comando sobe o agente em `http://127.0.0.1:2000`, espera ele responder e abre a TUI. `Ctrl+C` encerra os dois. O log do agente fica em `apps/agent/.eve/dev-server.log`.
+
+Para usar um agente que já está rodando em outro endereço, defina `MIMO_AGENT_URL`; o comando só abre a TUI. `--version` imprime a versão.
