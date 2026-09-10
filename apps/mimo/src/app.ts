@@ -22,6 +22,7 @@ const T1 = "#F2F2F3";
 const T2 = "#C9C9CC";
 const T3 = "#9A9A9E";
 const T4 = "#6B6B6F";
+const T5 = "#424246";
 const TEXT_COLOR = T1;
 const USER_COLOR = T3;
 const TOOL_COLOR = T4;
@@ -83,6 +84,17 @@ export class MimoApp {
 			this.submit(value);
 		});
 
+		const composer = new BoxRenderable(renderer, {
+			id: "composer-box",
+			width: "100%",
+			border: true,
+			borderStyle: "rounded",
+			borderColor: T5,
+			paddingLeft: 1,
+			paddingRight: 1,
+		});
+		composer.add(this.input);
+
 		const container = new BoxRenderable(renderer, {
 			id: "app",
 			width: "100%",
@@ -90,7 +102,7 @@ export class MimoApp {
 			flexDirection: "column",
 		});
 		container.add(this.transcript);
-		container.add(this.input);
+		container.add(composer);
 		container.add(this.status);
 		renderer.root.add(container);
 	}
