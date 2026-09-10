@@ -1,0 +1,14 @@
+{
+	"name": "@mimo/agent",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"dependencies": {
+		"ai": "^7.0.97",
+		"eve": "^0.53.0",
+		"zod": "^4.6.1"
+	}
+}
