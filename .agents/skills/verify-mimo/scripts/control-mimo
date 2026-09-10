@@ -1,0 +1,428 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+VERIFY_DIR="$REPO_DIR/.verify"
+CURRENT_RUN_FILE="$VERIFY_DIR/current"
+SESSION="${MIMO_VERIFY_SESSION:-mimo-verify}"
+AGENT_URL="${MIMO_AGENT_URL:-http://127.0.0.1:2000}"
+HEALTH_URL="$AGENT_URL/eve/v1/health"
+AGENT_DIR="$REPO_DIR/apps/agent"
+DATA_DIR="$AGENT_DIR/.data"
+AGENT_LOG="$AGENT_DIR/.eve/dev-server.log"
+READY_PATTERN="· pronto"
+LAUNCH_TIMEOUT_SECONDS="${MIMO_VERIFY_LAUNCH_TIMEOUT:-150}"
+WAIT_INTERVAL_SECONDS=2
+WAIT_DEFAULT_SECONDS=180
+SEND_BUSY_GRACE_SECONDS=6
+SEND_ACCEPT_SECONDS=10
+SEND_DEFAULT_SECONDS=300
+
+usage() {
+	cat <<'EOF'
+uso: control-mimo <comando> [argumentos]
+
+comandos:
+  launch                 sobe `bun run dev` em tmux e espera a TUI pronta
+  doctor                 checagem somente leitura da instância
+  send <texto>           digita, envia e espera o turno terminar (recusa se ocupado)
+  wait <regex> [seg]     espera o padrão aparecer no pane (padrão 180 s)
+  capture <arquivo>      salva o pane atual no arquivo
+  log [linhas]           mostra o final do log do agente (padrão 40)
+  stop [--keep-state]    encerra e restaura o estado (ou mantém com --keep-state)
+  restore [run-dir]      restaura o snapshot de um run (padrão: o atual)
+EOF
+}
+
+health_up() {
+	curl -sf -m 2 "$HEALTH_URL" >/dev/null 2>&1
+}
+
+session_up() {
+	tmux has-session -t "$SESSION" 2>/dev/null
+}
+
+pane_text() {
+	tmux capture-pane -p -J -t "$SESSION" 2>/dev/null
+}
+
+status_state() {
+	pane_text | grep -oE '· (conectando|pronto|pensando|aguardando resposta|cancelado|erro|offline)' | tail -n1 | sed 's/^· //' || true
+}
+
+composer_line() {
+	pane_text | tail -n1
+}
+
+agent_port() {
+	local rest="${AGENT_URL#*://}"
+	local hostport="${rest%%/*}"
+	if [[ "$hostport" == *:* ]]; then
+		printf '%s' "${hostport##*:}"
+		return
+	fi
+	printf '80'
+}
+
+listener_pid() {
+	local port="$1"
+	local pid=""
+	pid="$(ss -ltnpH "sport = :$port" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -n1 || true)"
+	if [ -z "$pid" ]; then
+		pid="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | head -n1 || true)"
+	fi
+	printf '%s' "$pid"
+}
+
+current_run_dir() {
+	if [ -f "$CURRENT_RUN_FILE" ]; then
+		cat "$CURRENT_RUN_FILE"
+	fi
+}
+
+run_dir_or_die() {
+	local run_dir
+	run_dir="$(current_run_dir)"
+	if [ -z "$run_dir" ] || [ ! -d "$run_dir" ]; then
+		echo "nenhuma execução registrada; rode: $0 launch" >&2
+		exit 1
+	fi
+	printf '%s' "$run_dir"
+}
+
+wait_for() {
+	local pattern="$1"
+	local timeout="${2:-$WAIT_DEFAULT_SECONDS}"
+	local deadline
+	local elapsed=0
+	deadline=$((SECONDS + timeout))
+	while [ "$SECONDS" -le "$deadline" ]; do
+		if ! session_up; then
+			echo "sessão tmux $SESSION caiu durante a espera" >&2
+			return 1
+		fi
+		if pane_text | grep -Eq -- "$pattern"; then
+			return 0
+		fi
+		sleep "$WAIT_INTERVAL_SECONDS"
+		elapsed=$((elapsed + WAIT_INTERVAL_SECONDS))
+	done
+	mkdir -p "$VERIFY_DIR"
+	pane_text >"$VERIFY_DIR/last-timeout.txt" || true
+	echo "timeout (${timeout}s) esperando por: $pattern" >&2
+	echo "último pane salvo em $VERIFY_DIR/last-timeout.txt" >&2
+	return 1
+}
+
+snapshot_state() {
+	local run_dir="$1"
+	mkdir -p "$run_dir/state-before"
+	if [ -f "$DATA_DIR/routines.json" ]; then
+		cp -a "$DATA_DIR/routines.json" "$run_dir/state-before/routines.json"
+	fi
+	if [ -e "$DATA_DIR/memory" ]; then
+		cp -a "$DATA_DIR/memory" "$run_dir/state-before/memory"
+	fi
+}
+
+capture_state_after() {
+	local run_dir="$1"
+	mkdir -p "$run_dir/state-after"
+	if [ -f "$DATA_DIR/routines.json" ]; then
+		cp -a "$DATA_DIR/routines.json" "$run_dir/state-after/routines.json"
+	fi
+	if [ -e "$DATA_DIR/memory" ]; then
+		cp -a "$DATA_DIR/memory" "$run_dir/state-after/memory"
+	fi
+}
+
+restore_state() {
+	local run_dir="$1"
+	[ -n "$run_dir" ] || return 0
+	capture_state_after "$run_dir"
+	if [ -f "$run_dir/state-before/routines.json" ]; then
+		cp -a "$run_dir/state-before/routines.json" "$DATA_DIR/routines.json"
+	elif [ -f "$DATA_DIR/routines.json" ]; then
+		rm -f "$DATA_DIR/routines.json"
+	fi
+	if [ -e "$run_dir/state-before/memory" ]; then
+		rm -rf "$DATA_DIR/memory"
+		cp -a "$run_dir/state-before/memory" "$DATA_DIR/memory"
+	elif [ -e "$DATA_DIR/memory" ]; then
+		rm -rf "$DATA_DIR/memory"
+	fi
+}
+
+launch() {
+	if session_up; then
+		echo "sessão tmux $SESSION já existe; rode: $0 stop" >&2
+		exit 1
+	fi
+	if health_up; then
+		echo "já existe um agente respondendo em $AGENT_URL." >&2
+		echo "não dirija uma instância que você não iniciou; veja: $0 doctor" >&2
+		exit 1
+	fi
+	local stamp="$1"
+	local run_dir="$VERIFY_DIR/runs/$stamp"
+	mkdir -p "$run_dir"
+	snapshot_state "$run_dir"
+	git -C "$REPO_DIR" rev-parse HEAD >"$run_dir/head.txt"
+	date -u +"%Y-%m-%dT%H:%M:%SZ" >"$run_dir/started.txt"
+	printf '%s' "$run_dir" >"$CURRENT_RUN_FILE"
+	tmux new-session -d -s "$SESSION" -x 140 -y 42 -c "$REPO_DIR" "bun run dev"
+	if ! wait_for "$READY_PATTERN" "$LAUNCH_TIMEOUT_SECONDS"; then
+		pane_text >"$run_dir/00-launch.txt" || true
+		echo "a TUI não ficou pronta em ${LAUNCH_TIMEOUT_SECONDS}s; veja o log: $AGENT_LOG" >&2
+		return 1
+	fi
+	pane_text >"$run_dir/00-launch.txt"
+	local pid
+	pid="$(listener_pid "$(agent_port)")"
+	if [ -n "$pid" ]; then
+		printf '%s' "$pid" >"$run_dir/agent.pid"
+	fi
+	echo "run dir: $run_dir"
+	echo "pronto: $AGENT_URL"
+}
+
+doctor() {
+	local run_dir
+	run_dir="$(current_run_dir)"
+	echo "repo: $REPO_DIR"
+	echo "HEAD atual: $(git -C "$REPO_DIR" rev-parse --short HEAD)"
+	if [ -n "$run_dir" ] && [ -f "$run_dir/head.txt" ]; then
+		echo "HEAD do launch: $(cut -c1-12 "$run_dir/head.txt")"
+	fi
+	if [ -n "$run_dir" ]; then
+		echo "run dir: $run_dir"
+	else
+		echo "run dir: nenhum (nada foi lançado)"
+	fi
+	if session_up; then
+		echo "tmux: $SESSION no ar"
+	else
+		echo "tmux: $SESSION ausente"
+	fi
+	if health_up; then
+		echo "agente: respondendo em $AGENT_URL"
+	else
+		echo "agente: sem resposta em $AGENT_URL"
+	fi
+	if session_up; then
+		if pane_text | grep -qF "$READY_PATTERN"; then
+			echo "pane: em pronto"
+		else
+			echo "pane: fora de pronto (veja: $0 capture <arquivo>)"
+		fi
+	fi
+	local env_file="$AGENT_DIR/.env.local"
+	local auth_file="$HOME/.local/share/opencode/auth.json"
+	if [ -f "$env_file" ] && grep -q '^OPENCODE_API_KEY=..' "$env_file"; then
+		echo "modelo: chave em OPENCODE_API_KEY"
+	elif [ -f "$auth_file" ] && grep -q '"opencode-go"' "$auth_file"; then
+		echo "modelo: chave em $auth_file"
+	else
+		echo "modelo: chave do opencode-go ausente (OPENCODE_API_KEY ou auth.json)"
+	fi
+	if [ -f "$env_file" ]; then
+		if grep -q '^GMAIL_CLIENT_ID=..' "$env_file"; then
+			echo "gmail: GMAIL_CLIENT_ID presente"
+		else
+			echo "gmail: GMAIL_CLIENT_ID ausente"
+		fi
+	else
+		echo "env: $env_file ausente"
+	fi
+	if [ -f "$DATA_DIR/gmail/accounts.json" ]; then
+		echo "contas conectadas: $(grep -c '"email"' "$DATA_DIR/gmail/accounts.json")"
+	else
+		echo "contas conectadas: 0"
+	fi
+	if [ -f "$DATA_DIR/routines.json" ]; then
+		echo "rotinas: $(grep -c '"id"' "$DATA_DIR/routines.json")"
+	else
+		echo "rotinas: 0"
+	fi
+}
+
+send_text() {
+	local text="${1:-}"
+	if [ -z "$text" ]; then
+		echo "uso: $0 send <texto>" >&2
+		exit 1
+	fi
+	if ! session_up; then
+		echo "sessão tmux $SESSION não existe; rode: $0 launch" >&2
+		exit 1
+	fi
+	local state
+	state="$(status_state)"
+	case "$state" in
+	pensando | conectando)
+		echo "bot ocupado (status: $state); espere e tente de novo" >&2
+		exit 1
+		;;
+	esac
+	tmux send-keys -t "$SESSION" -l -- "$text"
+	tmux send-keys -t "$SESSION" Enter
+	local tail_text="${text: -16}"
+	local deadline=$((SECONDS + SEND_ACCEPT_SECONDS))
+	local accepted=0
+	while [ "$SECONDS" -le "$deadline" ]; do
+		if ! composer_line | grep -qF -- "$tail_text"; then
+			accepted=1
+			break
+		fi
+		sleep 1
+	done
+	if [ "$accepted" -eq 0 ]; then
+		echo "o texto ficou no composer; envio não foi aceito (bot ocupado?)" >&2
+		exit 1
+	fi
+	local saw_busy=0
+	local busy_deadline=$((SECONDS + SEND_BUSY_GRACE_SECONDS))
+	deadline=$((SECONDS + SEND_DEFAULT_SECONDS))
+	while [ "$SECONDS" -le "$deadline" ]; do
+		state="$(status_state)"
+		if [ "$saw_busy" -eq 1 ]; then
+			if [ "$state" != "pensando" ] && [ "$state" != "conectando" ]; then
+				return 0
+			fi
+		elif [ "$state" = "pensando" ] || [ "$state" = "conectando" ]; then
+			saw_busy=1
+		elif [ "$SECONDS" -gt "$busy_deadline" ]; then
+			return 0
+		fi
+		sleep 1
+	done
+	echo "timeout (${SEND_DEFAULT_SECONDS}s) esperando o turno terminar (status: $state)" >&2
+	exit 1
+}
+
+capture_pane() {
+	local file="${1:-}"
+	if [ -z "$file" ]; then
+		echo "uso: $0 capture <arquivo>" >&2
+		exit 1
+	fi
+	mkdir -p "$(dirname "$file")"
+	pane_text >"$file"
+	echo "$file"
+}
+
+log_tail() {
+	local lines="${1:-40}"
+	if [ ! -f "$AGENT_LOG" ]; then
+		echo "sem log em $AGENT_LOG" >&2
+		exit 1
+	fi
+	tail -n "$lines" "$AGENT_LOG"
+}
+
+stop_instance() {
+	local keep_state=0
+	if [ "${1:-}" = "--keep-state" ]; then
+		keep_state=1
+	fi
+	local run_dir
+	run_dir="$(current_run_dir)"
+	local pid=""
+	local recorded=""
+	if session_up; then
+		tmux send-keys -t "$SESSION" C-c
+		local waited=0
+		while session_up && [ "$waited" -lt 15 ]; do
+			sleep 1
+			waited=$((waited + 1))
+		done
+		if session_up; then
+			tmux kill-session -t "$SESSION"
+		fi
+	fi
+	local down=0
+	while [ "$down" -lt 10 ]; do
+		if ! health_up; then
+			break
+		fi
+		sleep 1
+		down=$((down + 1))
+	done
+	if health_up; then
+		if [ -n "$run_dir" ] && [ -f "$run_dir/agent.pid" ]; then
+			recorded="$(cat "$run_dir/agent.pid")"
+		fi
+		pid="$(listener_pid "$(agent_port)")"
+		if [ -n "$pid" ] && [ "$pid" = "$recorded" ] && [ "$(readlink -f "/proc/$pid/cwd" 2>/dev/null || true)" = "$(readlink -f "$AGENT_DIR")" ]; then
+			kill "$pid" 2>/dev/null || true
+			sleep 1
+		fi
+	fi
+	if health_up; then
+		echo "AVISO: ainda há um agente em $AGENT_URL que não foi identificado como o do launch (pid registrado: ${recorded:-nenhum}; pid atual: ${pid:-nenhum})." >&2
+		echo "não vou matar; pare manualmente e rode: $0 doctor" >&2
+		exit 1
+	fi
+	if [ "$keep_state" -eq 0 ] && [ -n "$run_dir" ]; then
+		restore_state "$run_dir"
+		echo "estado restaurado do snapshot: $run_dir/state-before"
+	elif [ -n "$run_dir" ]; then
+		capture_state_after "$run_dir"
+		echo "estado mantido (--keep-state); snapshot em: $run_dir/state-before"
+	fi
+	echo "parado."
+}
+
+restore() {
+	local run_dir="${1:-}"
+	if [ -z "$run_dir" ]; then
+		run_dir="$(run_dir_or_die)"
+	fi
+	if [ ! -d "$run_dir/state-before" ]; then
+		echo "sem snapshot em $run_dir/state-before" >&2
+		exit 1
+	fi
+	restore_state "$run_dir"
+	echo "estado restaurado de: $run_dir/state-before"
+}
+
+mkdir -p "$VERIFY_DIR"
+
+case "${1:-}" in
+launch)
+	stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+	launch "$stamp"
+	;;
+doctor)
+	doctor
+	;;
+send)
+	shift
+	send_text "$@"
+	;;
+wait)
+	shift
+	wait_for "$@"
+	;;
+capture)
+	shift
+	capture_pane "$@"
+	;;
+log)
+	shift
+	log_tail "$@"
+	;;
+stop)
+	shift
+	stop_instance "${1:-}"
+	;;
+restore)
+	shift
+	restore "$@"
+	;;
+*)
+	usage
+	exit 1
+	;;
+esac
