@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { readJsonFile, writeTextFile } from "./files";
 
-const DATA_DIR = join(process.cwd(), ".data");
-const STORE_PATH = join(DATA_DIR, "routines.json");
+const STORE_PATH = join(process.cwd(), ".data", "routines.json");
 const LEASE_MINUTES = 5;
 
 const routineSchema = z.object({
@@ -72,32 +71,17 @@ function serialize<T>(operation: () => Promise<T>): Promise<T> {
 	return result;
 }
 
-function isMissing(error: unknown): boolean {
-	return error instanceof Error && "code" in error && error.code === "ENOENT";
-}
-
 function minutesFrom(now: Date, minutes: number): string {
 	return new Date(now.getTime() + minutes * 60_000).toISOString();
 }
 
 export async function listRoutines(): Promise<Routine[]> {
-	let raw: string;
-	try {
-		raw = await readFile(STORE_PATH, "utf8");
-	} catch (error) {
-		if (isMissing(error)) {
-			return [];
-		}
-		throw error;
-	}
-	return storeSchema.parse(JSON.parse(raw)).routines;
+	const store = await readJsonFile(STORE_PATH, storeSchema);
+	return store?.routines ?? [];
 }
 
 async function writeStore(routines: Routine[]): Promise<void> {
-	await mkdir(DATA_DIR, { recursive: true });
-	const temporary = `${STORE_PATH}.${randomUUID()}.tmp`;
-	await writeFile(temporary, `${JSON.stringify({ routines }, null, "\t")}\n`, { mode: 0o600 });
-	await rename(temporary, STORE_PATH);
+	await writeTextFile(STORE_PATH, `${JSON.stringify({ routines }, null, "\t")}\n`, 0o600);
 }
 
 function requireRoutine(routines: Routine[], id: string): Routine {
