@@ -17,7 +17,7 @@ O usuário pede uma pesquisa na conversa e o bot usa a tool `web_search` (MCP p�
 
 Preconditions:
 
-- Instância de `$CONTROL launch` em `pronto`; rede disponível.
+- Instância de `$CONTROL launch` em `ready`; rede disponível.
 - `EXA_API_KEY` é opcional (cota maior); a busca funciona sem chave.
 
 - **Busca.** `$CONTROL send 'pesquise na web uma notícia recente sobre o OpenCode e diga a fonte'` (o comando retorna quando o turno termina; a busca leva de segundos a ~30 s). `$CONTROL wait '⚙ web_search' 180` confirma a tool no transcript.
