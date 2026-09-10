@@ -28,8 +28,6 @@ const TOOL_COLOR = T4;
 const ERROR_COLOR = T1;
 const STATUS_COLOR = T4;
 const ATTENTION_COLOR = T1;
-const COMPOSER_BACKGROUND = "#141416";
-const COMPOSER_FOCUSED_BACKGROUND = "#1D1D20";
 const FOLLOW_RESTART_MS = 2_000;
 
 type BotMode = "normal" | "autonomous";
@@ -78,8 +76,6 @@ export class MimoApp {
 			id: "composer",
 			width: "100%",
 			placeholder: "message the bot…",
-			backgroundColor: COMPOSER_BACKGROUND,
-			focusedBackgroundColor: COMPOSER_FOCUSED_BACKGROUND,
 			textColor: T2,
 			cursorColor: T1,
 		});
@@ -94,8 +90,8 @@ export class MimoApp {
 			flexDirection: "column",
 		});
 		container.add(this.transcript);
-		container.add(this.status);
 		container.add(this.input);
+		container.add(this.status);
 		renderer.root.add(container);
 	}
 
