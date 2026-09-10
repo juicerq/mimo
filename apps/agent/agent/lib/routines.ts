@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { join } from "node:path";
 import { z } from "zod";
+import { dataPath } from "./data";
 import { readJsonFile, writeTextFile } from "./files";
 
-const STORE_PATH = join(process.cwd(), ".data", "routines.json");
+const STORE_PATH = dataPath("routines.json");
 const LEASE_MINUTES = 5;
 
 const routineSchema = z.object({

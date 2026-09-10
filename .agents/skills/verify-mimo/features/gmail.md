@@ -19,9 +19,10 @@ O usuário pergunta quais contas estão conectadas, lê não lidos e threads, cr
 
 Preconditions:
 
-- `apps/agent/.env.local` com `GMAIL_CLIENT_ID` e `GMAIL_CLIENT_SECRET`; `apps/agent/.data/gmail/accounts.json` com ao menos uma conta (`bun run gmail:auth`).
-- Instância em `pronto`.
+- `apps/agent/.env.local` com `GMAIL_CLIENT_ID` e `GMAIL_CLIENT_SECRET`.
+- Instância em `pronto`; por padrão o sandbox não tem contas. Para verificar o Gmail, copie o store real para o sandbox: `DATA=$($CONTROL data); mkdir -p "$DATA/gmail" && cp apps/agent/.data/gmail/accounts.json "$DATA/gmail/accounts.json"` (as tools leem o arquivo a cada chamada; não precisa reiniciar). Alternativa: `$CONTROL launch --data apps/agent/.data`, que usa os dados reais com snapshot/restore de memória e rotinas — Gmail continua real.
 - `<conta>` é um endereço real vindo do `$CONTROL doctor` ou da primeira resposta.
+- As leituras são da caixa real; a receita padrão de envio recusa a aprovação.
 
 - **Contas.** `$CONTROL send 'quais contas do Gmail estão conectadas?'`; `$CONTROL wait '⚙ list_accounts' 180` confirma a tool. A resposta lista os mesmos endereços do `accounts.json`.
 - **Não lidos.** `$CONTROL send 'liste os 3 e-mails não lidos da conta <conta>'`; `$CONTROL wait '⚙ list_unread' 180`. A resposta traz remetente, assunto e data.

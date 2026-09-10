@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { MemoryDocumentConflictError, type MemoryDocument, type MemoryDocumentBackend } from "eve/memory/file";
+import { dataPath } from "./lib/data";
 import { readTextFile, writeTextFile } from "./lib/files";
 
-const MEMORY_DIR = join(process.cwd(), ".data", "memory");
+const MEMORY_DIR = dataPath("memory");
 
 function versionOf(content: string): string {
 	return createHash("sha256").update(content).digest("hex");

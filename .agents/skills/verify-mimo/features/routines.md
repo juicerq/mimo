@@ -1,6 +1,6 @@
 # Rotinas
 
-O usuário cria uma rotina por conversa; o dispatcher entrega o prompt de volta na mesma sessão de tempos em tempos. As rotinas ficam em `apps/agent/.data/routines.json`.
+O usuário cria uma rotina por conversa; o dispatcher entrega o prompt de volta na mesma sessão de tempos em tempos. As rotinas ficam em `routines.json` no diretório de dados (`$CONTROL data`).
 
 ## Sub-features
 
@@ -19,13 +19,13 @@ O usuário cria uma rotina por conversa; o dispatcher entrega o prompt de volta 
 Preconditions:
 
 - Instância iniciada por `$CONTROL launch`: é o `bun run dev` que chama o tick de dispatch a cada 60 s.
-- Nenhuma rotina com o token da execução (`grep <run-id> apps/agent/.data/routines.json` vazio).
+- `DATA=$($CONTROL data)` e nenhuma rotina com o token da execução (`grep <run-id> "$DATA/routines.json"` vazio).
 
 - **Criar.** `$CONTROL send 'crie uma rotina para responder apenas "MIMO-ROTINA-<run-id>" a cada 5 minutos, começando agora'` (o `send` retorna quando o turno termina); `$CONTROL wait '⚙ create_routine' 180` confirma a tool. Anote o id que a resposta mostrar.
-- **Persistiu.** `grep -c 'MIMO-ROTINA' apps/agent/.data/routines.json` maior que `0`. O estado pós-execução vira prova em `.verify/runs/<id>/state-after/routines.json` no `stop`.
+- **Persistiu.** `grep -c 'MIMO-ROTINA' "$DATA/routines.json"` maior que `0`. O estado pós-execução vira prova em `.verify/runs/<id>/state-after/routines.json` no `stop`.
 - **Disparar.** `$CONTROL wait 'MIMO-ROTINA-<run-id>' 240` (tick ≤ 60 s mais o turno do modelo). O prompt chega como novo turno na sessão, com o status passando por `pensando`.
 - **Listar.** `$CONTROL send 'liste minhas rotinas'`; `$CONTROL wait '⚙ list_routines' 180` confirma a tool. A resposta contém o id e o próximo disparo.
-- **Apagar.** `$CONTROL send 'apague a rotina <id>'` → `$CONTROL wait '⏸ aprovação: delete_routine' 180`; `$CONTROL send '1'` (Aprovar) → `$CONTROL wait '⏸ aprovado' 180`. Confirme que `grep <id> apps/agent/.data/routines.json` não acha mais nada.
+- **Apagar.** `$CONTROL send 'apague a rotina <id>'` → `$CONTROL wait '⏸ aprovação: delete_routine' 180`; `$CONTROL send '1'` (Aprovar) → `$CONTROL wait '⏸ aprovado' 180`. Confirme que `grep <id> "$DATA/routines.json"` não acha mais nada.
 - **Prova.** `$CONTROL capture .verify/runs/<id>/04-routines.txt` com `⚙ create_routine`, o token entregue e `⏸ aprovado` no delete.
 
 ## Gotchas

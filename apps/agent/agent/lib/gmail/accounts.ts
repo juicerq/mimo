@@ -1,8 +1,8 @@
-import { join } from "node:path";
 import { z } from "zod";
+import { dataPath } from "../data";
 import { readJsonFile, writeTextFile } from "../files";
 
-const STORE_PATH = join(process.cwd(), ".data", "gmail", "accounts.json");
+const STORE_PATH = dataPath("gmail", "accounts.json");
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const REFRESH_SKEW_MS = 60_000;
 
