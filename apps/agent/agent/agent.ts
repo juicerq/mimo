@@ -2,7 +2,6 @@ import { defineAgent, defineDynamic } from "eve";
 import { resolveModel } from "./model";
 
 export default defineAgent({
-	defaultTools: false,
 	model: defineDynamic({
 		events: {
 			"step.started": (_event, ctx) => {
