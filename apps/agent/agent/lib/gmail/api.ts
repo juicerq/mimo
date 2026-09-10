@@ -44,6 +44,11 @@ const threadSchema = z.object({
 	messages: z.array(messageSchema).optional(),
 });
 
+const draftSchema = z.object({
+	id: z.string(),
+	message: z.object({ id: z.string(), threadId: z.string().optional() }).optional(),
+});
+
 interface UnreadEmail {
 	id: string;
 	threadId: string;
@@ -75,9 +80,15 @@ interface Thread {
 	omittedMessages: number;
 }
 
-async function getWithToken<T>(token: string, path: string, schema: z.ZodType<T>): Promise<T> {
+async function requestWithToken<T>(
+	token: string,
+	path: string,
+	schema: z.ZodType<T>,
+	init?: RequestInit,
+): Promise<T> {
 	const response = await fetch(`${API_URL}${path}`, {
-		headers: { authorization: `Bearer ${token}` },
+		...init,
+		headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
 	});
 	if (!response.ok) {
 		throw new Error(`O Gmail respondeu ${response.status}: ${(await response.text()).slice(0, 300)}`);
@@ -85,8 +96,13 @@ async function getWithToken<T>(token: string, path: string, schema: z.ZodType<T>
 	return schema.parse(await response.json());
 }
 
-async function gmailGet<T>(account: GmailAccount, path: string, schema: z.ZodType<T>): Promise<T> {
-	return getWithToken(await accessToken(account), path, schema);
+async function gmailRequest<T>(
+	account: GmailAccount,
+	path: string,
+	schema: z.ZodType<T>,
+	init?: RequestInit,
+): Promise<T> {
+	return requestWithToken(await accessToken(account), path, schema, init);
 }
 
 function headerValue(headers: z.infer<typeof headerSchema>[] | undefined, name: string): string | null {
@@ -154,7 +170,7 @@ async function fetchHeader(account: GmailAccount, reference: { id: string; threa
 	for (const name of ["From", "Subject", "Date"]) {
 		params.append("metadataHeaders", name);
 	}
-	const message = await gmailGet(
+	const message = await gmailRequest(
 		account,
 		`/messages/${encodeURIComponent(reference.id)}?${params.toString()}`,
 		messageSchema,
@@ -172,7 +188,7 @@ async function fetchHeader(account: GmailAccount, reference: { id: string; threa
 
 export async function listUnread(account: GmailAccount, limit: number): Promise<UnreadList> {
 	const params = new URLSearchParams({ q: "is:unread in:inbox", maxResults: String(limit) });
-	const list = await gmailGet(account, `/messages?${params.toString()}`, messageListSchema);
+	const list = await gmailRequest(account, `/messages?${params.toString()}`, messageListSchema);
 	return {
 		account: account.email,
 		estimatedTotal: list.resultSizeEstimate ?? null,
@@ -192,7 +208,7 @@ function toThreadMessage(message: z.infer<typeof messageSchema>): ThreadMessage 
 }
 
 export async function readThread(account: GmailAccount, threadId: string): Promise<Thread> {
-	const thread = await gmailGet(account, `/threads/${encodeURIComponent(threadId)}?format=full`, threadSchema);
+	const thread = await gmailRequest(account, `/threads/${encodeURIComponent(threadId)}?format=full`, threadSchema);
 	const messages = thread.messages ?? [];
 	const kept = messages.slice(-MAX_THREAD_MESSAGES);
 	return {
@@ -205,6 +221,132 @@ export async function readThread(account: GmailAccount, threadId: string): Promi
 }
 
 export async function fetchAccountEmail(token: string): Promise<string> {
-	const profile = await getWithToken(token, "/profile", profileSchema);
+	const profile = await requestWithToken(token, "/profile", profileSchema);
 	return profile.emailAddress;
+}
+
+export interface DraftRequest {
+	account: GmailAccount;
+	body: string;
+	threadId?: string;
+	to?: string;
+	cc?: string;
+	subject?: string;
+}
+
+export interface CreatedDraft {
+	account: string;
+	draftId: string;
+	threadId: string | null;
+	to: string;
+	subject: string;
+}
+
+export interface SentDraft {
+	account: string;
+	messageId: string;
+	to: string | null;
+	subject: string | null;
+}
+
+function headerText(headers: z.infer<typeof headerSchema>[] | undefined, name: string): string | undefined {
+	return firstText(headerValue(headers, name) ?? undefined);
+}
+
+function safeHeader(value: string): string {
+	return value.replace(/[\r\n]+/g, " ").trim();
+}
+
+function mime(details: { to: string; cc?: string; subject: string; body: string; inReplyTo?: string }): string {
+	const headers = [
+		`To: ${safeHeader(details.to)}`,
+		details.cc ? `Cc: ${safeHeader(details.cc)}` : "",
+		`Subject: ${safeHeader(details.subject)}`,
+		details.inReplyTo ? `In-Reply-To: ${safeHeader(details.inReplyTo)}` : "",
+		details.inReplyTo ? `References: ${safeHeader(details.inReplyTo)}` : "",
+		"Content-Type: text/plain; charset=utf-8",
+		"MIME-Version: 1.0",
+	].filter(Boolean);
+	return Buffer.from([...headers, "", details.body].join("\r\n")).toString("base64url");
+}
+
+interface Envelope {
+	to: string;
+	subject: string;
+	cc?: string;
+	inReplyTo?: string;
+}
+
+function newEnvelope(request: DraftRequest): Envelope {
+	if (!request.to || !request.subject) {
+		throw new Error("Para um rascunho novo, informe to e subject; para responder, informe threadId.");
+	}
+	return { to: request.to, subject: request.subject, cc: request.cc };
+}
+
+function replySubject(subject: string | undefined): string | undefined {
+	if (!subject) {
+		return undefined;
+	}
+	if (/^re:/i.test(subject)) {
+		return subject;
+	}
+	return `Re: ${subject}`;
+}
+
+async function replyEnvelope(request: DraftRequest, threadId: string): Promise<Envelope> {
+	const params = new URLSearchParams({ format: "metadata" });
+	for (const name of ["From", "Reply-To", "Subject", "Message-ID"]) {
+		params.append("metadataHeaders", name);
+	}
+	const thread = await gmailRequest(
+		request.account,
+		`/threads/${encodeURIComponent(threadId)}?${params.toString()}`,
+		threadSchema,
+	);
+	const headers = thread.messages?.at(-1)?.payload?.headers;
+	const to = request.to ?? headerText(headers, "Reply-To") ?? headerText(headers, "From");
+	const subject = request.subject ?? replySubject(headerText(headers, "Subject"));
+	if (!to || !subject) {
+		throw new Error(`A thread ${threadId} não tem destinatário ou assunto; informe to e subject.`);
+	}
+	return { to, subject, cc: request.cc, inReplyTo: headerText(headers, "Message-ID") };
+}
+
+export async function createDraft(request: DraftRequest): Promise<CreatedDraft> {
+	const envelope = request.threadId ? await replyEnvelope(request, request.threadId) : newEnvelope(request);
+	const draft = await gmailRequest(request.account, "/drafts", draftSchema, {
+		method: "POST",
+		body: JSON.stringify({
+			message: {
+				raw: mime({ ...envelope, body: request.body }),
+				...(request.threadId ? { threadId: request.threadId } : {}),
+			},
+		}),
+	});
+	return {
+		account: request.account.email,
+		draftId: draft.id,
+		threadId: draft.message?.threadId ?? request.threadId ?? null,
+		to: envelope.to,
+		subject: envelope.subject,
+	};
+}
+
+export async function sendDraft(account: GmailAccount, draftId: string): Promise<SentDraft> {
+	const sent = await gmailRequest(account, "/drafts/send", messageSchema, {
+		method: "POST",
+		body: JSON.stringify({ id: draftId }),
+	});
+	const delivered = await gmailRequest(
+		account,
+		`/messages/${encodeURIComponent(sent.id)}?format=metadata&metadataHeaders=To&metadataHeaders=Subject`,
+		messageSchema,
+	);
+	return {
+		account: account.email,
+		messageId: sent.id,
+		to: headerValue(delivered.payload?.headers, "To"),
+		subject: headerValue(delivered.payload?.headers, "Subject"),
+	};
 }
