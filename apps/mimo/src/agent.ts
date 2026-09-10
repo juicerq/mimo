@@ -1,4 +1,4 @@
-import { Client, type ClientSession, type InputResponse, type MessageResponse } from "eve/client";
+import { Client, type ClientSession, type InputResponse, type MessageStreamEvent } from "eve/client";
 
 const DEFAULT_AGENT_URL = "http://127.0.0.1:2000";
 
@@ -21,20 +21,30 @@ export class AgentChat {
 		}
 	}
 
-	async send(text: string): Promise<MessageResponse> {
+	async send(text: string): Promise<void> {
 		if (this.session) {
-			return this.session.send(text);
+			await this.session.send(text);
+			return;
 		}
-		const { session, response } = await this.client.sessions.create({ message: text });
+		const { session } = await this.client.sessions.create({ message: text });
 		this.session = session;
-		return response;
 	}
 
-	async respond(responses: readonly InputResponse[]): Promise<MessageResponse> {
+	async respond(responses: readonly InputResponse[]): Promise<void> {
 		if (!this.session) {
 			throw new Error("a sessão do agente ainda não foi criada");
 		}
-		return this.session.respond(responses);
+		await this.session.respond(responses);
+	}
+
+	stream(): AsyncIterable<MessageStreamEvent> | null {
+		return (
+			this.session?.stream({
+				streamReconnectPolicy: {
+					streamIdleReconnectPolicy: { baseDelayMs: 250, maxAttempts: 60, maxDelayMs: 30_000 },
+				},
+			}) ?? null
+		);
 	}
 }
 
