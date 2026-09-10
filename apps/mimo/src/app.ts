@@ -76,7 +76,7 @@ export class MimoApp {
 		this.input = new InputRenderable(renderer, {
 			id: "composer",
 			width: "100%",
-			placeholder: "message the bot…",
+			placeholder: "write your prompt",
 			textColor: T2,
 			cursorColor: T1,
 		});
