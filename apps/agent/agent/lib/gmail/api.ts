@@ -166,7 +166,10 @@ function messageBody(message: z.infer<typeof messageSchema>): string {
 }
 
 async function fetchHeader(account: GmailAccount, reference: { id: string; threadId: string }): Promise<UnreadEmail> {
-	const params = new URLSearchParams({ format: "metadata" });
+	const params = new URLSearchParams({
+		format: "metadata",
+		fields: "id,threadId,snippet,payload/headers",
+	});
 	for (const name of ["From", "Subject", "Date"]) {
 		params.append("metadataHeaders", name);
 	}
@@ -187,7 +190,11 @@ async function fetchHeader(account: GmailAccount, reference: { id: string; threa
 }
 
 export async function listUnread(account: GmailAccount, limit: number): Promise<UnreadList> {
-	const params = new URLSearchParams({ q: "is:unread in:inbox", maxResults: String(limit) });
+	const params = new URLSearchParams({
+		q: "is:unread in:inbox",
+		maxResults: String(limit),
+		fields: "messages(id,threadId),resultSizeEstimate",
+	});
 	const list = await gmailRequest(account, `/messages?${params.toString()}`, messageListSchema);
 	return {
 		account: account.email,
