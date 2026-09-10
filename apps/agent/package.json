@@ -1,0 +1,16 @@
+{
+	"name": "@mimo/agent",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"dependencies": {
+		"@ai-sdk/openai-compatible": "^3.0.47",
+		"@grikomsn/ai-sdk-provider-chatgpt-oauth": "^2.0.2",
+		"ai": "^7.0.97",
+		"eve": "^0.53.0",
+		"zod": "^4.6.1"
+	}
+}
