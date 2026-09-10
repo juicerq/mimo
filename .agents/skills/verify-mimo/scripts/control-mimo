@@ -49,11 +49,18 @@ pane_text() {
 }
 
 status_state() {
-	pane_text | grep -oE '· (conectando|pronto|pensando|aguardando resposta|cancelado|erro|offline)' | tail -n1 | sed 's/^· //' || true
+	pane_text | grep -oE '·[─ ]*(conectando|pronto|pensando|aguardando resposta|cancelado|erro|offline)' | tail -n1 | sed -E 's/^·[─ ]*//' || true
 }
 
 composer_line() {
-	pane_text | tail -n1
+	local pane
+	local status_line
+	pane="$(pane_text)"
+	status_line="$(printf '%s\n' "$pane" | grep -nE 'mimo.*·.*(conectando|pronto|pensando|aguardando resposta|cancelado|erro|offline)' | tail -n1 | cut -d: -f1 || true)"
+	if [ -z "$status_line" ]; then
+		return 0
+	fi
+	printf '%s\n' "$pane" | tail -n +$((status_line + 1)) | tail -n1
 }
 
 agent_port() {
@@ -148,6 +155,9 @@ snapshot_state() {
 	if [ -e "$data_dir/memory" ]; then
 		cp -a "$data_dir/memory" "$run_dir/state-before/memory"
 	fi
+	if [ -f "$data_dir/actions.jsonl" ]; then
+		cp -a "$data_dir/actions.jsonl" "$run_dir/state-before/actions.jsonl"
+	fi
 }
 
 capture_state_after() {
@@ -159,6 +169,9 @@ capture_state_after() {
 	fi
 	if [ -e "$data_dir/memory" ]; then
 		cp -a "$data_dir/memory" "$run_dir/state-after/memory"
+	fi
+	if [ -f "$data_dir/actions.jsonl" ]; then
+		cp -a "$data_dir/actions.jsonl" "$run_dir/state-after/actions.jsonl"
 	fi
 }
 
@@ -178,6 +191,11 @@ restore_state() {
 		cp -a "$run_dir/state-before/memory" "$data_dir/memory"
 	elif [ -e "$data_dir/memory" ]; then
 		rm -rf "$data_dir/memory"
+	fi
+	if [ -f "$run_dir/state-before/actions.jsonl" ]; then
+		cp -a "$run_dir/state-before/actions.jsonl" "$data_dir/actions.jsonl"
+	elif [ -f "$data_dir/actions.jsonl" ]; then
+		rm -f "$data_dir/actions.jsonl"
 	fi
 }
 
@@ -259,7 +277,7 @@ doctor() {
 		echo "agente: sem resposta em $AGENT_URL"
 	fi
 	if session_up; then
-		if pane_text | grep -qF "$READY_PATTERN"; then
+		if [ "$(status_state)" = "pronto" ]; then
 			echo "pane: em pronto"
 		else
 			echo "pane: fora de pronto (veja: $0 capture <arquivo>)"
@@ -315,18 +333,26 @@ send_text() {
 	esac
 	tmux send-keys -t "$SESSION" -l -- "$text"
 	tmux send-keys -t "$SESSION" Enter
-	local tail_text="${text: -16}"
+	local tail_text="$text"
+	if [ "${#text}" -gt 16 ]; then
+		tail_text="${text: -16}"
+	fi
 	local deadline=$((SECONDS + SEND_ACCEPT_SECONDS))
 	local accepted=0
+	local composer
 	while [ "$SECONDS" -le "$deadline" ]; do
-		if ! composer_line | grep -qF -- "$tail_text"; then
+		composer="$(composer_line)"
+		if ! printf '%s' "$composer" | grep -qF -- "$tail_text"; then
 			accepted=1
 			break
 		fi
 		sleep 1
 	done
 	if [ "$accepted" -eq 0 ]; then
+		mkdir -p "$VERIFY_DIR"
+		pane_text >"$VERIFY_DIR/last-send.txt" || true
 		echo "o texto ficou no composer; envio não foi aceito (bot ocupado?)" >&2
+		echo "pane salvo em $VERIFY_DIR/last-send.txt" >&2
 		exit 1
 	fi
 	local saw_busy=0

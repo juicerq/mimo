@@ -256,6 +256,22 @@ export interface SentDraft {
 	subject: string | null;
 }
 
+export interface EmailRequest {
+	account: GmailAccount;
+	to: string;
+	cc?: string;
+	subject: string;
+	body: string;
+}
+
+export interface SentEmail {
+	account: string;
+	messageId: string;
+	threadId: string;
+	to: string;
+	subject: string;
+}
+
 function headerText(headers: z.infer<typeof headerSchema>[] | undefined, name: string): string | undefined {
 	return firstText(headerValue(headers, name) ?? undefined);
 }
@@ -355,5 +371,20 @@ export async function sendDraft(account: GmailAccount, draftId: string): Promise
 		messageId: sent.id,
 		to: headerValue(delivered.payload?.headers, "To"),
 		subject: headerValue(delivered.payload?.headers, "Subject"),
+	};
+}
+
+export async function sendEmail(request: EmailRequest): Promise<SentEmail> {
+	const raw = mime({ to: request.to, cc: request.cc, subject: request.subject, body: request.body });
+	const sent = await gmailRequest(request.account, "/messages/send", messageSchema, {
+		method: "POST",
+		body: JSON.stringify({ raw }),
+	});
+	return {
+		account: request.account.email,
+		messageId: sent.id,
+		threadId: sent.threadId,
+		to: request.to,
+		subject: request.subject,
 	};
 }
