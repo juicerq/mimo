@@ -38,6 +38,16 @@ As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada;
 
 Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dias e a conta precisa ser conectada de novo com `bun run gmail:auth`. Para evitar, publique o app em In production; o consentimento passa a mostrar o aviso de app não verificado, e para uso pessoal não é preciso concluir a verificação.
 
+## Busca na web
+
+A tool `web_search` usa a [Tavily](https://tavily.com/): o plano gratuito dá 1.000 buscas por mês, sem cartão. Crie a conta, copie a chave e coloque em `apps/agent/.env.local`:
+
+```sh
+TAVILY_API_KEY=tvly-...
+```
+
+Sem a chave, a tool responde com o erro de configuração em vez de falhar em silêncio.
+
 ## Rotinas
 
 As rotinas ficam em `apps/agent/.data/routines.json` e são criadas por conversa. Um dispatcher de um minuto entrega o prompt na sessão em que a rotina foi criada.
