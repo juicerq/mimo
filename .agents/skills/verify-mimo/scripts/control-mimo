@@ -57,10 +57,10 @@ composer_line() {
 	local status_line
 	pane="$(pane_text)"
 	status_line="$(printf '%s\n' "$pane" | grep -nE 'status:.*(connecting|ready|thinking|waiting|cancelled|error|offline)' | tail -n1 | cut -d: -f1 || true)"
-	if [ -z "$status_line" ] || [ "$status_line" -le 1 ]; then
+	if [ -z "$status_line" ] || [ "$status_line" -le 2 ]; then
 		return 0
 	fi
-	printf '%s\n' "$pane" | sed -n "$((status_line - 1))p"
+	printf '%s\n' "$pane" | sed -n "$((status_line - 2))p"
 }
 
 agent_port() {
