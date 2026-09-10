@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { saveAccount } from "../agent/lib/gmail/accounts";
+import { fetchAccountEmail } from "../agent/lib/gmail/api";
 import {
 	GMAIL_REDIRECT_URI,
 	authorizationUrl,
@@ -34,9 +36,10 @@ try {
 				return new Response("código ausente", { status: 400 });
 			}
 			try {
-				const refreshToken = await exchangeAuthorizationCode(code, verifier);
-				console.log("\nPronto. Cole a linha abaixo em apps/agent/.env.local:\n");
-				console.log(`GMAIL_REFRESH_TOKEN=${refreshToken}`);
+				const tokens = await exchangeAuthorizationCode(code, verifier);
+				const email = await fetchAccountEmail(tokens.accessToken);
+				await saveAccount({ email, refreshToken: tokens.refreshToken });
+				console.log(`\nConta ${email} conectada em apps/agent/.data/gmail/accounts.json.`);
 				return new Response("<h1>Pronto</h1><p>Pode fechar esta aba e voltar ao terminal.</p>", {
 					headers: { "content-type": "text/html; charset=utf-8" },
 				});

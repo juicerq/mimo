@@ -1,11 +1,15 @@
 import { z } from "zod";
-import { gmailAccessToken } from "./oauth";
+import { accessToken, type GmailAccount } from "./accounts";
 
 const API_URL = "https://gmail.googleapis.com/gmail/v1/users/me";
 const MAX_BODY_CHARS = 6_000;
 const MAX_THREAD_MESSAGES = 20;
 
 const headerSchema = z.object({ name: z.string(), value: z.string() });
+
+const profileSchema = z.object({
+	emailAddress: z.string().min(1),
+});
 
 interface GmailPart {
 	mimeType?: string;
@@ -50,6 +54,7 @@ interface UnreadEmail {
 }
 
 interface UnreadList {
+	account: string;
 	estimatedTotal: number | null;
 	emails: UnreadEmail[];
 }
@@ -63,14 +68,14 @@ interface ThreadMessage {
 }
 
 interface Thread {
+	account: string;
 	threadId: string;
 	subject: string | null;
 	messages: ThreadMessage[];
 	omittedMessages: number;
 }
 
-async function gmailGet<T>(path: string, schema: z.ZodType<T>): Promise<T> {
-	const token = await gmailAccessToken();
+async function getWithToken<T>(token: string, path: string, schema: z.ZodType<T>): Promise<T> {
 	const response = await fetch(`${API_URL}${path}`, {
 		headers: { authorization: `Bearer ${token}` },
 	});
@@ -78,6 +83,10 @@ async function gmailGet<T>(path: string, schema: z.ZodType<T>): Promise<T> {
 		throw new Error(`O Gmail respondeu ${response.status}: ${(await response.text()).slice(0, 300)}`);
 	}
 	return schema.parse(await response.json());
+}
+
+async function gmailGet<T>(account: GmailAccount, path: string, schema: z.ZodType<T>): Promise<T> {
+	return getWithToken(await accessToken(account), path, schema);
 }
 
 function headerValue(headers: z.infer<typeof headerSchema>[] | undefined, name: string): string | null {
@@ -140,12 +149,13 @@ function messageBody(message: z.infer<typeof messageSchema>): string {
 	return truncate(text ?? "(corpo vazio)", MAX_BODY_CHARS);
 }
 
-async function fetchHeader(reference: { id: string; threadId: string }): Promise<UnreadEmail> {
+async function fetchHeader(account: GmailAccount, reference: { id: string; threadId: string }): Promise<UnreadEmail> {
 	const params = new URLSearchParams({ format: "metadata" });
 	for (const name of ["From", "Subject", "Date"]) {
 		params.append("metadataHeaders", name);
 	}
 	const message = await gmailGet(
+		account,
 		`/messages/${encodeURIComponent(reference.id)}?${params.toString()}`,
 		messageSchema,
 	);
@@ -160,12 +170,13 @@ async function fetchHeader(reference: { id: string; threadId: string }): Promise
 	};
 }
 
-export async function listUnread(limit: number): Promise<UnreadList> {
+export async function listUnread(account: GmailAccount, limit: number): Promise<UnreadList> {
 	const params = new URLSearchParams({ q: "is:unread in:inbox", maxResults: String(limit) });
-	const list = await gmailGet(`/messages?${params.toString()}`, messageListSchema);
+	const list = await gmailGet(account, `/messages?${params.toString()}`, messageListSchema);
 	return {
+		account: account.email,
 		estimatedTotal: list.resultSizeEstimate ?? null,
-		emails: await Promise.all((list.messages ?? []).map(fetchHeader)),
+		emails: await Promise.all((list.messages ?? []).map((reference) => fetchHeader(account, reference))),
 	};
 }
 
@@ -180,14 +191,20 @@ function toThreadMessage(message: z.infer<typeof messageSchema>): ThreadMessage 
 	};
 }
 
-export async function readThread(threadId: string): Promise<Thread> {
-	const thread = await gmailGet(`/threads/${encodeURIComponent(threadId)}?format=full`, threadSchema);
+export async function readThread(account: GmailAccount, threadId: string): Promise<Thread> {
+	const thread = await gmailGet(account, `/threads/${encodeURIComponent(threadId)}?format=full`, threadSchema);
 	const messages = thread.messages ?? [];
 	const kept = messages.slice(-MAX_THREAD_MESSAGES);
 	return {
+		account: account.email,
 		threadId: thread.id,
 		subject: headerValue(messages.at(0)?.payload?.headers, "Subject"),
 		messages: kept.map(toThreadMessage),
 		omittedMessages: messages.length - kept.length,
 	};
+}
+
+export async function fetchAccountEmail(token: string): Promise<string> {
+	const profile = await getWithToken(token, "/profile", profileSchema);
+	return profile.emailAddress;
 }
