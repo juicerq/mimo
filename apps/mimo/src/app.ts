@@ -54,6 +54,8 @@ export class MimoApp {
 	private following = false;
 	private mode: BotMode = "normal";
 	private lastState = "";
+	private modelId: string | null = null;
+	private contextUsed: number | null = null;
 	private pendingRequests: InputRequest[] = [];
 
 	constructor(renderer: CliRenderer, chat: AgentChat) {
@@ -64,7 +66,10 @@ export class MimoApp {
 			id: "transcript",
 			width: "100%",
 			flexGrow: 1,
-			padding: 1,
+			paddingTop: 1,
+			paddingBottom: 1,
+			paddingLeft: 2,
+			paddingRight: 2,
 			stickyScroll: true,
 			stickyStart: "bottom",
 		});
@@ -73,12 +78,19 @@ export class MimoApp {
 			content: "",
 			fg: STATUS_COLOR,
 		});
+		const statusRow = new BoxRenderable(renderer, {
+			id: "status-row",
+			width: "100%",
+			paddingLeft: 2,
+		});
+		statusRow.add(this.status);
 		this.input = new InputRenderable(renderer, {
 			id: "composer",
 			width: "100%",
 			placeholder: "write your prompt",
 			textColor: T2,
 			cursorColor: T1,
+			cursorStyle: { style: "line", blinking: true },
 		});
 		this.input.on(InputRenderableEvents.ENTER, (value) => {
 			this.submit(value);
@@ -103,7 +115,7 @@ export class MimoApp {
 		});
 		container.add(this.transcript);
 		container.add(composer);
-		container.add(this.status);
+		container.add(statusRow);
 		renderer.root.add(container);
 	}
 
@@ -191,6 +203,17 @@ export class MimoApp {
 			case "message.completed":
 				this.completeReply(event.data.message);
 				return;
+			case "step.started":
+				this.modelId = event.data.modelId;
+				return;
+			case "step.completed": {
+				const usage = event.data.usage;
+				if (usage && usage.inputTokens !== undefined) {
+					this.contextUsed = usage.inputTokens + (usage.outputTokens ?? 0);
+					this.setStatus(this.lastState);
+				}
+				return;
+			}
 			case "actions.requested":
 				this.renderActions(event.data.actions);
 				return;
@@ -351,8 +374,36 @@ export class MimoApp {
 	private setStatus(state: string): void {
 		this.lastState = state;
 		const label = this.mode === "autonomous" ? "auto" : "normal";
-		this.status.content = `mode: ${label} · status: ${state}`;
+		const parts: string[] = [];
+		if (this.contextUsed !== null) {
+			parts.push(`context: ${formatTokens(this.contextUsed)}/${formatTokens(contextWindowFor(this.modelId))}`);
+		}
+		parts.push(`mode: ${label}`, `status: ${state}`);
+		this.status.content = parts.join(" | ");
 	}
+}
+
+const DEFAULT_CONTEXT_WINDOW = 300_000;
+const SMALLER_CONTEXT_WINDOWS: Record<string, number> = {
+	"gpt-5.4": 272_000,
+	"gpt-5.4-mini": 272_000,
+};
+
+function contextWindowFor(modelId: string | null): number {
+	if (modelId === null) {
+		return DEFAULT_CONTEXT_WINDOW;
+	}
+	const id = modelId.slice(modelId.lastIndexOf("/") + 1);
+	return SMALLER_CONTEXT_WINDOWS[id] ?? DEFAULT_CONTEXT_WINDOW;
+}
+
+function formatTokens(tokens: number): string {
+	if (tokens < 1_000) {
+		return String(tokens);
+	}
+	const thousands = tokens / 1_000;
+	const text = Number.isInteger(thousands) ? String(thousands) : thousands.toFixed(1);
+	return `${text}k`;
 }
 
 function modeFromToolResult(result: ActionResultStreamEvent["data"]["result"]): BotMode | null {
