@@ -10,10 +10,11 @@ import { recallMemory } from "../memory/memory";
 import { computerInstructions } from "../computer/tools";
 import { botTools, needsApproval } from "../tools";
 import instructions from "../instructions.md" with { type: "text" };
+import teamInstructions from "../team/instructions.md" with { type: "text" };
 import { compactTranscript } from "./compaction";
 import { deleteBotRoutines } from "../routines/routines";
-import { readBot, readTranscript, removeBot, writeBot, writeTranscript } from "./store";
-import type { Approval, BotEvent, BotInfo, BotMode } from "./types";
+import { listChildren, readBot, readTranscript, removeBot, writeBot, writeTranscript, type BotPatch } from "./store";
+import type { Approval, BotEvent, BotInfo, BotMode, ToolGroup } from "./types";
 
 const APPROVE_WORDS = new Set(["1", "approve", "aprovar", "sim", "s"]);
 const DENY_WORDS = new Set(["2", "cancel", "cancelar", "não", "nao", "n"]);
@@ -26,6 +27,9 @@ interface Pending {
 }
 
 export async function deleteBot(id: string): Promise<void> {
+	for (const child of await listChildren(id)) {
+		await deleteBot(child.id);
+	}
 	const running = open.get(id);
 	running?.cancel();
 	open.delete(id);
@@ -45,7 +49,7 @@ export class Bot {
 		this.agent = new Agent({
 			streamFn: (model, context, options) => models().streamSimple(model, context, options),
 			initialState: {
-				systemPrompt: `${instructions}\n\n${computerInstructions()}`,
+				systemPrompt: this.basePrompt(),
 				model: resolveModel(record.model),
 				thinkingLevel: record.model.reasoning,
 				messages,
@@ -86,6 +90,14 @@ export class Bot {
 		return this.record.mode;
 	}
 
+	get parentId(): string | undefined {
+		return this.record.parentId;
+	}
+
+	get tools(): ToolGroup[] {
+		return this.record.tools;
+	}
+
 	get approval(): Approval | null {
 		return this.approvals[0]?.approval ?? null;
 	}
@@ -103,6 +115,17 @@ export class Bot {
 		this.record = { ...this.record, mode };
 		this.emit({ type: "mode", mode });
 		void writeBot(this.record);
+	}
+
+	async updateChild(botId: string, patch: BotPatch): Promise<BotInfo> {
+		const updated = { ...await this.child(botId), ...patch };
+		await writeBot(updated);
+		return updated;
+	}
+
+	async deleteChild(botId: string): Promise<void> {
+		await this.child(botId);
+		await deleteBot(botId);
 	}
 
 	subscribe(listener: (event: BotEvent) => void): () => void {
@@ -140,7 +163,7 @@ export class Bot {
 			return;
 		}
 		this.emit({ type: "turn-started" });
-		this.agent.state.systemPrompt = `${instructions}\n\n${computerInstructions()}\n\n${await recallMemory(this.record.id)}`;
+		this.agent.state.systemPrompt = `${this.basePrompt()}\n\n${await recallMemory(this.record.id)}`;
 		await this.agent.prompt(text);
 	}
 
@@ -149,6 +172,25 @@ export class Bot {
 			this.resolveApproval(pending, false);
 		}
 		this.agent.abort();
+	}
+
+	private async child(botId: string): Promise<BotInfo> {
+		const child = await readBot(botId);
+		if (child?.parentId !== this.record.id) {
+			throw new Error("Este bot não é da sua equipe.");
+		}
+		return child;
+	}
+
+	private basePrompt(): string {
+		const parts = [instructions, computerInstructions()];
+		if (this.record.parentId === undefined) {
+			parts.push(teamInstructions);
+		}
+		if (this.record.prompt) {
+			parts.push(this.record.prompt);
+		}
+		return parts.join("\n\n");
 	}
 
 	private emit(event: BotEvent): void {
