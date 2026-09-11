@@ -4,7 +4,28 @@ import { saveAccount } from "./accounts";
 import { fetchAccountEmail } from "./api";
 import { GMAIL_REDIRECT_URI, authorizationUrl, createPkce, exchangeAuthorizationCode } from "./oauth";
 
-const DONE_PAGE = "<h1>Pronto</h1><p>Pode fechar esta aba e voltar ao Mimo.</p>";
+const PAGE_STYLE = [
+	"*{margin:0;padding:0;box-sizing:border-box}",
+	"html,body{height:100%}",
+	"body{display:flex;align-items:center;justify-content:center;background:#0B0B0C;color:#C9C9CC;",
+	"font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}",
+	"main{max-width:34rem;padding:2rem;text-align:center}",
+	"h1{font-size:14px;font-weight:400;color:#F2F2F3;letter-spacing:.02em}",
+	"p{margin-top:.75rem;color:#6B6B6F}",
+].join("");
+
+function escapeHtml(text: string): string {
+	return text.replace(/[&<>"]/g, (character) => `&#${character.charCodeAt(0)};`);
+}
+
+function page(heading: string, detail: string, status = 200): Response {
+	const body = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">`
+		+ `<meta name="viewport" content="width=device-width,initial-scale=1">`
+		+ `<title>mimo</title><style>${PAGE_STYLE}</style></head>`
+		+ `<body><main><h1>${escapeHtml(heading)}</h1><p>${escapeHtml(detail)}</p></main></body></html>`;
+
+	return new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8" } });
+}
 
 function authorizationCode(answer: string): string {
 	const trimmed = answer.trim();
@@ -30,18 +51,18 @@ function serveCallback(state: string): { code: Promise<string>; stop: () => void
 		fetch(request) {
 			const url = new URL(request.url);
 			if (url.pathname !== redirect.pathname || url.searchParams.get("state") !== state) {
-				return new Response("não encontrado", { status: 404 });
+				return page("Link inválido", "Volte ao Mimo e abra o link de autorização de novo.", 404);
 			}
 			const error = url.searchParams.get("error");
 			if (error !== null) {
-				return new Response(`Autorização recusada: ${error}`, { status: 400 });
+				return page("Autorização recusada", error, 400);
 			}
 			const received = url.searchParams.get("code");
 			if (received === null) {
-				return new Response("código ausente", { status: 400 });
+				return page("Link inválido", "O Google não devolveu o código de autorização.", 400);
 			}
 			deliver(received);
-			return new Response(DONE_PAGE, { headers: { "content-type": "text/html; charset=utf-8" } });
+			return page("Conta conectada", "Pode fechar esta aba e voltar ao Mimo.");
 		},
 	});
 
