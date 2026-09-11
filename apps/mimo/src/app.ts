@@ -378,7 +378,7 @@ export class MimoApp {
 		this.busy = true;
 		this.setStatus("loading");
 		try {
-			const bot = await createBot(parsed.data);
+			const bot = await createBot({ name: parsed.data });
 			if (!signal.aborted) {
 				await this.openBot(bot);
 			}

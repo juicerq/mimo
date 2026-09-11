@@ -80,6 +80,12 @@ Cada bot tem memória isolada em `.data/bots/<id>/memory.md`. Ela registra fatos
 
 O registro do bot fica em `.data/bots/<id>.json` e o transcript atual em `.data/bots/<id>/messages.json`. Cada compactação arquiva a conversa anterior em `.data/bots/<id>/sessions/<session-id>.json`. As ferramentas de histórico consultam todos os arquivos do próprio bot e omitem metadados técnicos na leitura, preservando as mensagens e o estado das ações.
 
+## Equipe
+
+Um bot pode montar uma equipe de bots filhos. As tools `create_bot`, `update_bot`, `list_bots` e `delete_bot` só existem em bots sem pai. Um filho é um bot comum, com memória e sessão próprias, mas não aparece em `/bots` nem em `/delete`: quem cuida dele é o pai. Apagar o pai apaga a equipe inteira, e o painel de `/delete` avisa quais bots vão junto.
+
+Ao criar um filho, o pai escolhe o nome, a instrução permanente, os grupos de tools e o modelo. Os grupos são `computer`, `web`, `gmail` e `routines`; hora, memória, histórico e registro de ações ficam sempre disponíveis. Sem modelo escolhido, o filho nasce com o padrão; `list_models` mostra os valores aceitos. No modo normal, `delete_bot` espera aprovação no terminal.
+
 ## Gmail
 
 Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão de uma conta pelo próprio bot: o link aparece no terminal e a pessoa autoriza no navegador. A tool `disconnect_gmail` apaga a conta guardada e revoga o acesso no Google; no modo normal ela espera aprovação. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria rascunhos, `send_draft` envia um rascunho e `send_email` inicia um e-mail novo, ambos com aprovação no terminal. Cada conta conectada guarda o refresh token em `.data/gmail/accounts.json`; o client id e o client secret ficam em `.env.local` na raiz.

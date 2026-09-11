@@ -6,7 +6,7 @@ import { initialModel, selectModel } from "../model/catalog";
 import { ModelSelectionSchema, type ModelInfo } from "../model/types";
 import { dataPath } from "../storage/data";
 import { readJsonFile, writeTextFile } from "../storage/files";
-import { BotModeSchema, BotNameSchema, type BotInfo } from "./types";
+import { BotModeSchema, BotNameSchema, BotPromptSchema, TOOL_GROUPS, ToolGroupSchema, type BotInfo } from "./types";
 
 const LEGACY_PROVIDERS: Record<string, string> = { "openai-oauth": "openai-codex" };
 const LEGACY_MODEL_IDS: Record<string, string> = { "deepseek-flash": "deepseek-v4-flash" };
@@ -18,6 +18,9 @@ const StoredBotSchema = z.object({
 	createdAt: z.iso.datetime(),
 	mode: BotModeSchema.default("normal"),
 	model: z.looseObject({ provider: z.string(), id: z.string(), reasoning: z.string() }).optional(),
+	tools: z.array(ToolGroupSchema).default([...TOOL_GROUPS]),
+	parentId: z.uuid().optional(),
+	prompt: BotPromptSchema.optional(),
 });
 
 const TranscriptSchema = z.array(z.custom<AgentMessage>());
@@ -54,7 +57,7 @@ export async function writeBot(bot: BotInfo): Promise<void> {
 	await writeTextFile(botPath(bot.id), `${JSON.stringify(bot, null, "\t")}\n`, 0o600);
 }
 
-export async function listBots(): Promise<BotInfo[]> {
+async function readAll(): Promise<BotInfo[]> {
 	const entries = await readdir(dataPath("bots")).catch(missingAsEmpty);
 	const bots = await Promise.all(entries
 		.filter((entry) => entry.endsWith(".json"))
@@ -64,13 +67,25 @@ export async function listBots(): Promise<BotInfo[]> {
 		.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
-export async function createBot(name: string): Promise<BotInfo> {
+export async function listBots(): Promise<BotInfo[]> {
+	return (await readAll()).filter((bot) => bot.parentId === undefined);
+}
+
+export async function listChildren(parentId: string): Promise<BotInfo[]> {
+	return (await readAll()).filter((bot) => bot.parentId === parentId);
+}
+
+export type BotPatch = Partial<Pick<BotInfo, "name" | "prompt" | "tools" | "model">>;
+export type BotDraft = Pick<BotInfo, "name"> & Partial<Pick<BotInfo, "model" | "tools" | "parentId" | "prompt">>;
+
+export async function createBot(draft: BotDraft): Promise<BotInfo> {
 	const bot: BotInfo = {
+		...draft,
 		id: randomUUID(),
-		name,
 		createdAt: new Date().toISOString(),
-		model: initialModel(),
 		mode: "normal",
+		model: draft.model ?? initialModel(),
+		tools: draft.tools ?? [...TOOL_GROUPS],
 	};
 	await writeBot(bot);
 	return bot;

@@ -20,6 +20,14 @@ _Evitar_: Ciclo, execução
 A escolha de provedor, modelo e esforço para as próximas respostas de um Bot. Permanece salva e pode mudar sem abrir outra Sessão. Uma resposta em andamento mantém a escolha com que começou, inclusive enquanto espera Aprovação.
 _Evitar_: Modelo global, modelo da sessão
 
+**Bot filho**:
+Um Bot criado por outro Bot, com Memória e Sessão próprias. Pertence a quem o criou, não aparece na lista de Bots da pessoa e é apagado junto com o pai.
+_Evitar_: Subagente, worker
+
+**Equipe**:
+Os Bots filhos de um Bot. O pai cria, ajusta e apaga os membros, e escolhe a instrução permanente, os grupos de tools e o modelo de cada um.
+_Evitar_: Time, squad, pool
+
 **Rotina**:
 Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Continua pertencendo ao mesmo Bot quando a Sessão muda.
 _Evitar_: Agendamento, cron job, automação
