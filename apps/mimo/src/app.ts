@@ -11,7 +11,7 @@ import { Bot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode } from "@agent/bot/types";
 import { listModels } from "@agent/model/catalog";
-import { LOGIN_TARGETS, LoginSession, type LoginEvent, type LoginPrompt, type LoginTarget } from "@agent/login/login";
+import { LOGIN_GROUP_NAMES, LOGIN_TARGETS, LoginSession, type LoginEvent, type LoginGroup, type LoginPrompt, type LoginTarget } from "@agent/login/login";
 import { PROVIDER_NAMES, type ModelInfo, type ModelOption, type ModelSelection } from "@agent/model/types";
 import { copyToClipboard } from "./clipboard";
 
@@ -358,7 +358,15 @@ export class MimoApp {
 
 	private showProviders() {
 		this.openPicker({ kind: "providers" }, "login");
+		let group: LoginGroup | null = null;
 		for (const [index, target] of LOGIN_TARGETS.entries()) {
+			if (target.group !== group) {
+				if (group !== null) {
+					this.appendPickerLine("", T4, 0);
+				}
+				group = target.group;
+				this.appendPickerLine(LOGIN_GROUP_NAMES[group], T4, 0);
+			}
 			this.appendPickerLine(`${index + 1}. ${target.name} · ${target.how}`, T2, 0);
 		}
 		this.appendPickerLine("/cancel to return", T4);

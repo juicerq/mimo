@@ -5,13 +5,16 @@ import type { Provider } from "../model/types";
 
 const AUTH_TYPES: Record<Provider, AuthType> = { "opencode-go": "api_key", "openai-codex": "oauth" };
 
+export const LOGIN_GROUP_NAMES = { provider: "providers", plugin: "plugins" } as const;
+
 export const LOGIN_TARGETS = [
-	{ id: "opencode-go", name: "OpenCode Go", how: "API key" },
-	{ id: "openai-codex", name: "OpenAI", how: "OAuth" },
-	{ id: "gmail", name: "Gmail", how: "OAuth" },
+	{ id: "opencode-go", name: "OpenCode Go", how: "API key", group: "provider" },
+	{ id: "openai-codex", name: "OpenAI", how: "OAuth", group: "provider" },
+	{ id: "gmail", name: "Gmail", how: "OAuth", group: "plugin" },
 ] as const;
 
 export type LoginTarget = (typeof LOGIN_TARGETS)[number]["id"];
+export type LoginGroup = keyof typeof LOGIN_GROUP_NAMES;
 
 interface LoginOption {
 	id: string;
