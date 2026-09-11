@@ -32,6 +32,10 @@ _Evitar_: Time, squad, pool
 Um trabalho que um Bot entrega a um Bot filho e cuja resposta ele espera. Só um Bot sem pai delega, então a equipe não tem laços nem netos. As Aprovações do filho aparecem na tela de quem o comanda.
 _Evitar_: Chamada, mensagem entre bots
 
+**Fila**:
+As entregas que a pessoa escreve enquanto o Bot trabalha. Esperam acima do composer e entram na Sessão na ordem, assim que o Bot termina o passo atual. Interromper o Turno descarta a Fila.
+_Evitar_: Buffer, rascunho
+
 **Rotina**:
 Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Continua pertencendo ao mesmo Bot quando a Sessão muda.
 _Evitar_: Agendamento, cron job, automação

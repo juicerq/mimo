@@ -40,6 +40,7 @@ export class MimoApp {
 	private readonly status: TextRenderable;
 	private readonly input: InputRenderable;
 	private readonly panels: Panels;
+	private readonly queue: BoxRenderable;
 	private conversation: Bot | null = null;
 	private unsubscribe: (() => void) | null = null;
 	private screen: Screen = { kind: "bots", bots: [] };
@@ -135,6 +136,14 @@ export class MimoApp {
 		});
 		composer.add(this.input);
 
+		this.queue = new BoxRenderable(renderer, {
+			id: "queue",
+			width: "100%",
+			flexDirection: "column",
+			flexShrink: 0,
+			paddingLeft: 2,
+		});
+
 		const container = new BoxRenderable(renderer, {
 			id: "app",
 			width: "100%",
@@ -144,6 +153,7 @@ export class MimoApp {
 		container.add(this.panels.row);
 		container.add(this.transcript);
 		container.add(this.panels.box);
+		container.add(this.queue);
 		container.add(composer);
 		container.add(statusRow);
 		renderer.root.add(container);
@@ -169,7 +179,7 @@ export class MimoApp {
 			this.panels.submit(text);
 			return;
 		}
-		if (this.busy) {
+		if (this.busy && this.screen.kind === "bots") {
 			return;
 		}
 		if (/^\/new(?: |$)/.test(text)) {
@@ -339,6 +349,7 @@ export class MimoApp {
 		this.lastFailure = null;
 		this.approval = null;
 		this.lastEscapeAt = null;
+		this.renderQueue([]);
 		this.setStatus("loading");
 		return this.view.signal;
 	}
@@ -406,6 +417,7 @@ export class MimoApp {
 			for (const event of conversation.transcript()) {
 				this.renderEvent(event);
 			}
+			this.renderQueue(conversation.queue);
 			this.transcript.scrollTo(this.transcript.scrollHeight);
 			this.unsubscribe = conversation.subscribe((event) => {
 				if (!signal.aborted) {
@@ -429,8 +441,10 @@ export class MimoApp {
 		this.input.value = "";
 		this.failed = false;
 		this.lastFailure = null;
-		this.busy = true;
-		this.setStatus("thinking");
+		if (!this.busy && this.approval === null) {
+			this.busy = true;
+			this.setStatus("thinking");
+		}
 		try {
 			await operation();
 		} catch (error) {
@@ -448,6 +462,9 @@ export class MimoApp {
 			case "user":
 				this.sealReply();
 				this.appendLine(`you: ${event.text}`, T3);
+				return;
+			case "queue":
+				this.renderQueue(event.items);
 				return;
 			case "reply-delta":
 				this.appendReplyDelta(event.delta);
@@ -511,6 +528,20 @@ export class MimoApp {
 				this.appendLine("Interrupted.", T3);
 				this.busy = false;
 				this.setStatus("cancelled");
+		}
+	}
+
+	private renderQueue(items: readonly string[]): void {
+		for (const child of this.queue.getChildren()) {
+			child.destroyRecursively();
+		}
+		for (const item of items) {
+			this.queue.add(new TextRenderable(this.renderer, {
+				content: `queue: ${item}`,
+				fg: T4,
+				width: "100%",
+				wrapMode: "word",
+			}));
 		}
 	}
 
