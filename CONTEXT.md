@@ -29,8 +29,12 @@ Os Bots filhos de um Bot. O pai cria, ajusta e apaga os membros, e escolhe a ins
 _Evitar_: Time, squad, pool
 
 **Delegação**:
-Um trabalho que um Bot entrega a um Bot filho e cuja resposta ele espera. Só um Bot sem pai delega, então a equipe não tem laços nem netos. As Aprovações do filho aparecem na tela de quem o comanda.
+Um trabalho que um Bot entrega a um Bot filho e que segue sozinho. O Turno de quem delega fecha na hora, então a pessoa continua conversando enquanto a Equipe trabalha. Só um Bot sem pai delega, então a equipe não tem laços nem netos. As Aprovações do filho aparecem na tela de quem o comanda.
 _Evitar_: Chamada, mensagem entre bots
+
+**Aviso**:
+A resposta de um Bot filho, entregue sozinha na Sessão de quem delegou quando o trabalho termina ou falha. Espera o fim do Turno em andamento e entra junto com a Fila.
+_Evitar_: Callback, notificação
 
 **Fila**:
 As entregas que a pessoa escreve enquanto o Bot trabalha. Esperam acima do composer e entram na Sessão juntas e na ordem, num Turno só, assim que o Bot termina o passo atual. Interromper o Turno descarta a Fila.

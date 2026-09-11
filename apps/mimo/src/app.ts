@@ -480,6 +480,10 @@ export class MimoApp {
 			case "queue":
 				this.renderQueue(event.items);
 				return;
+			case "note":
+				this.sealReply();
+				this.appendLine(`▌ ${event.text}`, T4);
+				return;
 			case "reply-delta":
 				this.appendReplyDelta(event.delta);
 				return;
