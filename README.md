@@ -2,7 +2,7 @@
 
 Bots pessoais no terminal, com a harness [Pi](https://www.npmjs.com/package/@earendil-works/pi-agent-core) e OpenTUI. Cada bot mantém sua conversa e memória própria. Seu propósito se desenvolve pelo uso.
 
-A TUI e o agente rodam no mesmo processo: não há servidor, porta nem login. Abrir até a lista de bots leva cerca de 200 ms.
+A TUI e o agente rodam no mesmo processo: não há servidor nem daemon. Abrir até a lista de bots leva cerca de 200 ms.
 
 Crie um bot com `/new <nome>`. Use `/bots` para ver a lista e digite o número para abrir uma conversa. Não há limite de quantidade nem formulário de propósito. Ao reabrir um bot, o histórico e as aprovações pendentes voltam à tela. Trocar de bot não interrompe seu trabalho.
 
@@ -43,6 +43,8 @@ MIMO_MODEL=openai-codex/gpt-5.6-luna MIMO_REASONING=max bun run dev
 ```
 
 A integração OpenAI usa as credenciais locais do Codex em `~/.codex/auth.json`; a OpenCode Go usa `~/.local/share/opencode/auth.json`. O catálogo vem das mesmas contas. A assinatura tem seus próprios limites de uso, separados de uma chave de API.
+
+Use `/login` para conectar um provedor sem sair da TUI. O seletor mostra OpenCode Go (chave de API) e OpenAI (OAuth). Na OpenAI, escolha login pelo navegador ou por código de dispositivo; a TUI mostra o link e `c` copia ele para a área de transferência. Cole o código de autorização no composer se o navegador não voltar sozinho. `/cancel` ou `Esc` aborta o login. A credencial é gravada nos mesmos arquivos do Codex e da OpenCode, e o token renovado é salvo a cada atualização.
 
 O modelo inicial padrão é `opencode-go/deepseek-v4-flash`. `MIMO_MODEL` e `MIMO_REASONING` definem apenas a configuração inicial de um bot novo. As escolhas salvas por bot prevalecem sobre o ambiente.
 

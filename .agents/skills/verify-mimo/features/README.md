@@ -30,6 +30,7 @@ Este diretório é a fonte mantida para verificar o comportamento visível do mi
 
 ## Features
 
+- [Login de provedor](./login.md) cobre `/login`, o link do OAuth, a cópia com `c` e o cancelamento.
 - [Modelos](./models.md) cobre escolha por bot, esforços, troca entre provedores e continuidade de respostas com aprovação.
 - [Conversa](./chat.md) cobre envio, streaming, ferramentas, contexto e erros na TUI.
 - [Buscar na web](./web-search.md) cobre a tool `web_search` sem chave e seus erros acionáveis.
