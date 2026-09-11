@@ -66,7 +66,7 @@ function describeCatalogError(error: unknown): string {
 	return "Could not load models. Check the provider login and try /model again.";
 }
 
-function findOption(selection: Pick<ModelSelection, "provider" | "id">): ModelOption {
+export function modelOption(selection: Pick<ModelSelection, "provider" | "id">): ModelOption {
 	const model = models().getModel(selection.provider, selection.id);
 	if (!model) {
 		throw new Error("This model is unavailable. Open /model again.");
@@ -75,7 +75,7 @@ function findOption(selection: Pick<ModelSelection, "provider" | "id">): ModelOp
 }
 
 export function selectModel(selection: ModelSelection): ModelInfo {
-	const option = findOption(selection);
+	const option = modelOption(selection);
 	if (!option.reasoningOptions.includes(selection.reasoning)) {
 		throw new Error("This model or effort is unavailable. Open /model again.");
 	}
@@ -86,7 +86,7 @@ export function initialModel(): ModelInfo {
 	const spec = process.env.MIMO_MODEL ?? DEFAULT_MODEL;
 	const slash = spec.indexOf("/");
 	const provider = ProviderSchema.parse(spec.slice(0, slash));
-	const option = findOption({ provider, id: spec.slice(slash + 1) });
+	const option = modelOption({ provider, id: spec.slice(slash + 1) });
 	const reasoning = ReasoningSchema.parse(process.env.MIMO_REASONING ?? option.defaultReasoning);
 	if (!option.reasoningOptions.includes(reasoning)) {
 		throw new Error(`Unsupported effort ${reasoning} for ${spec}.`);
