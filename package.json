@@ -14,8 +14,7 @@
 		"start": "bun dist/index.js",
 		"check": "juicerq-check",
 		"check:fix": "juicerq-check --fix",
-		"typecheck": "tsc --noEmit",
-		"gmail:auth": "bun scripts/gmail-auth.ts"
+		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
 		"@juicerq/check": "^0.4.0",

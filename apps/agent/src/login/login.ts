@@ -1,8 +1,17 @@
-import type { AuthEvent, AuthPrompt, AuthType } from "@earendil-works/pi-ai";
-import { models } from "./models";
-import type { Provider } from "./types";
+import type { AuthEvent, AuthInteraction, AuthPrompt, AuthType } from "@earendil-works/pi-ai";
+import { connectGmail } from "../gmail/connect";
+import { models } from "../model/models";
+import type { Provider } from "../model/types";
 
 const AUTH_TYPES: Record<Provider, AuthType> = { "opencode-go": "api_key", "openai-codex": "oauth" };
+
+export const LOGIN_TARGETS = [
+	{ id: "opencode-go", name: "OpenCode Go", how: "API key" },
+	{ id: "openai-codex", name: "OpenAI", how: "OAuth" },
+	{ id: "gmail", name: "Gmail", how: "OAuth" },
+] as const;
+
+export type LoginTarget = (typeof LOGIN_TARGETS)[number]["id"];
 
 interface LoginOption {
 	id: string;
@@ -44,15 +53,19 @@ function toPrompt(prompt: AuthPrompt): LoginPrompt {
 
 export class LoginSession {
 	private readonly listeners = new Set<(event: LoginEvent) => void>();
+	private readonly history: LoginEvent[] = [];
 	private readonly aborter = new AbortController();
 	private pending: Pending | null = null;
 
-	constructor(provider: Provider) {
-		void this.run(provider);
+	constructor(target: LoginTarget) {
+		void this.run(target);
 	}
 
 	subscribe(listener: (event: LoginEvent) => void): () => void {
 		this.listeners.add(listener);
+		for (const event of this.history) {
+			listener(event);
+		}
 		return () => this.listeners.delete(listener);
 	}
 
@@ -72,12 +85,13 @@ export class LoginSession {
 	}
 
 	private emit(event: LoginEvent): void {
+		this.history.push(event);
 		for (const listener of this.listeners) {
 			listener(event);
 		}
 	}
 
-	private notify(event: AuthEvent): void {
+	private readonly notify = (event: AuthEvent): void => {
 		if (event.type === "auth_url") {
 			this.emit({ type: "url", url: event.url, instructions: event.instructions ?? null });
 			return;
@@ -89,7 +103,7 @@ export class LoginSession {
 		this.emit({ type: "info", text: event.message });
 	}
 
-	private async ask(prompt: AuthPrompt): Promise<string> {
+	private readonly ask = async (prompt: AuthPrompt): Promise<string> => {
 		const translated = toPrompt(prompt);
 		return await new Promise<string>((resolve, reject) => {
 			this.pending = { prompt: translated, resolve, reject };
@@ -101,13 +115,18 @@ export class LoginSession {
 		});
 	}
 
-	private async run(provider: Provider): Promise<void> {
+	private async run(target: LoginTarget): Promise<void> {
+		const interaction: AuthInteraction = {
+			signal: this.aborter.signal,
+			prompt: this.ask,
+			notify: this.notify,
+		};
 		try {
-			await models().login(provider, AUTH_TYPES[provider], {
-				signal: this.aborter.signal,
-				prompt: async (prompt) => await this.ask(prompt),
-				notify: (event) => this.notify(event),
-			});
+			if (target === "gmail") {
+				await connectGmail(interaction);
+			} else {
+				await models().login(target, AUTH_TYPES[target], interaction);
+			}
 			this.emit({ type: "done" });
 		} catch (error) {
 			this.emit({ type: "failed", message: error instanceof Error ? error.message : String(error) });

@@ -25,6 +25,7 @@ Preconditions:
 - `.env.local` na raiz com `GMAIL_CLIENT_ID` e `GMAIL_CLIENT_SECRET`.
 - Instância em `ready`; por padrão o sandbox não tem contas. Para verificar o Gmail, copie o store real para o sandbox: `DATA=$($CONTROL data); mkdir -p "$DATA/gmail" && cp .data/gmail/accounts.json "$DATA/gmail/accounts.json"` (as tools leem o arquivo a cada chamada; não precisa reiniciar). Alternativa: `$CONTROL launch --data .data`, que usa os dados reais com snapshot/restore de bots e rotinas — Gmail continua real.
 - `<conta>` é um endereço real vindo do `$CONTROL doctor` ou da primeira resposta.
+- Sem conta conectada, o bot precisa pedir `/login` na TUI; ele não autoriza sozinho. Veja [login.md](login.md).
 - As leituras são da caixa real; a receita padrão de envio recusa a aprovação.
 
 - **Contas.** `$CONTROL send 'quais contas do Gmail estão conectadas?'`; `$CONTROL wait '⚙ list_accounts' 180` confirma a tool. A resposta lista os mesmos endereços do `accounts.json`.

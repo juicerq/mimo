@@ -11,8 +11,8 @@ import { Bot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode } from "@agent/bot/types";
 import { listModels } from "@agent/model/catalog";
-import { LoginSession, type LoginEvent, type LoginPrompt } from "@agent/model/login";
-import { PROVIDER_NAMES, ProviderSchema, type ModelInfo, type ModelOption, type ModelSelection, type Provider } from "@agent/model/types";
+import { LOGIN_TARGETS, LoginSession, type LoginEvent, type LoginPrompt, type LoginTarget } from "@agent/login/login";
+import { PROVIDER_NAMES, type ModelInfo, type ModelOption, type ModelSelection } from "@agent/model/types";
 import { copyToClipboard } from "./clipboard";
 
 const T1 = "#F2F2F3";
@@ -36,7 +36,7 @@ type PickerScreen =
 	| { kind: "models"; bot: BotInfo; options: ModelOption[] }
 	| { kind: "effort"; bot: BotInfo; option: ModelOption }
 	| { kind: "providers" }
-	| { kind: "login"; session: LoginSession; url: string | null; prompt: LoginPrompt | null };
+	| { kind: "login"; target: LoginTarget; session: LoginSession; url: string | null; prompt: LoginPrompt | null };
 type Screen = HomeScreen | PickerScreen | { kind: "saving" };
 
 const PICKER_KINDS = new Set(["models", "effort", "providers", "login"]);
@@ -292,9 +292,9 @@ export class MimoApp {
 		}
 		const index = Number(text) - 1;
 		if (screen.kind === "providers") {
-			const provider = ProviderSchema.options[index];
-			if (provider) {
-				this.startLogin(provider);
+			const target = LOGIN_TARGETS[index];
+			if (target) {
+				this.startLogin(target);
 				return;
 			}
 		}
@@ -358,18 +358,17 @@ export class MimoApp {
 
 	private showProviders() {
 		this.openPicker({ kind: "providers" }, "login");
-		for (const [index, provider] of ProviderSchema.options.entries()) {
-			const how = provider === "openai-codex" ? "OAuth" : "API key";
-			this.appendPickerLine(`${index + 1}. ${PROVIDER_NAMES[provider]} · ${how}`, T2, 0);
+		for (const [index, target] of LOGIN_TARGETS.entries()) {
+			this.appendPickerLine(`${index + 1}. ${target.name} · ${target.how}`, T2, 0);
 		}
 		this.appendPickerLine("/cancel to return", T4);
 		this.setPickerStatus("ready");
 	}
 
-	private startLogin(provider: Provider) {
-		const session = new LoginSession(provider);
-		const screen: PickerScreen = { kind: "login", session, url: null, prompt: null };
-		const signal = this.openPicker(screen, `${PROVIDER_NAMES[provider]}  ·  login`);
+	private startLogin(target: (typeof LOGIN_TARGETS)[number]) {
+		const session = new LoginSession(target.id);
+		const screen: PickerScreen = { kind: "login", target: target.id, session, url: null, prompt: null };
+		const signal = this.openPicker(screen, `${target.name}  ·  login`);
 		this.input.placeholder = "waiting";
 		session.subscribe((event) => {
 			if (!signal.aborted) {
@@ -409,7 +408,8 @@ export class MimoApp {
 			return;
 		}
 		this.closePicker();
-		this.appendLine(`Connected. Use /model to pick a model.`, T3);
+		const next = screen.target === "gmail" ? "The bots can use this account now." : "Use /model to pick a model.";
+		this.appendLine(`Connected. ${next}`, T3);
 	}
 
 	private answerLogin(screen: Extract<PickerScreen, { kind: "login" }>, text: string) {

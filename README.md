@@ -44,7 +44,7 @@ MIMO_MODEL=openai-codex/gpt-5.6-luna MIMO_REASONING=max bun run dev
 
 A integração OpenAI usa as credenciais locais do Codex em `~/.codex/auth.json`; a OpenCode Go usa `~/.local/share/opencode/auth.json`. O catálogo vem das mesmas contas. A assinatura tem seus próprios limites de uso, separados de uma chave de API.
 
-Use `/login` para conectar um provedor sem sair da TUI. O seletor mostra OpenCode Go (chave de API) e OpenAI (OAuth). Na OpenAI, escolha login pelo navegador ou por código de dispositivo; a TUI mostra o link e `c` copia ele para a área de transferência. Cole o código de autorização no composer se o navegador não voltar sozinho. `/cancel` ou `Esc` aborta o login. A credencial é gravada nos mesmos arquivos do Codex e da OpenCode, e o token renovado é salvo a cada atualização.
+Use `/login` para conectar uma conta sem sair da TUI. O seletor mostra OpenCode Go (chave de API), OpenAI (OAuth) e Gmail (OAuth). Na OpenAI, escolha login pelo navegador ou por código de dispositivo; a TUI mostra o link e `c` copia ele para a área de transferência. Cole o código de autorização no composer se o navegador não voltar sozinho. `/cancel` ou `Esc` aborta o login. A credencial dos modelos é gravada nos mesmos arquivos do Codex e da OpenCode, e o token renovado é salvo a cada atualização. O Gmail segue o mesmo caminho e grava a conta em `.data/gmail/accounts.json`; a autorização volta sozinha do navegador.
 
 O modelo inicial padrão é `opencode-go/deepseek-v4-flash`. `MIMO_MODEL` e `MIMO_REASONING` definem apenas a configuração inicial de um bot novo. As escolhas salvas por bot prevalecem sobre o ambiente.
 
@@ -62,11 +62,7 @@ Por padrão os dados reais ficam em `.data/` na raiz: bots, transcripts, memóri
 bun run dev:sandbox
 ```
 
-Ele usa `.data-dev` (ignorado pelo git). Qualquer outro diretório serve com `MIMO_DATA_DIR` (relativo à raiz ou absoluto). Para conectar contas no sandbox:
-
-```sh
-MIMO_DATA_DIR=.data-dev bun run gmail:auth
-```
+Ele usa `.data-dev` (ignorado pelo git). Qualquer outro diretório serve com `MIMO_DATA_DIR` (relativo à raiz ou absoluto). Para conectar contas no sandbox, rode `/login` dentro dele: a conta é gravada no diretório de dados em uso.
 
 A verificação de ponta a ponta (`verify-mimo`) também roda em sandbox por padrão e só usa os dados reais se for apontada para eles de propósito.
 
@@ -84,10 +80,10 @@ Gmail é uma integração disponível para os bots. As contas conectadas pertenc
 2. Configure a tela de consentimento OAuth (tipo External, com você como usuário de teste).
 3. Em Credenciais, crie um cliente OAuth do tipo App para computador.
 4. Coloque o client id e o client secret em `.env.local` (`GMAIL_CLIENT_ID` e `GMAIL_CLIENT_SECRET`).
-5. Rode `bun run gmail:auth`, abra a URL que aparecer e autorize a conta. O comando grava a conta e o refresh token sozinho; rode de novo para conectar outras contas.
-6. Rode `bun run dev` e peça para o bot listar os não lidos. Com mais de uma conta, diga qual.
+5. Rode `bun run dev`, digite `/login` e escolha Gmail. Abra o link (`c` copia), autorize a conta e a TUI grava a conta e o refresh token sozinha; repita para conectar outras contas.
+6. Peça para o bot listar os não lidos. Com mais de uma conta, diga qual.
 
-Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dias e a conta precisa ser conectada de novo com `bun run gmail:auth`. Para evitar, publique o app em In production; o consentimento passa a mostrar o aviso de app não verificado, e para uso pessoal não é preciso concluir a verificação.
+Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dias e a conta precisa ser conectada de novo com `/login`. Para evitar, publique o app em In production; o consentimento passa a mostrar o aviso de app não verificado, e para uso pessoal não é preciso concluir a verificação.
 
 ## Busca na web
 

@@ -51,7 +51,7 @@ function requiredEnv(name: string): string {
 	const value = process.env[name];
 	if (!value) {
 		throw new Error(
-			`Gmail não está configurado: defina ${name} em apps/agent/.env.local. Veja apps/agent/.env.example.`,
+			`Gmail não está configurado: defina ${name} no .env.local da raiz. Veja .env.example.`,
 		);
 	}
 	return value;
@@ -106,7 +106,7 @@ export async function resolveAccount(query?: string): Promise<GmailAccount> {
 		throw new Error(`Conta "${query}" não encontrada. Conectadas: ${accountList(accounts)}.`);
 	}
 	if (accounts.length === 0) {
-		throw new Error("Nenhuma conta do Gmail conectada. Rode `bun run gmail:auth`.");
+		throw new Error("Nenhuma conta do Gmail conectada. A pessoa conecta uma com /login na TUI.");
 	}
 	if (accounts.length > 1) {
 		throw new Error(`Mais de uma conta conectada: ${accountList(accounts)}. Informe qual no parâmetro account.`);
