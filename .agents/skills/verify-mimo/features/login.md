@@ -15,6 +15,6 @@ O bot também inicia o fluxo do Gmail com a tool `connect_gmail`: a mesma tela a
 5. Escolha OpenCode Go e confira o pedido da chave. Cancele sem digitar. Nenhum arquivo de credencial pode ser criado.
 6. Escolha Gmail e confira o link `https://accounts.google.com/o/oauth2/v2/auth?...`, a dica do `c` e o pedido do código. O servidor de retorno escuta em 127.0.0.1:53682 (`ss -ltn`). `/cancel` libera a porta.
 
-O login por código de dispositivo mostra o link e o código na mesma linha de evento. Registre como indisponível quando não puder concluir sem uma conta de teste.
-
 7. Peça ao bot `quero conectar minha conta do gmail`. Confira `⚙ connect_gmail`, a mesma tela de login e a porta 53682. `Esc` fecha a tela, a TUI mostra `✗ tool failed: Login cancelled.` e o bot responde no mesmo turno.
+
+O login por código de dispositivo mostra o link e o código na mesma linha de evento. Registre como indisponível quando não puder concluir sem uma conta de teste.
