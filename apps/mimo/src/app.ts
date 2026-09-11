@@ -332,7 +332,7 @@ export class MimoApp {
 			for (const error of catalog.errors) {
 				this.appendPickerLine(`${PROVIDER_NAMES[error.provider]}: ${error.message}`, T3);
 			}
-			this.appendPickerLine("/cancel to return", T4);
+			this.appendPickerLine("/cancel to return or press Esc", T4);
 			this.pickerTranscript.scrollTo(0);
 			this.setPickerStatus("ready");
 		} catch (error) {
@@ -352,7 +352,7 @@ export class MimoApp {
 		for (const [index, effort] of option.reasoningOptions.entries()) {
 			this.appendPickerLine(`${index + 1}. ${effort}`, T2, 0);
 		}
-		this.appendPickerLine("/cancel to return", T4);
+		this.appendPickerLine("/cancel to return or press Esc", T4);
 		this.setPickerStatus("ready");
 	}
 
@@ -369,7 +369,7 @@ export class MimoApp {
 			}
 			this.appendPickerLine(`${index + 1}. ${target.name} · ${target.how}`, T2, 0);
 		}
-		this.appendPickerLine("/cancel to return", T4);
+		this.appendPickerLine("/cancel to return or press Esc", T4);
 		this.setPickerStatus("ready");
 	}
 
@@ -405,7 +405,7 @@ export class MimoApp {
 			for (const [index, option] of event.prompt.options.entries()) {
 				this.appendPickerLine(`${index + 1}. ${option.label}`, T2, 0);
 			}
-			this.appendPickerLine("/cancel to return", T4);
+			this.appendPickerLine("/cancel to return or press Esc", T4);
 			this.input.placeholder = event.prompt.kind === "select" ? "number or /cancel" : "type here or /cancel";
 			this.setPickerStatus("ready");
 			return;

@@ -6,7 +6,7 @@ As credenciais de modelo não são isoladas pelo sandbox: a gravação vai para 
 
 ## Verificação
 
-1. `$CONTROL send '/login'`. Confira os títulos `providers` e `plugins`, as opções numeradas em sequência e `/cancel to return`.
+1. `$CONTROL send '/login'`. Confira os títulos `providers` e `plugins`, as opções numeradas em sequência e `/cancel to return or press Esc`.
 2. Escolha OpenAI e depois o login por navegador. Confira a URL `https://auth.openai.com/oauth/authorize?...`, a instrução do provedor e a dica do `c`.
 3. Envie a tecla literal `c` pelo tmux. Confira `Link copied.` no pane e o link na área de transferência (`wl-paste`). O composer precisa continuar vazio.
 4. `/cancel` volta à tela anterior e libera a porta 1455. Confira que `~/.codex/auth.json` não mudou (`stat`).
