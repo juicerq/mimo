@@ -1,7 +1,0 @@
-{
-	"workspaces": {
-		"apps/agent": {
-			"entry": ["agent/memory/*.ts"]
-		}
-	}
-}

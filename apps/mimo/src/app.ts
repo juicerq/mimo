@@ -7,19 +7,11 @@ import {
 	TextRenderable,
 	type CliRenderer,
 } from "@opentui/core";
-import {
-	resolveTextToResponses,
-	type ActionResultStreamEvent,
-	type ActionsRequestedStreamEvent,
-	type InputOption,
-	type InputRequest,
-	type InputResolutionOutcome,
-	type InputResolvedStreamEvent,
-	type MessageStreamEvent,
-} from "eve/client";
-import { BotNameSchema, type Bot } from "@agent/bots";
-import { PROVIDER_NAMES, type ModelInfo, type ModelOption, type ModelSelection } from "@agent/model-info";
-import { describeError, type AgentChat, type BotChat } from "./agent";
+import { Bot } from "@agent/bot/bot";
+import { createBot, listBots } from "@agent/bot/store";
+import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode } from "@agent/bot/types";
+import { listModels } from "@agent/model/catalog";
+import { PROVIDER_NAMES, type ModelInfo, type ModelOption, type ModelSelection } from "@agent/model/types";
 
 const T1 = "#F2F2F3";
 const T2 = "#C9C9CC";
@@ -32,56 +24,44 @@ const TOOL_COLOR = T4;
 const ERROR_COLOR = T1;
 const STATUS_COLOR = T4;
 const ATTENTION_COLOR = T1;
-const FOLLOW_RESTART_MS = 2_000;
 const DOUBLE_ESCAPE_MS = 400;
+const APPROVAL_INPUT_CHARACTERS = 240;
 
-type BotMode = "normal" | "autonomous";
 type PickerScreen =
-	| { kind: "models"; bot: Bot; options: ModelOption[] }
-	| { kind: "effort"; bot: Bot; option: ModelOption };
+	| { kind: "models"; bot: BotInfo; options: ModelOption[] }
+	| { kind: "effort"; bot: BotInfo; option: ModelOption };
 type Screen =
-	| { kind: "bots"; bots: Bot[] }
-	| { kind: "conversation"; bot: Bot }
+	| { kind: "bots"; bots: BotInfo[] }
+	| { kind: "conversation"; bot: BotInfo }
 	| PickerScreen
 	| { kind: "saving" };
 
-const RESOLUTION_TEXT: Record<InputResolutionOutcome, string> = {
-	approved: "approved",
-	denied: "denied",
-	answered: "answered",
-	ignored: "ignored",
-	invalid: "invalid",
-};
-
 export class MimoApp {
-	private readonly chat: AgentChat;
 	private readonly renderer: CliRenderer;
 	private readonly transcript: ScrollBoxRenderable;
 	private readonly status: TextRenderable;
 	private readonly input: InputRenderable;
 	private readonly heading: TextRenderable;
-	private conversation: BotChat | null = null;
+	private readonly pickerTranscript: ScrollBoxRenderable;
+	private picker: { view: AbortController; draft: string; state: string } | null = null;
+	private conversation: Bot | null = null;
+	private unsubscribe: (() => void) | null = null;
 	private screen: Screen = { kind: "bots", bots: [] };
 	private view = new AbortController();
 	private reply: TextRenderable | null = null;
 	private replyText = "";
 	private busy = false;
 	private failed = false;
-	private following: AbortSignal | null = null;
 	private mode: BotMode = "normal";
 	private lastState = "";
 	private modelInfo: ModelInfo | null = null;
 	private lastFailure: string | null = null;
 	private contextUsed: number | null = null;
-	private pendingRequests: InputRequest[] = [];
-	private activeTurnId: string | null = null;
+	private approval: Approval | null = null;
 	private lastEscapeAt: number | null = null;
-	private sessionEnded = false;
-	private readonly receivedTurns = new Set<string>();
 
-	constructor(renderer: CliRenderer, chat: AgentChat) {
+	constructor(renderer: CliRenderer) {
 		this.renderer = renderer;
-		this.chat = chat;
 		this.heading = new TextRenderable(renderer, {
 			id: "heading",
 			content: "bots",
@@ -101,6 +81,10 @@ export class MimoApp {
 			paddingRight: 2,
 			stickyScroll: true,
 			stickyStart: "bottom",
+		});
+		this.pickerTranscript = new ScrollBoxRenderable(renderer, {
+			width: "100%", flexGrow: 1, minHeight: 0, paddingTop: 1,
+			paddingLeft: 2, paddingRight: 2, visible: false,
 		});
 		this.status = new TextRenderable(renderer, {
 			id: "status",
@@ -127,7 +111,9 @@ export class MimoApp {
 			this.submit(value);
 		});
 		renderer.keyInput.on("keypress", (key) => {
-			if (key.name === "escape") {
+			if (key.ctrl && key.name === "p" && this.screen.kind === "conversation" && this.conversation) {
+				void this.showModels(this.screen.bot);
+			} else if (key.name === "escape") {
 				this.handleEscape();
 			} else {
 				this.lastEscapeAt = null;
@@ -160,6 +146,7 @@ export class MimoApp {
 		});
 		container.add(headingRow);
 		container.add(this.transcript);
+		container.add(this.pickerTranscript);
 		container.add(composer);
 		container.add(statusRow);
 		renderer.root.add(container);
@@ -167,14 +154,10 @@ export class MimoApp {
 
 	async start(): Promise<void> {
 		this.input.focus();
-		this.setStatus("connecting");
-		const problem = await this.chat.connectionProblem();
-		if (problem === null) {
-			await this.showBots();
-			return;
-		}
-		this.appendLine(`✗ agent unavailable: ${problem}`, ERROR_COLOR);
-		this.setStatus("offline");
+		const draft = this.input.value;
+		const loading = this.showBots();
+		this.input.value = draft;
+		await loading;
 	}
 
 	private submit(value: string): void {
@@ -182,7 +165,7 @@ export class MimoApp {
 		if (this.navigate(text)) {
 			return;
 		}
-		if (this.busy || text.length === 0) {
+		if ((this.picker ? this.picker.state !== "ready" : this.busy) || text.length === 0) {
 			return;
 		}
 		if (this.screen.kind === "models" || this.screen.kind === "effort") {
@@ -206,12 +189,7 @@ export class MimoApp {
 		if (!conversation) {
 			return;
 		}
-		const responses = resolveTextToResponses(text, this.pendingRequests);
-		if (responses.length > 0) {
-			void this.dispatch(() => conversation.respond(responses));
-			return;
-		}
-		void this.dispatch(() => conversation.send(text));
+		void this.dispatch(async () => await conversation.deliver(text));
 	}
 
 	private handleEscape() {
@@ -220,7 +198,7 @@ export class MimoApp {
 			this.cancelSelection();
 			return;
 		}
-		if (this.screen.kind !== "conversation" || (!this.busy && this.pendingRequests.length === 0)
+		if (this.screen.kind !== "conversation" || (!this.busy && this.approval === null)
 			|| this.lastState === "cancelling") {
 			this.lastEscapeAt = null;
 			return;
@@ -228,37 +206,15 @@ export class MimoApp {
 		const now = performance.now();
 		if (this.lastEscapeAt !== null && now - this.lastEscapeAt <= DOUBLE_ESCAPE_MS) {
 			this.lastEscapeAt = null;
-			void this.cancelTurn(this.activeTurnId);
+			this.cancelTurn();
 			return;
 		}
 		this.lastEscapeAt = now;
 	}
 
-	private async cancelTurn(turnId: string | null) {
-		const conversation = this.conversation;
-		if (!conversation) {
-			return;
-		}
-		const signal = this.view.signal;
-		const previousState = this.lastState;
+	private cancelTurn() {
 		this.setStatus("cancelling");
-		try {
-			if (!turnId && this.pendingRequests.length === 0) {
-				this.setStatus(previousState);
-				return;
-			}
-			const result = await conversation.cancel(this.pendingRequests.length > 0 ? null : turnId);
-			if (!signal.aborted && result.status === "no_active_turn" && this.lastState === "cancelling") {
-				this.setStatus(previousState);
-			}
-		} catch (error) {
-			if (!signal.aborted) {
-				this.appendLine(`✗ could not interrupt: ${describeError(error)}`, ERROR_COLOR);
-				if (this.lastState === "cancelling") {
-					this.setStatus(previousState);
-				}
-			}
-		}
+		this.conversation?.cancel();
 	}
 
 	private navigate(text: string) {
@@ -287,7 +243,7 @@ export class MimoApp {
 
 	private cancelSelection() {
 		if (this.screen.kind === "models" || this.screen.kind === "effort") {
-			void this.openBot(this.screen.bot);
+			this.closePicker(this.screen.bot);
 		}
 	}
 
@@ -295,7 +251,7 @@ export class MimoApp {
 		const screen = this.screen;
 		this.input.value = "";
 		if (!/^[1-9]\d*$/.test(text)) {
-			this.appendLine("Choose a number, or /cancel to return.", T3);
+			this.appendPickerLine("Choose a number, or /cancel to return.", T3);
 			return;
 		}
 		const index = Number(text) - 1;
@@ -313,80 +269,137 @@ export class MimoApp {
 				return;
 			}
 		}
-		this.appendLine("Choose one of the listed numbers.", T3);
+		this.appendPickerLine("Choose one of the listed numbers.", T3);
 	}
 
-	private async showModels(bot: Bot) {
-		const signal = this.resetView({ kind: "models", bot, options: [] });
+	private async showModels(bot: BotInfo) {
+		if (!this.conversation) {
+			return;
+		}
+		this.picker?.view.abort();
+		this.picker = { view: new AbortController(), draft: this.picker?.draft ?? this.input.value, state: "loading" };
+		const signal = this.picker.view.signal;
+		this.screen = { kind: "models", bot, options: [] };
+		this.clearPicker();
+		this.transcript.visible = false;
+		this.pickerTranscript.visible = true;
+		this.input.value = "";
+		this.setStatus(this.lastState);
 		this.heading.content = `${bot.name}  ·  model`;
 		this.input.placeholder = "number or /cancel";
 		try {
-			const catalog = await this.chat.models();
+			const catalog = await listModels();
 			if (signal.aborted) {
 				return;
 			}
 			this.screen = { kind: "models", bot, options: catalog.models };
 			for (const [index, option] of catalog.models.entries()) {
-				this.appendLine(`${index + 1}. ${option.name} · ${PROVIDER_NAMES[option.provider]}`, T2, 0);
+				this.appendPickerLine(`${index + 1}. ${option.name} · ${PROVIDER_NAMES[option.provider]}`, T2, 0);
 			}
 			for (const error of catalog.errors) {
-				this.appendLine(`${PROVIDER_NAMES[error.provider]}: ${error.message}`, T3);
+				this.appendPickerLine(`${PROVIDER_NAMES[error.provider]}: ${error.message}`, T3);
 			}
-			this.appendLine("/cancel to return", T4);
-			this.transcript.scrollTo(0);
-			this.busy = false;
-			this.setStatus("ready");
+			this.appendPickerLine("/cancel to return", T4);
+			this.pickerTranscript.scrollTo(0);
+			this.setPickerStatus("ready");
 		} catch (error) {
 			if (!signal.aborted) {
-				this.renderFailure(describeError(error));
+				this.appendPickerLine(describeError(error), ERROR_COLOR);
+				this.setPickerStatus("ready");
 			}
 		}
 	}
 
-	private showEfforts(bot: Bot, option: ModelOption) {
+	private showEfforts(bot: BotInfo, option: ModelOption) {
 		if (option.reasoningOptions.length === 1) {
 			void this.saveModel(bot, { provider: option.provider, id: option.id, reasoning: option.reasoningOptions[0] });
 			return;
 		}
-		this.resetView({ kind: "effort", bot, option });
+		this.screen = { kind: "effort", bot, option };
+		this.clearPicker();
 		this.heading.content = `${option.name}  ·  effort`;
 		this.input.placeholder = "number or /cancel";
 		for (const [index, effort] of option.reasoningOptions.entries()) {
-			this.appendLine(`${index + 1}. ${effort}`, T2, 0);
+			this.appendPickerLine(`${index + 1}. ${effort}`, T2, 0);
 		}
-		this.appendLine("/cancel to return", T4);
-		this.busy = false;
-		this.setStatus("ready");
+		this.appendPickerLine("/cancel to return", T4);
+		this.setPickerStatus("ready");
 	}
 
-	private async saveModel(bot: Bot, selection: ModelSelection) {
+	private async saveModel(bot: BotInfo, selection: ModelSelection) {
 		const picker = this.screen;
 		if (picker.kind !== "models" && picker.kind !== "effort") {
 			return;
 		}
-		const signal = this.view.signal;
+		const signal = this.picker?.view.signal;
 		this.screen = { kind: "saving" };
-		this.busy = true;
-		this.setStatus("loading");
+		this.setPickerStatus("loading");
 		try {
-			const updated = await this.chat.selectModel(bot.id, selection);
-			if (signal.aborted) {
+			const updated = await this.requireConversation().selectModel(selection);
+			if (signal?.aborted) {
 				return;
 			}
-			await this.openBot(updated, "Model saved for the next response.");
+			this.closePicker(updated);
+			this.appendLine("Model saved for the next response.", T3);
 		} catch (error) {
-			if (!signal.aborted) {
+			if (!signal?.aborted) {
 				this.screen = picker;
-				this.renderFailure(describeError(error));
+				this.appendPickerLine(describeError(error), ERROR_COLOR);
+				this.setPickerStatus("ready");
 			}
 		}
 	}
 
+	private requireConversation(): Bot {
+		if (!this.conversation) {
+			throw new Error("Open a bot first.");
+		}
+		return this.conversation;
+	}
+
+	private clearPicker() {
+		for (const child of this.pickerTranscript.getChildren()) {
+			child.destroyRecursively();
+		}
+	}
+
+	private appendPickerLine(content: string, fg = T2, marginBottom = 1) {
+		this.pickerTranscript.add(new TextRenderable(this.renderer, { content, fg, width: "100%", wrapMode: "word", marginBottom }));
+	}
+
+	private setPickerStatus(state: string) {
+		if (this.picker) {
+			this.picker.state = state;
+		}
+		this.setStatus(this.lastState);
+	}
+
+	private closePicker(bot: BotInfo) {
+		const draft = this.picker?.draft ?? "";
+		this.picker?.view.abort();
+		this.picker = null;
+		this.clearPicker();
+		this.pickerTranscript.visible = false;
+		this.transcript.visible = true;
+		this.screen = { kind: "conversation", bot };
+		this.modelInfo = bot.model;
+		this.heading.content = `${bot.name}  ·  /bots  /model`;
+		this.input.placeholder = "write your prompt";
+		this.input.value = draft;
+		this.setStatus(this.lastState);
+	}
+
 	private resetView(screen: Exclude<Screen, { kind: "saving" }>) {
+		this.picker?.view.abort();
+		this.picker = null;
+		this.clearPicker();
+		this.pickerTranscript.visible = false;
+		this.transcript.visible = true;
 		this.screen = screen;
 		this.view.abort();
 		this.view = new AbortController();
-		this.following = null;
+		this.unsubscribe?.();
+		this.unsubscribe = null;
 		this.conversation = null;
 		this.sealReply();
 		for (const child of this.transcript.getChildren()) {
@@ -396,17 +409,12 @@ export class MimoApp {
 		this.input.value = "";
 		this.busy = true;
 		this.failed = false;
-		if (screen.kind === "bots" || screen.kind === "conversation") {
-			this.mode = "normal";
-			this.contextUsed = null;
-		}
+		this.mode = "normal";
+		this.contextUsed = null;
 		this.modelInfo = screen.kind === "bots" ? null : screen.bot.model;
 		this.lastFailure = null;
-		this.pendingRequests = [];
-		this.activeTurnId = null;
+		this.approval = null;
 		this.lastEscapeAt = null;
-		this.sessionEnded = false;
-		this.receivedTurns.clear();
 		this.setStatus("loading");
 		return this.view.signal;
 	}
@@ -416,7 +424,7 @@ export class MimoApp {
 		this.heading.content = "bots";
 		this.input.placeholder = "number or /new <name>";
 		try {
-			const bots = await this.chat.listBots();
+			const bots = await listBots();
 			if (signal.aborted) {
 				return;
 			}
@@ -444,7 +452,7 @@ export class MimoApp {
 		this.busy = true;
 		this.setStatus("loading");
 		try {
-			const bot = await this.chat.createBot(parsed.data);
+			const bot = await createBot(parsed.data);
 			if (!signal.aborted) {
 				await this.openBot(bot);
 			}
@@ -455,28 +463,33 @@ export class MimoApp {
 		}
 	}
 
-	private async openBot(bot: Bot, notice?: string) {
+	private async openBot(bot: BotInfo) {
 		const signal = this.resetView({ kind: "conversation", bot });
 		this.heading.content = `${bot.name}  ·  /bots  /model`;
 		this.input.placeholder = "write your prompt";
 		try {
-			const conversation = await this.chat.openBot(bot.id);
-			const events = await conversation.snapshot(signal);
+			const conversation = await Bot.open(bot.id);
 			if (signal.aborted) {
 				return;
 			}
 			this.conversation = conversation;
-			this.screen = { kind: "conversation", bot: conversation.bot };
-			this.modelInfo = conversation.bot.model;
+			this.screen = { kind: "conversation", bot: conversation.info };
+			this.modelInfo = conversation.info.model;
+			this.mode = conversation.info.mode;
 			this.busy = false;
 			this.setStatus("ready");
-			for (const event of events) {
+			for (const event of conversation.transcript()) {
 				this.renderEvent(event);
 			}
-			if (notice) {
-				this.appendLine(notice, T3);
+			this.unsubscribe = conversation.subscribe((event) => {
+				if (!signal.aborted) {
+					this.renderEvent(event);
+				}
+			});
+			const approval = conversation.approval;
+			if (approval) {
+				this.renderEvent({ type: "approval", approval });
 			}
-			void this.follow();
 		} catch (error) {
 			if (!signal.aborted) {
 				this.renderFailure(describeError(error));
@@ -484,7 +497,7 @@ export class MimoApp {
 		}
 	}
 
-	private async dispatch(operation: () => Promise<Bot | void>): Promise<void> {
+	private async dispatch(operation: () => Promise<void>): Promise<void> {
 		const signal = this.view.signal;
 		const input = this.input.value;
 		this.input.value = "";
@@ -493,11 +506,7 @@ export class MimoApp {
 		this.busy = true;
 		this.setStatus("thinking");
 		try {
-			const bot = await operation();
-			if (!signal.aborted && bot && bot.sessionId !== this.conversation?.bot.sessionId) {
-				await this.openBot(bot, bot.previousSessionId ? "New session. Previous session data is available to the bot." : undefined);
-				return;
-			}
+			await operation();
 		} catch (error) {
 			if (!signal.aborted) {
 				if (!this.input.value) {
@@ -505,171 +514,63 @@ export class MimoApp {
 				}
 				this.renderFailure(describeError(error));
 			}
-			return;
-		}
-		if (!signal.aborted) {
-			await this.follow();
 		}
 	}
 
-	private async follow(): Promise<void> {
-		const signal = this.view.signal;
-		const conversation = this.conversation;
-		if (this.following === signal || !conversation) {
-			return;
-		}
-		this.following = signal;
-		let reported = false;
-		try {
-			while (!signal.aborted) {
-				try {
-					if (this.sessionEnded) {
-						const current = await this.chat.openBot(conversation.bot.id);
-						if (!signal.aborted && current.bot.sessionId !== conversation.bot.sessionId) {
-							await this.openBot(current.bot, "New session. Previous history, memory and routines are available.");
-							return;
-						}
-						await Bun.sleep(FOLLOW_RESTART_MS);
-						continue;
-					}
-					const stream = conversation.stream(signal);
-					if (stream === null) {
-						return;
-					}
-					for await (const event of stream) {
-						if (signal.aborted) {
-							return;
-						}
-						reported = false;
-						this.renderEvent(event);
-						if (this.sessionEnded) {
-							break;
-						}
-					}
-				} catch (error) {
-					if (signal.aborted) {
-						return;
-					}
-					if (!reported) {
-						reported = true;
-						this.appendLine(`✗ stream dropped: ${describeError(error)}`, ERROR_COLOR);
-					}
-				}
-				await Bun.sleep(FOLLOW_RESTART_MS);
-			}
-		} finally {
-			if (this.following === signal) {
-				this.following = null;
-			}
-		}
-	}
-
-	private renderEvent(event: MessageStreamEvent): void {
+	private renderEvent(event: BotEvent): void {
 		switch (event.type) {
-			case "message.received":
-				if (this.receivedTurns.has(event.data.turnId)) {
-					return;
-				}
-				this.receivedTurns.add(event.data.turnId);
+			case "user":
 				this.sealReply();
-				this.appendLine(`you: ${event.data.message}`, USER_COLOR);
+				this.appendLine(`you: ${event.text}`, USER_COLOR);
 				return;
-			case "message.appended":
-				this.appendReplyDelta(event.data.messageDelta);
+			case "reply-delta":
+				this.appendReplyDelta(event.delta);
 				return;
-			case "message.completed":
-				this.completeReply(event.data.message);
+			case "reply":
+				this.completeReply(event.text);
 				return;
-			case "step.completed": {
-				const usage = event.data.usage;
-				if (usage?.inputTokens !== undefined) {
-					this.contextUsed = usage.inputTokens + (usage.outputTokens ?? 0);
-					this.setStatus(this.lastState);
-				}
+			case "tool":
+				this.appendLine(`⚙ ${event.toolName}`, TOOL_COLOR);
 				return;
-			}
-			case "actions.requested":
-				this.renderActions(event.data.actions);
+			case "tool-failed":
+				this.appendLine(`✗ tool failed: ${event.message}`, ERROR_COLOR);
 				return;
-			case "action.result":
-				this.renderActionResult(event.data);
+			case "approval":
+				this.renderApproval(event.approval);
 				return;
-			case "input.requested":
-				this.renderInputRequests(event.data.requests);
+			case "approval-resolved":
+				this.approval = null;
+				this.appendLine(`⏸ ${event.outcome}`, TOOL_COLOR);
+				this.busy = true;
+				this.setStatus("thinking");
 				return;
-			case "input.resolved":
-				this.renderInputResolutions(event.data.resolutions);
+			case "usage":
+				this.contextUsed = event.contextTokens;
+				this.setStatus(this.lastState);
 				return;
-			case "session.waiting":
-				this.renderWaiting();
+			case "mode":
+				this.mode = event.mode;
+				this.setStatus(this.lastState);
 				return;
-			default:
-				this.renderLifecycle(event);
-		}
-	}
-
-	private renderLifecycle(event: MessageStreamEvent): void {
-		switch (event.type) {
-			case "turn.started":
-				this.activeTurnId = event.data.turnId;
+			case "turn-started":
 				this.lastEscapeAt = null;
 				this.failed = false;
 				this.lastFailure = null;
 				this.busy = true;
 				this.setStatus("thinking");
 				return;
-			case "turn.completed":
-				this.activeTurnId = null;
-				this.busy = false;
+			case "turn-finished":
+				this.renderWaiting();
 				return;
-			case "session.completed":
-				if (this.pendingRequests.length > 0) {
-					this.appendLine("Interrupted. The next message starts a new session.", T3);
-				}
-				this.sessionEnded = true;
-				this.pendingRequests = [];
-				this.activeTurnId = null;
-				this.busy = false;
-				this.setStatus("ended");
+			case "turn-failed":
+				this.renderFailure(event.message);
 				return;
-			case "session.failed":
-				this.sessionEnded = true;
-				this.pendingRequests = [];
-				this.activeTurnId = null;
-				this.renderFailure(event.data.message);
-				return;
-			case "step.failed":
-			case "turn.failed":
-				this.renderFailure(event.data.message);
-				return;
-			case "turn.cancelled":
-				this.pendingRequests = [];
-				this.activeTurnId = null;
+			case "turn-cancelled":
+				this.approval = null;
 				this.sealReply();
 				this.appendLine("Interrupted.", T3);
 				this.busy = false;
 				this.setStatus("cancelled");
-				return;
-			default:
-				return;
-		}
-	}
-
-	private renderActions(actions: ActionsRequestedStreamEvent["data"]["actions"]): void {
-		for (const action of actions) {
-			const label = action.kind === "tool-call" ? action.toolName : action.kind;
-			this.appendLine(`⚙ ${label}`, TOOL_COLOR);
-		}
-	}
-
-	private renderActionResult(data: ActionResultStreamEvent["data"]): void {
-		const mode = modeFromToolResult(data.result);
-		if (mode !== null) {
-			this.mode = mode;
-			this.setStatus(this.lastState);
-		}
-		if (data.status === "failed" && data.error) {
-			this.appendLine(`✗ tool failed: ${data.error.message}`, ERROR_COLOR);
 		}
 	}
 
@@ -684,28 +585,6 @@ export class MimoApp {
 		this.setStatus("error");
 	}
 
-	private renderInputRequests(requests: readonly InputRequest[]): void {
-		for (const request of requests) {
-			this.pendingRequests.push(request);
-			this.renderRequest(request);
-		}
-		this.busy = false;
-		this.setStatus("waiting");
-	}
-
-	private renderInputResolutions(resolutions: InputResolvedStreamEvent["data"]["resolutions"]): void {
-		for (const resolution of resolutions) {
-			this.pendingRequests = this.pendingRequests.filter(
-				(request) => request.requestId !== resolution.requestId,
-			);
-			this.appendLine(`⏸ ${RESOLUTION_TEXT[resolution.outcome]}`, TOOL_COLOR);
-		}
-		if (resolutions.length > 0) {
-			this.busy = true;
-			this.setStatus("thinking");
-		}
-	}
-
 	private renderWaiting(): void {
 		this.busy = false;
 		if (this.lastState === "cancelled") {
@@ -713,32 +592,23 @@ export class MimoApp {
 		}
 		if (this.failed) {
 			this.setStatus("error");
-		} else if (this.pendingRequests.length > 0) {
+		} else if (this.approval !== null) {
 			this.setStatus("waiting");
 		} else {
 			this.setStatus("ready");
 		}
 	}
 
-	private renderRequest(request: InputRequest): void {
-		if (request.kind === "tool-approval") {
-			this.appendLine(`▌ ⏸ approval: ${request.action.toolName}`, ATTENTION_COLOR);
-			const input = JSON.stringify(request.action.input);
-			if (input !== "{}") {
-				this.appendLine(`   ${truncate(input, 240)}`, TOOL_COLOR);
-			}
-			this.appendLine(`   ${optionLine(request.options ?? [])}`, TEXT_COLOR);
-			return;
+	private renderApproval(approval: Approval): void {
+		this.approval = approval;
+		this.appendLine(`▌ ⏸ approval: ${approval.toolName}`, ATTENTION_COLOR);
+		const input = JSON.stringify(approval.input);
+		if (input !== "{}") {
+			this.appendLine(`   ${truncate(input, APPROVAL_INPUT_CHARACTERS)}`, TOOL_COLOR);
 		}
-		this.appendLine(`▌ ⏸ ${request.prompt}`, ATTENTION_COLOR);
-		const options = request.options ?? [];
-		if (options.length > 0) {
-			this.appendLine(`   ${optionLine(options)}`, TEXT_COLOR);
-			return;
-		}
-		if (request.allowFreeform !== false) {
-			this.appendLine("   responda com o texto", TOOL_COLOR);
-		}
+		this.appendLine("   1. Approve   2. Cancel", TEXT_COLOR);
+		this.busy = false;
+		this.setStatus("waiting");
 	}
 
 	private appendReplyDelta(delta: string): void {
@@ -747,8 +617,8 @@ export class MimoApp {
 		block.content = this.replyText;
 	}
 
-	private completeReply(message: string | null): void {
-		if (message !== null) {
+	private completeReply(message: string): void {
+		if (message !== "") {
 			const block = this.ensureReply();
 			this.replyText = message;
 			block.content = message;
@@ -792,12 +662,17 @@ export class MimoApp {
 		const capacity = contextWindow === undefined ? "—" : formatTokens(contextWindow);
 		parts.push(`context: ${used}/${capacity}`);
 		const model = modelInfo?.name ?? "—";
-		const reasoning = modelInfo?.reasoning;
-		const effort = reasoning === "provider-default" ? "default" : (reasoning ?? "default");
-		parts.push(`model: ${model} (${effort})`);
-		parts.push(`mode: ${label}`, `status: ${state}`);
+		parts.push(`model: ${model} (${modelInfo?.reasoning ?? "default"})`);
+		parts.push(`mode: ${label}`, `status: ${this.picker?.state ?? state}`);
 		this.status.content = parts.join(" | ");
 	}
+}
+
+function describeError(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	return String(error);
 }
 
 function formatTokens(tokens: number): string {
@@ -807,36 +682,6 @@ function formatTokens(tokens: number): string {
 	const thousands = tokens / 1_000;
 	const text = Number.isInteger(thousands) ? String(thousands) : thousands.toFixed(1);
 	return `${text}k`;
-}
-
-function modeFromToolResult(result: ActionResultStreamEvent["data"]["result"]): BotMode | null {
-	if (result.kind !== "tool-result" || result.toolName !== "set_mode" || result.isError === true) {
-		return null;
-	}
-	const output = result.output;
-	if (typeof output !== "object" || output === null || !("mode" in output)) {
-		return null;
-	}
-	const mode = output["mode"];
-	if (mode === "normal" || mode === "autonomous") {
-		return mode;
-	}
-	return null;
-}
-
-function optionLine(options: readonly InputOption[]): string {
-	return options.map((option, index) => `${index + 1}. ${optionLabel(option)}`).join("   ");
-}
-
-function optionLabel(option: InputOption): string {
-	switch (option.id) {
-		case "approve":
-			return "Approve";
-		case "cancel":
-			return "Cancel";
-		default:
-			return option.label;
-	}
 }
 
 function truncate(text: string, max: number): string {

@@ -6,13 +6,9 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 VERIFY_DIR="$REPO_DIR/.verify"
 CURRENT_RUN_FILE="$VERIFY_DIR/current"
 SESSION="${MIMO_VERIFY_SESSION:-mimo-verify}"
-AGENT_URL="${MIMO_AGENT_URL:-http://127.0.0.1:2000}"
-HEALTH_URL="$AGENT_URL/eve/v1/health"
-AGENT_DIR="$REPO_DIR/apps/agent"
-REAL_DATA_DIR="$AGENT_DIR/.data"
-AGENT_LOG="$AGENT_DIR/.eve/dev-server.log"
+REAL_DATA_DIR="$REPO_DIR/.data"
 READY_PATTERN="status: ready"
-LAUNCH_TIMEOUT_SECONDS="${MIMO_VERIFY_LAUNCH_TIMEOUT:-150}"
+LAUNCH_TIMEOUT_SECONDS="${MIMO_VERIFY_LAUNCH_TIMEOUT:-60}"
 WAIT_INTERVAL_SECONDS=2
 WAIT_DEFAULT_SECONDS=180
 SEND_BUSY_GRACE_SECONDS=6
@@ -24,20 +20,15 @@ usage() {
 uso: control-mimo <comando> [argumentos]
 
 comandos:
-  launch [--data <dir>]  sobe `bun run dev` em tmux; dados em sandbox por padrão
+  launch [--data <dir>]  sobe a TUI em tmux; dados em sandbox por padrão
   doctor                 checagem somente leitura da instância
   data                   imprime o diretório de dados da execução atual
   send <texto>           digita, envia e espera o turno terminar (recusa se ocupado)
   wait <regex> [seg]     espera o padrão aparecer no pane (padrão 180 s)
   capture <arquivo>      salva o pane atual no arquivo
-  log [linhas]           mostra o final do log do agente (padrão 40)
   stop [--keep-state]    encerra e restaura o estado (ou mantém com --keep-state)
   restore [run-dir]      restaura o snapshot de um run (padrão: o atual)
 EOF
-}
-
-health_up() {
-	curl -sf -m 2 "$HEALTH_URL" >/dev/null 2>&1
 }
 
 session_up() {
@@ -49,31 +40,11 @@ pane_text() {
 }
 
 status_state() {
-	pane_text | grep -oE 'status:[─ ]*(connecting|loading|ready|thinking|waiting|cancelling|cancelled|ended|error|offline)' | tail -n1 | sed -E 's/^status:[─ ]*//' || true
+	pane_text | grep -oE 'status:[─ ]*(loading|ready|thinking|waiting|cancelling|cancelled|error)' | tail -n1 | sed -E 's/^status:[─ ]*//' || true
 }
 
 composer_line() {
 	pane_text | grep "^│" | tail -n1 || true
-}
-
-agent_port() {
-	local rest="${AGENT_URL#*://}"
-	local hostport="${rest%%/*}"
-	if [[ "$hostport" == *:* ]]; then
-		printf '%s' "${hostport##*:}"
-		return
-	fi
-	printf '80'
-}
-
-listener_pid() {
-	local port="$1"
-	local pid=""
-	pid="$(ss -ltnpH "sport = :$port" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -n1 || true)"
-	if [ -z "$pid" ]; then
-		pid="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | head -n1 || true)"
-	fi
-	printf '%s' "$pid"
 }
 
 current_run_dir() {
@@ -118,7 +89,6 @@ wait_for() {
 	local pattern="$1"
 	local timeout="${2:-$WAIT_DEFAULT_SECONDS}"
 	local deadline
-	local elapsed=0
 	deadline=$((SECONDS + timeout))
 	while [ "$SECONDS" -le "$deadline" ]; do
 		if ! session_up; then
@@ -129,7 +99,6 @@ wait_for() {
 			return 0
 		fi
 		sleep "$WAIT_INTERVAL_SECONDS"
-		elapsed=$((elapsed + WAIT_INTERVAL_SECONDS))
 	done
 	mkdir -p "$VERIFY_DIR"
 	pane_text >"$VERIFY_DIR/last-timeout.txt" || true
@@ -138,39 +107,18 @@ wait_for() {
 	return 1
 }
 
-snapshot_state() {
-	local run_dir="$1"
-	local data_dir="$2"
-	mkdir -p "$run_dir/state-before"
+copy_state() {
+	local data_dir="$1"
+	local target="$2"
+	mkdir -p "$target"
 	if [ -d "$data_dir/bots" ]; then
-		cp -a "$data_dir/bots" "$run_dir/state-before/bots"
+		cp -a "$data_dir/bots" "$target/bots"
 	fi
 	if [ -f "$data_dir/routines.json" ]; then
-		cp -a "$data_dir/routines.json" "$run_dir/state-before/routines.json"
-	fi
-	if [ -e "$data_dir/memory" ]; then
-		cp -a "$data_dir/memory" "$run_dir/state-before/memory"
+		cp -a "$data_dir/routines.json" "$target/routines.json"
 	fi
 	if [ -f "$data_dir/actions.jsonl" ]; then
-		cp -a "$data_dir/actions.jsonl" "$run_dir/state-before/actions.jsonl"
-	fi
-}
-
-capture_state_after() {
-	local run_dir="$1"
-	local data_dir="$2"
-	mkdir -p "$run_dir/state-after"
-	if [ -d "$data_dir/bots" ]; then
-		cp -a "$data_dir/bots" "$run_dir/state-after/bots"
-	fi
-	if [ -f "$data_dir/routines.json" ]; then
-		cp -a "$data_dir/routines.json" "$run_dir/state-after/routines.json"
-	fi
-	if [ -e "$data_dir/memory" ]; then
-		cp -a "$data_dir/memory" "$run_dir/state-after/memory"
-	fi
-	if [ -f "$data_dir/actions.jsonl" ]; then
-		cp -a "$data_dir/actions.jsonl" "$run_dir/state-after/actions.jsonl"
+		cp -a "$data_dir/actions.jsonl" "$target/actions.jsonl"
 	fi
 }
 
@@ -178,7 +126,7 @@ restore_state() {
 	local run_dir="$1"
 	local data_dir="$2"
 	[ -n "$run_dir" ] || return 0
-	capture_state_after "$run_dir" "$data_dir"
+	copy_state "$data_dir" "$run_dir/state-after"
 	mkdir -p "$data_dir"
 	if [ -d "$run_dir/state-before/bots" ]; then
 		rm -rf "$data_dir/bots"
@@ -191,12 +139,6 @@ restore_state() {
 	elif [ -f "$data_dir/routines.json" ]; then
 		rm -f "$data_dir/routines.json"
 	fi
-	if [ -e "$run_dir/state-before/memory" ]; then
-		rm -rf "$data_dir/memory"
-		cp -a "$run_dir/state-before/memory" "$data_dir/memory"
-	elif [ -e "$data_dir/memory" ]; then
-		rm -rf "$data_dir/memory"
-	fi
 	if [ -f "$run_dir/state-before/actions.jsonl" ]; then
 		cp -a "$run_dir/state-before/actions.jsonl" "$data_dir/actions.jsonl"
 	elif [ -f "$data_dir/actions.jsonl" ]; then
@@ -207,11 +149,6 @@ restore_state() {
 launch() {
 	if session_up; then
 		echo "sessão tmux $SESSION já existe; rode: $0 stop" >&2
-		exit 1
-	fi
-	if health_up; then
-		echo "já existe um agente respondendo em $AGENT_URL." >&2
-		echo "não dirija uma instância que você não iniciou; veja: $0 doctor" >&2
 		exit 1
 	fi
 	local stamp="$1"
@@ -228,32 +165,27 @@ launch() {
 	fi
 	mkdir -p "$data_dir"
 	printf '%s' "$data_dir" >"$run_dir/data-dir.txt"
-	snapshot_state "$run_dir" "$data_dir"
+	copy_state "$data_dir" "$run_dir/state-before"
 	git -C "$REPO_DIR" rev-parse HEAD >"$run_dir/head.txt"
 	date -u +"%Y-%m-%dT%H:%M:%SZ" >"$run_dir/started.txt"
 	printf '%s' "$run_dir" >"$CURRENT_RUN_FILE"
-	local -a runtime_env=("MIMO_DATA_DIR=$data_dir" "MIMO_AGENT_URL=$AGENT_URL")
+	local -a runtime_env=("MIMO_DATA_DIR=$data_dir")
 	local setting
-	for setting in MIMO_MODEL MIMO_CONTEXT_WINDOW MIMO_REASONING; do
+	for setting in MIMO_MODEL MIMO_REASONING; do
 		if [ -n "${!setting:-}" ]; then
 			runtime_env+=("$setting=${!setting}")
 		fi
 	done
-	tmux new-session -d -s "$SESSION" -x 140 -y 42 -c "$REPO_DIR" env -u MIMO_MODEL -u MIMO_CONTEXT_WINDOW -u MIMO_REASONING "${runtime_env[@]}" bun run dev
+	tmux new-session -d -s "$SESSION" -x 140 -y 42 -c "$REPO_DIR" env -u MIMO_MODEL -u MIMO_REASONING "${runtime_env[@]}" bun apps/mimo/src/index.ts
 	if ! wait_for "$READY_PATTERN" "$LAUNCH_TIMEOUT_SECONDS"; then
 		pane_text >"$run_dir/00-launch.txt" || true
-		echo "a TUI não ficou pronta em ${LAUNCH_TIMEOUT_SECONDS}s; veja o log: $AGENT_LOG" >&2
+		echo "a TUI não ficou pronta em ${LAUNCH_TIMEOUT_SECONDS}s" >&2
 		return 1
 	fi
 	pane_text >"$run_dir/00-launch.txt"
-	local pid
-	pid="$(listener_pid "$(agent_port)")"
-	if [ -n "$pid" ]; then
-		printf '%s' "$pid" >"$run_dir/agent.pid"
-	fi
 	echo "run dir: $run_dir"
 	echo "dados: $data_dir"
-	echo "pronto: $AGENT_URL"
+	echo "pronto."
 }
 
 doctor() {
@@ -280,38 +212,29 @@ doctor() {
 	fi
 	if session_up; then
 		echo "tmux: $SESSION no ar"
-	else
-		echo "tmux: $SESSION ausente"
-	fi
-	if health_up; then
-		echo "agente: respondendo em $AGENT_URL"
-	else
-		echo "agente: sem resposta em $AGENT_URL"
-	fi
-	if session_up; then
 		if [ "$(status_state)" = "ready" ]; then
 			echo "pane: ready"
 		else
 			echo "pane: fora de pronto (veja: $0 capture <arquivo>)"
 		fi
-	fi
-	local env_file="$AGENT_DIR/.env.local"
-	local auth_file="$HOME/.local/share/opencode/auth.json"
-	if [ -f "$env_file" ] && grep -q '^OPENCODE_API_KEY=..' "$env_file"; then
-		echo "modelo: chave em OPENCODE_API_KEY"
-	elif [ -f "$auth_file" ] && grep -q '"opencode-go"' "$auth_file"; then
-		echo "modelo: chave em $auth_file"
 	else
-		echo "modelo: chave do opencode-go ausente (OPENCODE_API_KEY ou auth.json)"
+		echo "tmux: $SESSION ausente"
 	fi
-	if [ -f "$env_file" ]; then
-		if grep -q '^GMAIL_CLIENT_ID=..' "$env_file"; then
-			echo "gmail: GMAIL_CLIENT_ID presente"
-		else
-			echo "gmail: GMAIL_CLIENT_ID ausente"
-		fi
+	if [ -f "$HOME/.local/share/opencode/auth.json" ] && grep -q '"opencode-go"' "$HOME/.local/share/opencode/auth.json"; then
+		echo "opencode-go: credencial em ~/.local/share/opencode/auth.json"
 	else
-		echo "env: $env_file ausente"
+		echo "opencode-go: credencial ausente"
+	fi
+	if [ -f "$HOME/.codex/auth.json" ]; then
+		echo "openai-codex: credencial em ~/.codex/auth.json"
+	else
+		echo "openai-codex: credencial ausente"
+	fi
+	local env_file="$REPO_DIR/.env.local"
+	if [ -f "$env_file" ] && grep -q '^GMAIL_CLIENT_ID=..' "$env_file"; then
+		echo "gmail: GMAIL_CLIENT_ID presente"
+	else
+		echo "gmail: GMAIL_CLIENT_ID ausente em $env_file"
 	fi
 	if [ -f "$data_dir/gmail/accounts.json" ]; then
 		echo "contas conectadas: $(grep -c '"email"' "$data_dir/gmail/accounts.json")"
@@ -338,7 +261,7 @@ send_text() {
 	local state
 	state="$(status_state)"
 	case "$state" in
-	thinking | connecting | loading | cancelling)
+	thinking | loading | cancelling)
 		echo "bot ocupado (status: $state); espere e tente de novo" >&2
 		exit 1
 		;;
@@ -373,10 +296,10 @@ send_text() {
 	while [ "$SECONDS" -le "$deadline" ]; do
 		state="$(status_state)"
 		if [ "$saw_busy" -eq 1 ]; then
-			if [ "$state" != "thinking" ] && [ "$state" != "connecting" ] && [ "$state" != "loading" ] && [ "$state" != "cancelling" ]; then
+			if [ "$state" != "thinking" ] && [ "$state" != "loading" ] && [ "$state" != "cancelling" ]; then
 				return 0
 			fi
-		elif [ "$state" = "thinking" ] || [ "$state" = "connecting" ] || [ "$state" = "loading" ] || [ "$state" = "cancelling" ]; then
+		elif [ "$state" = "thinking" ] || [ "$state" = "loading" ] || [ "$state" = "cancelling" ]; then
 			saw_busy=1
 		elif [ "$SECONDS" -gt "$busy_deadline" ]; then
 			return 0
@@ -398,15 +321,6 @@ capture_pane() {
 	echo "$file"
 }
 
-log_tail() {
-	local lines="${1:-40}"
-	if [ ! -f "$AGENT_LOG" ]; then
-		echo "sem log em $AGENT_LOG" >&2
-		exit 1
-	fi
-	tail -n "$lines" "$AGENT_LOG"
-}
-
 stop_instance() {
 	local keep_state=0
 	if [ "${1:-}" = "--keep-state" ]; then
@@ -418,12 +332,10 @@ stop_instance() {
 	if [ -n "$run_dir" ]; then
 		data_dir="$(data_dir_of "$run_dir")"
 	fi
-	local pid=""
-	local recorded=""
 	if session_up; then
 		tmux send-keys -t "$SESSION" C-c
 		local waited=0
-		while session_up && [ "$waited" -lt 15 ]; do
+		while session_up && [ "$waited" -lt 10 ]; do
 			sleep 1
 			waited=$((waited + 1))
 		done
@@ -431,34 +343,11 @@ stop_instance() {
 			tmux kill-session -t "$SESSION"
 		fi
 	fi
-	local down=0
-	while [ "$down" -lt 10 ]; do
-		if ! health_up; then
-			break
-		fi
-		sleep 1
-		down=$((down + 1))
-	done
-	if health_up; then
-		if [ -n "$run_dir" ] && [ -f "$run_dir/agent.pid" ]; then
-			recorded="$(cat "$run_dir/agent.pid")"
-		fi
-		pid="$(listener_pid "$(agent_port)")"
-		if [ -n "$pid" ] && [ "$pid" = "$recorded" ] && [ "$(readlink -f "/proc/$pid/cwd" 2>/dev/null || true)" = "$(readlink -f "$AGENT_DIR")" ]; then
-			kill "$pid" 2>/dev/null || true
-			sleep 1
-		fi
-	fi
-	if health_up; then
-		echo "AVISO: ainda há um agente em $AGENT_URL que não foi identificado como o do launch (pid registrado: ${recorded:-nenhum}; pid atual: ${pid:-nenhum})." >&2
-		echo "não vou matar; pare manualmente e rode: $0 doctor" >&2
-		exit 1
-	fi
 	if [ "$keep_state" -eq 0 ] && [ -n "$run_dir" ]; then
 		restore_state "$run_dir" "$data_dir"
 		echo "estado restaurado do snapshot: $run_dir/state-before"
 	elif [ -n "$run_dir" ]; then
-		capture_state_after "$run_dir" "$data_dir"
+		copy_state "$data_dir" "$run_dir/state-after"
 		echo "estado mantido (--keep-state); snapshot em: $run_dir/state-before"
 	fi
 	echo "parado."
@@ -520,10 +409,6 @@ wait)
 capture)
 	shift
 	capture_pane "$@"
-	;;
-log)
-	shift
-	log_tail "$@"
 	;;
 stop)
 	shift

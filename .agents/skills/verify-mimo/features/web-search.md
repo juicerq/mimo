@@ -22,7 +22,6 @@ Preconditions:
 
 - **Busca.** `$CONTROL send 'pesquise na web uma notícia recente sobre o OpenCode e diga a fonte'` (o comando retorna quando o turno termina; a busca leva de segundos a ~30 s). `$CONTROL wait '⚙ web_search' 180` confirma a tool no transcript.
 - **Prova.** `$CONTROL capture .verify/runs/<id>/02-web-search.txt`. A resposta contém um domínio ou URL (`http`) e um título ou data.
-- **Sem aviso de gateway.** `$CONTROL log 200 | grep -c gateway.exa_search` deve ser `0` (o aviso antigo do provider aparecia no log).
 
 ## Gotchas
 

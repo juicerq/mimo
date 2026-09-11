@@ -5,11 +5,11 @@ Este diretório é a fonte mantida para verificar o comportamento visível do mi
 ## Precondições de linha de base
 
 - Rode tudo da raiz do repo com `CONTROL=.agents/skills/verify-mimo/scripts/control-mimo`.
-- Uma instância por vez: `$CONTROL launch` exige a porta de `MIMO_AGENT_URL` (padrão 2000) livre e a sessão tmux `mimo-verify` ausente.
-- `launch` roda em sandbox de dados por padrão (`.verify/runs/<id>/data`); `$CONTROL data` imprime o caminho. Só use `--data apps/agent/.data` quando a receita exigir os dados reais.
-- `$CONTROL doctor` precisa confirmar health, HEAD, env e pane em `ready`.
-- A TUI abre a lista de bots. Crie um bot com `/new <nome>` antes de conversar. Ao reabrir um bot, a sessão, o histórico e as aprovações pendentes são retomados. Veja [bots.md](bots.md) para criação, retomada e isolamento.
-- O modelo é remoto; turnos levam segundos e a redação varia. Use `/model` dentro do bot para escolher uma integração disponível. O padrão inicial é `opencode-go/deepseek-flash`.
+- Uma instância por vez: `$CONTROL launch` exige a sessão tmux `mimo-verify` ausente.
+- `launch` roda em sandbox de dados por padrão (`.verify/runs/<id>/data`); `$CONTROL data` imprime o caminho. Só use `--data .data` quando a receita exigir os dados reais.
+- `$CONTROL doctor` precisa confirmar HEAD, credenciais e pane em `ready`.
+- A TUI abre a lista de bots. Crie um bot com `/new <nome>` antes de conversar. Ao reabrir um bot, o transcript e as aprovações pendentes são retomados. Veja [bots.md](bots.md) para criação, retomada e isolamento.
+- O modelo é remoto; turnos levam segundos e a redação varia. Use `/model` dentro do bot para escolher uma integração disponível. O padrão inicial é `opencode-go/deepseek-v4-flash`; passe `MIMO_MODEL` ao `launch` para outro.
 
 ## Convenções de condução
 
@@ -23,7 +23,7 @@ Este diretório é a fonte mantida para verificar o comportamento visível do mi
 ## Prova e skips
 
 - Prova = ação do usuário na TUI + estado resultante + efeito colateral observável onde ele vive.
-- Não use endpoint interno como atalho quando a feature é da TUI.
+- Não use módulo interno como atalho quando a feature é da TUI.
 - Se uma precondição faltar (conta Gmail, rede, rotina), reporte o caminho tentado e a precondição não atendida; não marque como verificado por outro caminho.
 - Aprovação de envio de e-mail: a prova padrão recusa; envio real é opt-in, só para endereço próprio e com assunto `VERIFICACAO`.
 - Nunca envie e-mail para terceiros durante verificação.

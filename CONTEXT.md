@@ -9,7 +9,7 @@ Um agente pessoal criado e nomeado pela pessoa, com Memória própria e uma Sess
 _Evitar_: Assistente, agente
 
 **Sessão**:
-A conversa durável atual de um Bot, que sobrevive a reinícios e à troca de Bot e mantém sua identidade ao compactar o contexto automaticamente. Quando terminar, um novo Turno começa outra Sessão com aviso, preservando a Memória e o acesso às Sessões anteriores.
+A conversa durável atual de um Bot, que sobrevive a reinícios e à troca de Bot. Quando o contexto é compactado, a Sessão atual é arquivada e outra começa com um resumo, preservando a Memória e o acesso às Sessões anteriores.
 _Evitar_: Chat, conversa nova
 
 **Turno**:
@@ -21,7 +21,7 @@ A escolha de provedor, modelo e esforço para as próximas respostas de um Bot. 
 _Evitar_: Modelo global, modelo da sessão
 
 **Rotina**:
-Um trabalho de um Bot, executado numa frequência escolhida e entregue em sua Sessão atual. Continua pertencendo ao mesmo Bot quando a Sessão muda.
+Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Continua pertencendo ao mesmo Bot quando a Sessão muda.
 _Evitar_: Agendamento, cron job, automação
 
 **Modo normal**:
@@ -33,7 +33,7 @@ Todas as ações acontecem sem aprovação e a pessoa revisa o registro depois.
 _Evitar_: Automático, férias
 
 **Memória**:
-Fatos, preferências e decisões duráveis que um Bot guarda para os próximos turnos, inclusive após a substituição de uma Sessão encerrada. Pertence ao Bot e não é compartilhada automaticamente com outros Bots.
+Fatos, preferências e decisões duráveis que um Bot guarda para os próximos turnos, inclusive depois de uma compactação. Pertence ao Bot e não é compartilhada automaticamente com outros Bots.
 _Evitar_: Contexto, histórico
 
 **Aprovação**:
@@ -45,5 +45,5 @@ Uma resposta escrita pelo Bot que só vira e-mail enviado por ação da pessoa o
 _Evitar_: Minuta
 
 **Sandbox**:
-O ambiente isolado do eve onde o Bot executa comandos e mexe em arquivos.
+Um diretório de dados separado (`MIMO_DATA_DIR`) usado para experimentar sem tocar nos dados reais.
 _Evitar_: Máquina, VM, computador

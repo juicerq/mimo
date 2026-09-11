@@ -6,16 +6,9 @@
 	"engines": {
 		"node": ">=24"
 	},
-	"scripts": {
-		"gmail:auth": "bun scripts/gmail-auth.ts",
-		"bench": "bun scripts/bench.ts"
-	},
 	"dependencies": {
-		"@ai-sdk/openai": "4.0.65",
-		"@ai-sdk/openai-compatible": "^3.0.47",
-		"@grikomsn/ai-sdk-provider-chatgpt-oauth": "^2.0.2",
-		"ai": "^7.0.97",
-		"eve": "0.53.0",
+		"@earendil-works/pi-agent-core": "^0.85.1",
+		"@earendil-works/pi-ai": "^0.85.1",
 		"zod": "^4.6.1"
 	}
 }

@@ -4,15 +4,18 @@
 	"private": true,
 	"type": "module",
 	"packageManager": "bun@1.4.0",
-	"workspaces": ["apps/*"],
+	"workspaces": [
+		"apps/*"
+	],
 	"scripts": {
 		"dev": "bun scripts/dev.ts",
 		"dev:sandbox": "MIMO_DATA_DIR=.data-dev bun scripts/dev.ts",
-		"bench": "bun run --cwd apps/agent bench",
+		"build": "bun build apps/mimo/src/index.ts --target=bun --outdir=dist --external '@opentui/core-*'",
+		"start": "bun dist/index.js",
 		"check": "juicerq-check",
 		"check:fix": "juicerq-check --fix",
 		"typecheck": "tsc --noEmit",
-		"gmail:auth": "bun run --cwd apps/agent gmail:auth"
+		"gmail:auth": "bun scripts/gmail-auth.ts"
 	},
 	"devDependencies": {
 		"@juicerq/check": "^0.4.0",

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
-import { createCliRenderer } from "@opentui/core";
+import { CliRenderEvents, createCliRenderer } from "@opentui/core";
+import { startRoutines } from "@agent/routines/dispatcher";
 import pkg from "../package.json";
-import { AgentChat } from "./agent";
 import { MimoApp } from "./app";
 
 async function main(): Promise<void> {
@@ -13,7 +13,12 @@ async function main(): Promise<void> {
 		exitOnCtrlC: true,
 		backgroundColor: "#0B0B0C",
 	});
-	const app = new MimoApp(renderer, new AgentChat());
+	const stopRoutines = startRoutines();
+	renderer.on(CliRenderEvents.DESTROY, () => {
+		stopRoutines();
+		process.exit(0);
+	});
+	const app = new MimoApp(renderer);
 	await app.start();
 }
 
