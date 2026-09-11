@@ -10,23 +10,14 @@ import {
 import { Bot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode } from "@agent/bot/types";
-import { disconnectAccount, listAccounts } from "@agent/gmail/accounts";
-import { listModels, modelOption } from "@agent/model/catalog";
-import { LOGIN_GROUP_NAMES, LOGIN_TARGETS, LoginSession, type LoginEvent, type LoginGroup, type LoginPrompt, type LoginTarget } from "@agent/login/login";
-import { PROVIDER_NAMES, ProviderSchema, type ModelCatalog, type ModelInfo, type ModelOption, type ModelSelection, type Provider } from "@agent/model/types";
-import { copyToClipboard } from "./clipboard";
+import { modelOption } from "@agent/model/catalog";
+import type { ModelInfo, ModelSelection } from "@agent/model/types";
+import { describeError } from "./errors";
+import { Panels, type PanelResult } from "./panel";
+import { accountsPanel, loginPanel, loginTargetsPanel } from "./screens/login";
+import { effortPanel, modelPanel } from "./screens/model";
+import { T1, T2, T3, T4, T5 } from "./theme";
 
-const T1 = "#F2F2F3";
-const T2 = "#C9C9CC";
-const T3 = "#9A9A9E";
-const T4 = "#6B6B6F";
-const T5 = "#424246";
-const TEXT_COLOR = T1;
-const USER_COLOR = T3;
-const TOOL_COLOR = T4;
-const ERROR_COLOR = T1;
-const STATUS_COLOR = T4;
-const ATTENTION_COLOR = T1;
 const DOUBLE_ESCAPE_MS = 400;
 const APPROVAL_INPUT_CHARACTERS = 240;
 const DETAIL_CHARACTERS = 600;
@@ -38,33 +29,16 @@ const WORKING_LABELS: Record<string, string> = { loading: "loading", thinking: "
 
 type ToolView = (typeof TOOL_VIEWS)[number];
 
-type HomeScreen =
+type Screen =
 	| { kind: "bots"; bots: BotInfo[] }
 	| { kind: "conversation"; bot: BotInfo };
-type PickerScreen =
-	| { kind: "catalog"; bot: BotInfo; catalog: ModelCatalog }
-	| { kind: "models"; bot: BotInfo; options: ModelOption[] }
-	| { kind: "effort"; bot: BotInfo; option: ModelOption }
-	| { kind: "providers" }
-	| { kind: "accounts"; emails: string[] }
-	| { kind: "login"; target: LoginTarget; session: LoginSession; url: string | null; prompt: LoginPrompt | null };
-type Screen = HomeScreen | PickerScreen | { kind: "saving" };
-
-const PICKER_KINDS = new Set(["catalog", "models", "effort", "providers", "accounts", "login"]);
-
-function isPicker(screen: Screen): screen is PickerScreen {
-	return PICKER_KINDS.has(screen.kind);
-}
 
 export class MimoApp {
 	private readonly renderer: CliRenderer;
 	private readonly transcript: ScrollBoxRenderable;
 	private readonly status: TextRenderable;
 	private readonly input: InputRenderable;
-	private readonly heading: TextRenderable;
-	private readonly headingRow: BoxRenderable;
-	private readonly pickerTranscript: ScrollBoxRenderable;
-	private picker: { view: AbortController; draft: string; state: string; back: HomeScreen } | null = null;
+	private readonly panels: Panels;
 	private conversation: Bot | null = null;
 	private unsubscribe: (() => void) | null = null;
 	private screen: Screen = { kind: "bots", bots: [] };
@@ -89,14 +63,6 @@ export class MimoApp {
 
 	constructor(renderer: CliRenderer) {
 		this.renderer = renderer;
-		this.heading = new TextRenderable(renderer, {
-			id: "heading",
-			content: "bots",
-			fg: T3,
-		});
-		this.headingRow = new BoxRenderable(renderer, { width: "100%", paddingLeft: 2, flexShrink: 0, visible: false });
-		this.headingRow.add(this.heading);
-
 		this.transcript = new ScrollBoxRenderable(renderer, {
 			id: "transcript",
 			width: "100%",
@@ -109,14 +75,10 @@ export class MimoApp {
 			stickyScroll: true,
 			stickyStart: "bottom",
 		});
-		this.pickerTranscript = new ScrollBoxRenderable(renderer, {
-			width: "100%", flexGrow: 1, minHeight: 0, paddingTop: 1,
-			paddingLeft: 2, paddingRight: 2, visible: false,
-		});
 		this.status = new TextRenderable(renderer, {
 			id: "status",
 			content: "",
-			fg: STATUS_COLOR,
+			fg: T4,
 			width: "100%",
 		});
 		const statusRow = new BoxRenderable(renderer, {
@@ -137,12 +99,13 @@ export class MimoApp {
 		this.input.on(InputRenderableEvents.ENTER, (value) => {
 			this.submit(value);
 		});
+		this.panels = new Panels(renderer, { input: this.input, refresh: this.refreshPanels, finish: this.closePanel });
 		renderer.keyInput.on("keypress", (key) => {
 			if (key.ctrl && key.name === "p" && this.screen.kind === "conversation" && this.conversation) {
-				void this.showModels(this.screen.bot);
+				this.showModels(this.screen.bot);
 			} else if (key.ctrl && key.name === "o") {
 				this.cycleToolView();
-			} else if (key.name === "c" && !key.ctrl && !key.meta && this.copyAuthUrl()) {
+			} else if (key.name === "c" && !key.ctrl && !key.meta && this.input.value.length === 0 && this.panels.copyLink()) {
 				key.preventDefault();
 				this.lastEscapeAt = null;
 			} else if (key.name === "escape") {
@@ -176,9 +139,9 @@ export class MimoApp {
 			height: "100%",
 			flexDirection: "column",
 		});
-		container.add(this.headingRow);
+		container.add(this.panels.row);
 		container.add(this.transcript);
-		container.add(this.pickerTranscript);
+		container.add(this.panels.box);
 		container.add(composer);
 		container.add(statusRow);
 		renderer.root.add(container);
@@ -197,11 +160,14 @@ export class MimoApp {
 		if (this.navigate(text)) {
 			return;
 		}
-		if ((this.picker ? this.picker.state !== "ready" : this.busy) || text.length === 0) {
+		if (text.length === 0) {
 			return;
 		}
-		if (isPicker(this.screen)) {
-			this.selectOption(text);
+		if (this.panels.active) {
+			this.panels.submit(text);
+			return;
+		}
+		if (this.busy) {
 			return;
 		}
 		if (/^\/new(?: |$)/.test(text)) {
@@ -224,22 +190,10 @@ export class MimoApp {
 		void this.dispatch(async () => await conversation.deliver(text));
 	}
 
-	private copyAuthUrl(): boolean {
-		const screen = this.screen;
-		if (screen.kind !== "login" || screen.url === null || this.input.value.length > 0) {
-			return false;
-		}
-		void copyToClipboard(screen.url).then(
-			() => this.appendPickerLine("Link copied.", T3),
-			() => this.appendPickerLine("Could not copy the link.", ERROR_COLOR),
-		);
-		return true;
-	}
-
 	private handleEscape() {
-		if (isPicker(this.screen)) {
+		if (this.panels.active) {
 			this.lastEscapeAt = null;
-			this.cancelSelection();
+			this.panels.cancel();
 			return;
 		}
 		if (this.screen.kind !== "conversation" || (!this.busy && this.approval === null)
@@ -262,7 +216,7 @@ export class MimoApp {
 	}
 
 	private navigate(text: string) {
-		if (this.screen.kind === "saving") {
+		if (this.panels.state === "saving") {
 			return true;
 		}
 		if (text === "/bots") {
@@ -270,312 +224,73 @@ export class MimoApp {
 			return true;
 		}
 		if (text === "/cancel") {
-			this.cancelSelection();
+			this.panels.cancel();
 			return true;
 		}
 		if (text === "/model") {
 			this.input.value = "";
-			const home = this.homeScreen();
-			if (home.kind === "bots") {
-				this.appendLine("Open a bot to choose its model.", T3);
-				return true;
-			}
-			void this.showModels(home.bot);
+			this.showModels(this.screen.kind === "bots" ? null : this.screen.bot);
 			return true;
 		}
 		if (text === "/effort") {
 			this.input.value = "";
-			this.showCurrentEfforts();
+			this.showEfforts();
 			return true;
 		}
 		if (text === "/login") {
 			this.input.value = "";
-			this.showProviders();
+			this.panels.show(loginTargetsPanel());
 			return true;
 		}
 		if (text === "/logout") {
 			this.input.value = "";
-			void this.showAccounts();
+			this.panels.show(accountsPanel());
 			return true;
 		}
 		return false;
 	}
 
-	private cancelSelection() {
-		if (this.screen.kind === "login") {
-			this.screen.session.cancel();
+	private showModels(bot: BotInfo | null): void {
+		if (!bot || !this.conversation) {
+			this.appendLine("Open a bot to choose its model.", T3);
+			return;
 		}
-		if (isPicker(this.screen)) {
-			this.closePicker();
-		}
+		this.panels.show(modelPanel(bot, this.saveModel));
 	}
 
-	private selectOption(text: string) {
+	private showEfforts(): void {
 		const screen = this.screen;
-		this.input.value = "";
-		if (screen.kind === "login") {
-			this.answerLogin(screen, text);
-			return;
-		}
-		if (!/^[1-9]\d*$/.test(text)) {
-			this.appendPickerLine("Choose a number, or /cancel to return.", T3);
-			return;
-		}
-		const index = Number(text) - 1;
-		if (screen.kind === "accounts") {
-			const email = screen.emails[index];
-			if (email) {
-				void this.removeAccount(email);
-				return;
-			}
-		}
-		if (screen.kind === "providers") {
-			const target = LOGIN_TARGETS[index];
-			if (target) {
-				this.startLogin(target);
-				return;
-			}
-		}
-		if (screen.kind === "catalog") {
-			const provider = ProviderSchema.options[index];
-			if (provider) {
-				this.showProviderModels(screen.bot, provider, screen.catalog);
-				return;
-			}
-		}
-		if (screen.kind === "models") {
-			const option = screen.options[index];
-			if (option) {
-				this.showEfforts(screen.bot, option);
-				return;
-			}
-		}
-		if (screen.kind === "effort") {
-			const reasoning = screen.option.reasoningOptions[index];
-			if (reasoning) {
-				void this.saveModel(screen.bot, { provider: screen.option.provider, id: screen.option.id, reasoning });
-				return;
-			}
-		}
-		this.appendPickerLine("Choose one of the listed numbers.", T3);
-	}
-
-	private async showModels(bot: BotInfo) {
-		if (!this.conversation) {
-			return;
-		}
-		const signal = this.openPicker({ kind: "catalog", bot, catalog: { models: [], errors: [] } }, `${bot.name}  ·  model`);
-		try {
-			const catalog = await listModels();
-			if (signal.aborted) {
-				return;
-			}
-			this.screen = { kind: "catalog", bot, catalog };
-			for (const [index, provider] of ProviderSchema.options.entries()) {
-				const count = catalog.models.filter((option) => option.provider === provider).length;
-				this.appendPickerLine(`${index + 1}. ${PROVIDER_NAMES[provider]} · ${count} models`, T2, 0);
-			}
-			for (const error of catalog.errors) {
-				this.appendPickerLine(`${PROVIDER_NAMES[error.provider]}: ${error.message}`, T3);
-			}
-			this.appendPickerLine("/cancel to return or press Esc", T4);
-			this.setPickerStatus("ready");
-		} catch (error) {
-			if (!signal.aborted) {
-				this.appendPickerLine(describeError(error), ERROR_COLOR);
-				this.setPickerStatus("ready");
-			}
-		}
-	}
-
-	private showProviderModels(bot: BotInfo, provider: Provider, catalog: ModelCatalog) {
-		const options = catalog.models.filter((option) => option.provider === provider);
-		this.openPicker({ kind: "models", bot, options }, `${PROVIDER_NAMES[provider]}  ·  model`);
-		if (options.length === 0) {
-			const failure = catalog.errors.find((error) => error.provider === provider);
-			this.appendPickerLine(failure?.message ?? "No model is available for this provider.", T3, 0);
-		}
-		for (const [index, option] of options.entries()) {
-			this.appendPickerLine(`${index + 1}. ${option.name}`, T2, 0);
-		}
-		this.appendPickerLine("/cancel to return or press Esc", T4);
-		this.pickerTranscript.scrollTo(0);
-		this.setPickerStatus("ready");
-	}
-
-	private showCurrentEfforts() {
-		const home = this.homeScreen();
-		if (home.kind === "bots") {
+		if (screen.kind === "bots") {
 			this.appendLine("Open a bot to choose its effort.", T3);
 			return;
 		}
 		try {
-			this.showEfforts(home.bot, modelOption(home.bot.model));
+			this.panels.show(effortPanel(modelOption(screen.bot.model), this.saveModel));
 		} catch (error) {
-			this.appendLine(describeError(error), ERROR_COLOR);
+			this.appendLine(describeError(error), T1);
 		}
 	}
 
-	private showEfforts(bot: BotInfo, option: ModelOption) {
-		if (option.reasoningOptions.length === 1) {
-			void this.saveModel(bot, { provider: option.provider, id: option.id, reasoning: option.reasoningOptions[0] });
-			return;
-		}
-		this.openPicker({ kind: "effort", bot, option }, `${option.name}  ·  effort`);
-		for (const [index, effort] of option.reasoningOptions.entries()) {
-			this.appendPickerLine(`${index + 1}. ${effort}`, T2, 0);
-		}
-		this.appendPickerLine("/cancel to return or press Esc", T4);
-		this.setPickerStatus("ready");
-	}
+	private readonly saveModel = async (selection: ModelSelection): Promise<BotInfo> => {
+		return await this.requireConversation().selectModel(selection);
+	};
 
-	private showProviders() {
-		this.openPicker({ kind: "providers" }, "login");
-		let group: LoginGroup | null = null;
-		for (const [index, target] of LOGIN_TARGETS.entries()) {
-			if (target.group !== group) {
-				if (group !== null) {
-					this.appendPickerLine("", T4, 0);
-				}
-				group = target.group;
-				this.appendPickerLine(LOGIN_GROUP_NAMES[group], T4, 0);
-			}
-			this.appendPickerLine(`${index + 1}. ${target.name} · ${target.how}`, T2, 0);
-		}
-		this.appendPickerLine("/cancel to return or press Esc", T4);
-		this.setPickerStatus("ready");
-	}
+	private readonly refreshPanels = (): void => {
+		this.transcript.visible = !this.panels.active;
+		this.setStatus(this.lastState);
+	};
 
-	private async showAccounts() {
-		const signal = this.openPicker({ kind: "accounts", emails: [] }, "logout");
-		try {
-			const accounts = await listAccounts();
-			if (signal.aborted) {
-				return;
-			}
-			this.screen = { kind: "accounts", emails: accounts.map((account) => account.email) };
-			if (accounts.length === 0) {
-				this.appendPickerLine("No Gmail account is connected.", T3, 0);
-			}
-			for (const [index, account] of accounts.entries()) {
-				this.appendPickerLine(`${index + 1}. ${account.email}`, T2, 0);
-			}
-			this.appendPickerLine("/cancel to return or press Esc", T4);
-			this.setPickerStatus("ready");
-		} catch (error) {
-			if (!signal.aborted) {
-				this.appendPickerLine(describeError(error), ERROR_COLOR);
-				this.setPickerStatus("ready");
-			}
+	private readonly closePanel = (result: PanelResult): void => {
+		if (result.bot && this.screen.kind === "conversation") {
+			this.screen = { kind: "conversation", bot: result.bot };
+			this.modelInfo = result.bot.model;
 		}
-	}
-
-	private async removeAccount(email: string) {
-		const picker = this.screen;
-		const signal = this.picker?.view.signal;
-		this.screen = { kind: "saving" };
-		this.setPickerStatus("loading");
-		try {
-			const result = await disconnectAccount(email);
-			if (signal?.aborted) {
-				return;
-			}
-			this.closePicker();
-			const revoke = result.revoked ? "" : " Google did not confirm the revoke.";
-			this.appendLine(`Disconnected ${result.email}.${revoke}`, T3);
-		} catch (error) {
-			if (!signal?.aborted) {
-				this.screen = picker;
-				this.appendPickerLine(describeError(error), ERROR_COLOR);
-				this.setPickerStatus("ready");
-			}
+		this.input.placeholder = this.screen.kind === "bots" ? "number or /new <name>" : "write your prompt";
+		if (result.message) {
+			this.appendLine(result.message, T3);
 		}
-	}
-
-	private startLogin(target: (typeof LOGIN_TARGETS)[number]) {
-		this.showLogin(target.id, new LoginSession(target.id));
-	}
-
-	private showLogin(target: LoginTarget, session: LoginSession) {
-		const screen: PickerScreen = { kind: "login", target, session, url: null, prompt: null };
-		const name = LOGIN_TARGETS.find((option) => option.id === target)?.name ?? target;
-		const signal = this.openPicker(screen, `${name}  ·  login`);
-		this.input.placeholder = "waiting";
-		session.subscribe((event) => {
-			if (!signal.aborted) {
-				this.renderLoginEvent(screen, event);
-			}
-		});
-	}
-
-	private renderLoginEvent(screen: Extract<PickerScreen, { kind: "login" }>, event: LoginEvent) {
-		if (event.type === "info") {
-			this.appendPickerLine(event.text, T3);
-			return;
-		}
-		if (event.type === "url") {
-			screen.url = event.url;
-			this.appendPickerLine(event.url, T1, 0);
-			if (event.instructions) {
-				this.appendPickerLine(event.instructions, T4);
-			}
-			this.appendPickerLine("Press c to copy the link.", T4);
-			return;
-		}
-		if (event.type === "prompt") {
-			screen.prompt = event.prompt;
-			this.appendPickerLine(event.prompt.message, T2, 0);
-			for (const [index, option] of event.prompt.options.entries()) {
-				this.appendPickerLine(`${index + 1}. ${option.label}`, T2, 0);
-			}
-			this.appendPickerLine("/cancel to return or press Esc", T4);
-			this.input.placeholder = event.prompt.kind === "select" ? "number or /cancel" : "type here or /cancel";
-			this.setPickerStatus("ready");
-			return;
-		}
-		if (event.type === "failed") {
-			this.appendPickerLine(event.message, ERROR_COLOR);
-			this.setPickerStatus("ready");
-			return;
-		}
-		this.closePicker();
-		const next = screen.target === "gmail" ? "The bots can use this account now." : "Use /model to pick a model.";
-		this.appendLine(`Connected. ${next}`, T3);
-	}
-
-	private answerLogin(screen: Extract<PickerScreen, { kind: "login" }>, text: string) {
-		if (!screen.prompt) {
-			return;
-		}
-		screen.prompt = null;
-		this.input.placeholder = "waiting";
-		this.setPickerStatus("loading");
-		screen.session.answer(text);
-	}
-
-	private async saveModel(bot: BotInfo, selection: ModelSelection) {
-		const picker = this.screen;
-		if (picker.kind !== "models" && picker.kind !== "effort") {
-			return;
-		}
-		const signal = this.picker?.view.signal;
-		this.screen = { kind: "saving" };
-		this.setPickerStatus("loading");
-		try {
-			const updated = await this.requireConversation().selectModel(selection);
-			if (signal?.aborted) {
-				return;
-			}
-			this.closePicker({ kind: "conversation", bot: updated });
-			this.appendLine("Model saved for the next response.", T3);
-		} catch (error) {
-			if (!signal?.aborted) {
-				this.screen = picker;
-				this.appendPickerLine(describeError(error), ERROR_COLOR);
-				this.setPickerStatus("ready");
-			}
-		}
-	}
+		this.setStatus(this.lastState);
+	};
 
 	private requireConversation(): Bot {
 		if (!this.conversation) {
@@ -584,78 +299,10 @@ export class MimoApp {
 		return this.conversation;
 	}
 
-	private clearPicker() {
-		for (const child of this.pickerTranscript.getChildren()) {
-			child.destroyRecursively();
-		}
-	}
-
-	private appendPickerLine(content: string, fg = T2, marginBottom = 1) {
-		this.pickerTranscript.add(new TextRenderable(this.renderer, { content, fg, width: "100%", wrapMode: "word", marginBottom }));
-	}
-
-	private setPickerStatus(state: string) {
-		if (this.picker) {
-			this.picker.state = state;
-		}
-		this.setStatus(this.lastState);
-	}
-
-	private closePicker(back?: HomeScreen) {
-		const draft = this.picker?.draft ?? "";
-		const screen = back ?? this.picker?.back ?? { kind: "bots", bots: [] };
-		this.picker?.view.abort();
-		this.picker = null;
-		this.clearPicker();
-		this.pickerTranscript.visible = false;
+	private resetView(screen: Screen) {
+		this.panels.dismiss();
 		this.transcript.visible = true;
 		this.screen = screen;
-		this.headingRow.visible = false;
-		if (screen.kind === "conversation") {
-			this.modelInfo = screen.bot.model;
-			this.input.placeholder = "write your prompt";
-		} else {
-			this.input.placeholder = "number or /new <name>";
-		}
-		this.input.value = draft;
-		this.setStatus(this.lastState);
-	}
-
-	private openPicker(screen: PickerScreen, heading: string) {
-		const back = this.picker?.back ?? this.homeScreen();
-		this.picker?.view.abort();
-		this.picker = { view: new AbortController(), draft: this.picker?.draft ?? this.input.value, state: "loading", back };
-		this.screen = screen;
-		this.clearPicker();
-		this.transcript.visible = false;
-		this.pickerTranscript.visible = true;
-		this.input.value = "";
-		this.heading.content = heading;
-		this.headingRow.visible = true;
-		this.input.placeholder = "number or /cancel";
-		this.setStatus(this.lastState);
-		return this.picker.view.signal;
-	}
-
-	private homeScreen(): HomeScreen {
-		const screen = this.screen;
-		if (screen.kind === "conversation" || screen.kind === "bots") {
-			return screen;
-		}
-		return { kind: "bots", bots: [] };
-	}
-
-	private resetView(screen: HomeScreen) {
-		if (this.screen.kind === "login") {
-			this.screen.session.cancel();
-		}
-		this.picker?.view.abort();
-		this.picker = null;
-		this.clearPicker();
-		this.pickerTranscript.visible = false;
-		this.transcript.visible = true;
-		this.screen = screen;
-		this.headingRow.visible = false;
 		this.botName = screen.kind === "bots" ? "" : screen.bot.name;
 		this.stopWorking();
 		this.view.abort();
@@ -781,7 +428,7 @@ export class MimoApp {
 		switch (event.type) {
 			case "user":
 				this.sealReply();
-				this.appendLine(`you: ${event.text}`, USER_COLOR);
+				this.appendLine(`you: ${event.text}`, T3);
 				return;
 			case "reply-delta":
 				this.appendReplyDelta(event.delta);
@@ -796,17 +443,17 @@ export class MimoApp {
 				this.appendDetail(event.output);
 				return;
 			case "tool-failed":
-				this.appendLine(`✗ tool failed: ${event.message}`, ERROR_COLOR);
+				this.appendLine(`✗ tool failed: ${event.message}`, T1);
 				return;
 			case "approval":
 				this.renderApproval(event.approval);
 				return;
 			case "login":
-				this.showLogin(event.target, event.session);
+				this.panels.show(loginPanel(event.target, event.session));
 				return;
 			case "approval-resolved":
 				this.approval = null;
-				this.appendLine(`⏸ ${event.outcome}`, TOOL_COLOR);
+				this.appendLine(`⏸ ${event.outcome}`, T4);
 				this.busy = true;
 				this.setStatus("thinking");
 				return;
@@ -854,7 +501,7 @@ export class MimoApp {
 		if (this.lastFailure !== message) {
 			this.lastFailure = message;
 			const hint = message.startsWith("Insufficient balance") ? " Use /model to choose another provider, then continue the conversation." : "";
-			this.appendLine(`✗ error: ${message}${hint}`, ERROR_COLOR);
+			this.appendLine(`✗ error: ${message}${hint}`, T1);
 		}
 		this.setStatus("error");
 	}
@@ -879,7 +526,7 @@ export class MimoApp {
 		if (this.toolView === "hidden") {
 			return;
 		}
-		this.appendLine(`⚙ ${toolName}`, TOOL_COLOR, this.toolView === "details" ? 0 : 1);
+		this.appendLine(`⚙ ${toolName}`, T4, this.toolView === "details" ? 0 : 1);
 		this.appendDetail(JSON.stringify(input), 0);
 	}
 
@@ -903,12 +550,12 @@ export class MimoApp {
 
 	private renderApproval(approval: Approval): void {
 		this.approval = approval;
-		this.appendLine(`▌ ⏸ approval: ${approval.toolName}`, ATTENTION_COLOR);
+		this.appendLine(`▌ ⏸ approval: ${approval.toolName}`, T1);
 		const input = JSON.stringify(approval.input);
 		if (input !== "{}") {
-			this.appendLine(`   ${truncate(input, APPROVAL_INPUT_CHARACTERS)}`, TOOL_COLOR);
+			this.appendLine(`   ${truncate(input, APPROVAL_INPUT_CHARACTERS)}`, T4);
 		}
-		this.appendLine("   1. Approve   2. Cancel", TEXT_COLOR);
+		this.appendLine("   1. Approve   2. Cancel", T1);
 		this.busy = false;
 		this.setStatus("waiting");
 	}
@@ -943,7 +590,7 @@ export class MimoApp {
 		this.replyText = "";
 	}
 
-	private appendLine(content: string, fg = TEXT_COLOR, marginBottom = 1): TextRenderable {
+	private appendLine(content: string, fg = T1, marginBottom = 1): TextRenderable {
 		const line = new TextRenderable(this.renderer, {
 			content,
 			fg,
@@ -973,8 +620,8 @@ export class MimoApp {
 		if (this.flashed.has("tools")) {
 			parts.push(`tools: ${this.toolView}`);
 		}
-		if (this.picker) {
-			parts.push(`status: ${this.picker.state}`);
+		if (this.panels.active) {
+			parts.push(`status: ${this.panels.state}`);
 		}
 		this.status.content = parts.join(" | ");
 	}
@@ -990,7 +637,7 @@ export class MimoApp {
 	}
 
 	private renderWorking(state: string): void {
-		const label = this.picker ? undefined : WORKING_LABELS[state];
+		const label = this.panels.active ? undefined : WORKING_LABELS[state];
 		if (label === undefined) {
 			this.stopWorking();
 			return;
@@ -1048,13 +695,6 @@ export class MimoApp {
 		this.transcript.remove(working.line);
 		this.transcript.add(working.line);
 	}
-}
-
-function describeError(error: unknown): string {
-	if (error instanceof Error) {
-		return error.message;
-	}
-	return String(error);
 }
 
 function formatTokens(tokens: number): string {

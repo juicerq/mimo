@@ -14,7 +14,6 @@ export const LOGIN_TARGETS = [
 ] as const;
 
 export type LoginTarget = (typeof LOGIN_TARGETS)[number]["id"];
-export type LoginGroup = keyof typeof LOGIN_GROUP_NAMES;
 
 interface LoginOption {
 	id: string;

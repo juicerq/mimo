@@ -44,6 +44,10 @@ _Evitar_: Permissão, consentimento
 Uma resposta escrita pelo Bot que só vira e-mail enviado por ação da pessoa ou no Modo autônomo.
 _Evitar_: Minuta
 
+**Painel**:
+A tela que substitui a conversa para uma escolha ou uma conexão: modelo, esforço, login e logout. Tem título, itens numerados e volta à conversa com `/cancel` ou `Esc`, preservando o rascunho.
+_Evitar_: Seletor, modal, picker
+
 **Sandbox**:
 Um diretório de dados separado (`MIMO_DATA_DIR`) usado para experimentar sem tocar nos dados reais.
 _Evitar_: Máquina, VM, computador

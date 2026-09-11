@@ -62,7 +62,7 @@ $CONTROL capture .verify/runs/<id>/01-chat.txt
 
 - `send` digita literalmente e pressiona Enter. Ele recusa quando o bot está ocupado e só retorna quando a linha viva some (termina em `ready` ou para em `waiting`). Se o texto ficar preso no composer, ele falha com aviso em vez de deixar o próximo envio se misturar.
 - Depois do `send`, o turno já terminou; use `wait` para conferir conteúdo. Para turnos disparados fora do `send` (rotina), espere o marcador com `wait`.
-- O estado vem da conversa, não do rodapé: a linha viva `⠙ thinking|working|stopping|loading · <n>s` significa ocupado; `▌ ⏸ approval:` sem `⏸ approved|denied` depois significa `waiting`; sem nenhum dos dois, `ready`. Dentro de um seletor, o rodapé mostra `status: loading|saving|ready` e o helper usa esse valor.
+- O estado vem da conversa, não do rodapé: a linha viva `⠙ thinking|working|stopping|loading · <n>s` significa ocupado; `▌ ⏸ approval:` sem `⏸ approved|denied` depois significa `waiting`; sem nenhum dos dois, `ready`. Dentro de um painel, o rodapé mostra `status: loading|saving|ready` e o helper usa esse valor.
 - HITL aparece como `▌ ⏸ approval: <tool>` com `1. Approve   2. Cancel`. Responda pelo composer com `1` ou `2`; o `send` retorna quando o turno retomado termina.
 - A TUI abre a lista de bots. Crie com `/new <nome>` ou escolha pelo número. `/bots` volta à lista; reabrir um bot retoma o transcript. Verifique memória reiniciando e abrindo o mesmo bot, e isolamento criando outro.
 
