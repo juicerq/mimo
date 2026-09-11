@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { LoginSession, LoginTarget } from "../login/login";
 import type { ModelInfo } from "../model/types";
 
 export const BotNameSchema = z.string().trim().min(1).max(80).regex(/^[^\p{Cc}\p{Cf}]+$/u);
@@ -27,6 +28,7 @@ export type BotEvent =
 	| { type: "tool"; toolName: string }
 	| { type: "tool-failed"; message: string }
 	| { type: "approval"; approval: Approval }
+	| { type: "login"; target: LoginTarget; session: LoginSession }
 	| { type: "approval-resolved"; outcome: "approved" | "denied" }
 	| { type: "usage"; contextTokens: number }
 	| { type: "mode"; mode: BotMode }

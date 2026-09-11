@@ -1,6 +1,7 @@
 import { Agent, calculateContextTokens, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
 import { uuidv7, type Usage } from "@earendil-works/pi-ai";
 import { archiveSession } from "../history/history";
+import { LoginSession, type LoginTarget } from "../login/login";
 import { contentText, isLlmMessage } from "../messages";
 import { resolveModel, selectModel } from "../model/catalog";
 import { models } from "../model/models";
@@ -77,6 +78,15 @@ export class Bot {
 
 	get approval(): Approval | null {
 		return this.pending?.approval ?? null;
+	}
+
+	login(target: LoginTarget): LoginSession {
+		if (this.listeners.size === 0) {
+			throw new Error("Este bot não está na tela. A pessoa precisa abrir o bot na TUI para autorizar.");
+		}
+		const session = new LoginSession(target);
+		this.emit({ type: "login", target, session });
+		return session;
 	}
 
 	setMode(mode: BotMode): void {

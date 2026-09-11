@@ -4,6 +4,8 @@
 
 As credenciais de modelo não são isoladas pelo sandbox: a gravação vai para `~/.codex/auth.json` e `~/.local/share/opencode/auth.json`. A conta de Gmail vai para `gmail/accounts.json` do diretório de dados em uso. Nunca conclua um login real durante verificação sem pedido explícito. Pare antes de autorizar no navegador.
 
+O bot também inicia o fluxo do Gmail com a tool `connect_gmail`: a mesma tela abre no meio do turno e o turno só continua quando o login termina ou é cancelado. Um bot fora da tela (rotina) não consegue: a tool falha na hora.
+
 ## Verificação
 
 1. `$CONTROL send '/login'`. Confira os títulos `providers` e `plugins`, as opções numeradas em sequência e `/cancel to return or press Esc`.
@@ -14,3 +16,5 @@ As credenciais de modelo não são isoladas pelo sandbox: a gravação vai para 
 6. Escolha Gmail e confira o link `https://accounts.google.com/o/oauth2/v2/auth?...`, a dica do `c` e o pedido do código. O servidor de retorno escuta em 127.0.0.1:53682 (`ss -ltn`). `/cancel` libera a porta.
 
 O login por código de dispositivo mostra o link e o código na mesma linha de evento. Registre como indisponível quando não puder concluir sem uma conta de teste.
+
+7. Peça ao bot `quero conectar minha conta do gmail`. Confira `⚙ connect_gmail`, a mesma tela de login e a porta 53682. `Esc` fecha a tela, a TUI mostra `✗ tool failed: Login cancelled.` e o bot responde no mesmo turno.

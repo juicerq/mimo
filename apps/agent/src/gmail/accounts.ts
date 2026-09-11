@@ -106,7 +106,7 @@ export async function resolveAccount(query?: string): Promise<GmailAccount> {
 		throw new Error(`Conta "${query}" não encontrada. Conectadas: ${accountList(accounts)}.`);
 	}
 	if (accounts.length === 0) {
-		throw new Error("Nenhuma conta do Gmail conectada. A pessoa conecta uma com /login na TUI.");
+		throw new Error("Nenhuma conta do Gmail conectada. Chame connect_gmail para conectar uma.");
 	}
 	if (accounts.length > 1) {
 		throw new Error(`Mais de uma conta conectada: ${accountList(accounts)}. Informe qual no parâmetro account.`);

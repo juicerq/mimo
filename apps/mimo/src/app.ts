@@ -374,9 +374,13 @@ export class MimoApp {
 	}
 
 	private startLogin(target: (typeof LOGIN_TARGETS)[number]) {
-		const session = new LoginSession(target.id);
-		const screen: PickerScreen = { kind: "login", target: target.id, session, url: null, prompt: null };
-		const signal = this.openPicker(screen, `${target.name}  ·  login`);
+		this.showLogin(target.id, new LoginSession(target.id));
+	}
+
+	private showLogin(target: LoginTarget, session: LoginSession) {
+		const screen: PickerScreen = { kind: "login", target, session, url: null, prompt: null };
+		const name = LOGIN_TARGETS.find((option) => option.id === target)?.name ?? target;
+		const signal = this.openPicker(screen, `${name}  ·  login`);
 		this.input.placeholder = "waiting";
 		session.subscribe((event) => {
 			if (!signal.aborted) {
@@ -673,6 +677,9 @@ export class MimoApp {
 				return;
 			case "approval":
 				this.renderApproval(event.approval);
+				return;
+			case "login":
+				this.showLogin(event.target, event.session);
 				return;
 			case "approval-resolved":
 				this.approval = null;

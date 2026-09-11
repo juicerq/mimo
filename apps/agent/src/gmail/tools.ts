@@ -17,6 +17,16 @@ export function gmailTools(context: ToolContext) {
 			},
 		}),
 		tool({
+			name: "connect_gmail",
+			description:
+				"Inicia a conexão de uma conta do Gmail: mostra o link de autorização no terminal e espera a pessoa autorizar. Use quando não houver conta conectada ou a autorização tiver expirado.",
+			input: z.object({}),
+			async execute() {
+				await context.login("gmail").finished;
+				return { accounts: (await listAccounts()).map((account) => account.email) };
+			},
+		}),
+		tool({
 			name: "list_unread",
 			description:
 				"Lista os e-mails não lidos da caixa de entrada do Gmail, do mais recente para o mais antigo, com remetente, assunto, data e prévia.",

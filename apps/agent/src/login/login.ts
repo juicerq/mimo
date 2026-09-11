@@ -55,12 +55,18 @@ function toPrompt(prompt: AuthPrompt): LoginPrompt {
 }
 
 export class LoginSession {
+	readonly finished: Promise<void>;
 	private readonly listeners = new Set<(event: LoginEvent) => void>();
 	private readonly history: LoginEvent[] = [];
 	private readonly aborter = new AbortController();
+	private settle: { resolve: () => void; reject: (reason: Error) => void } | null = null;
 	private pending: Pending | null = null;
 
 	constructor(target: LoginTarget) {
+		this.finished = new Promise<void>((resolve, reject) => {
+			this.settle = { resolve, reject };
+		});
+		this.finished.catch(() => {});
 		void this.run(target);
 	}
 
@@ -131,8 +137,11 @@ export class LoginSession {
 				await models().login(target, AUTH_TYPES[target], interaction);
 			}
 			this.emit({ type: "done" });
+			this.settle?.resolve();
 		} catch (error) {
-			this.emit({ type: "failed", message: error instanceof Error ? error.message : String(error) });
+			const failure = error instanceof Error ? error : new Error(String(error));
+			this.emit({ type: "failed", message: failure.message });
+			this.settle?.reject(failure);
 		}
 	}
 }

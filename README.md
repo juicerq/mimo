@@ -74,13 +74,13 @@ O registro do bot fica em `.data/bots/<id>.json` e o transcript atual em `.data/
 
 ## Gmail
 
-Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria rascunhos, `send_draft` envia um rascunho e `send_email` inicia um e-mail novo, ambos com aprovação no terminal. Cada conta conectada guarda o refresh token em `.data/gmail/accounts.json`; o client id e o client secret ficam em `.env.local` na raiz.
+Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão de uma conta pelo próprio bot: o link aparece no terminal e a pessoa autoriza no navegador. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria rascunhos, `send_draft` envia um rascunho e `send_email` inicia um e-mail novo, ambos com aprovação no terminal. Cada conta conectada guarda o refresh token em `.data/gmail/accounts.json`; o client id e o client secret ficam em `.env.local` na raiz.
 
 1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto e ative a Gmail API.
 2. Configure a tela de consentimento OAuth (tipo External, com você como usuário de teste).
 3. Em Credenciais, crie um cliente OAuth do tipo App para computador.
 4. Coloque o client id e o client secret em `.env.local` (`GMAIL_CLIENT_ID` e `GMAIL_CLIENT_SECRET`).
-5. Rode `bun run dev`, digite `/login` e escolha Gmail. Abra o link (`c` copia), autorize a conta e a TUI grava a conta e o refresh token sozinha; repita para conectar outras contas.
+5. Rode `bun run dev` e peça ao bot para conectar sua conta do Gmail (ele chama `connect_gmail`), ou digite `/login` e escolha Gmail. Abra o link (`c` copia), autorize a conta e a TUI grava a conta e o refresh token sozinha; repita para conectar outras contas.
 6. Peça para o bot listar os não lidos. Com mais de uma conta, diga qual.
 
 Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dias e a conta precisa ser conectada de novo com `/login`. Para evitar, publique o app em In production; o consentimento passa a mostrar o aviso de app não verificado, e para uso pessoal não é preciso concluir a verificação.
