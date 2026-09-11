@@ -14,7 +14,7 @@ import teamInstructions from "../team/instructions.md" with { type: "text" };
 import { compactTranscript } from "./compaction";
 import { deleteBotRoutines } from "../routines/routines";
 import { listChildren, readBot, readTranscript, removeBot, writeBot, writeTranscript, type BotPatch } from "./store";
-import type { Approval, BotEvent, BotInfo, BotMode, ToolGroup } from "./types";
+import type { Approval, BotEvent, BotInfo, BotMode, TeamMember, ToolGroup } from "./types";
 
 const APPROVE_WORDS = new Set(["1", "approve", "aprovar", "sim", "s"]);
 const DENY_WORDS = new Set(["2", "cancel", "cancelar", "não", "nao", "n"]);
@@ -42,6 +42,8 @@ export class Bot {
 	private readonly listeners = new Set<(event: BotEvent) => void>();
 	private readonly approvals: Pending[] = [];
 	private readonly queued: string[] = [];
+	private readonly crew = new Map<Bot, number>();
+	private readonly running = new Map<string, string>();
 	private record: BotInfo;
 	private session = uuidv7();
 	private host: Bot | null = null;
@@ -112,8 +114,24 @@ export class Bot {
 		return this.queued;
 	}
 
+	get team(): TeamMember[] {
+		const members: TeamMember[] = [];
+		for (const [bot, startedAt] of this.crew) {
+			members.push({ name: bot.record.name, tool: bot.tool, startedAt });
+		}
+		return members;
+	}
+
 	get approval(): Approval | null {
 		return this.approvals[0]?.approval ?? null;
+	}
+
+	private get tool(): string | null {
+		let last: string | null = null;
+		for (const name of this.running.values()) {
+			last = name;
+		}
+		return last;
 	}
 
 	login(target: LoginTarget): LoginSession {
@@ -137,7 +155,12 @@ export class Bot {
 		const child = await Bot.open(botId);
 		child.host = this;
 		signal?.addEventListener("abort", () => child.cancel(), { once: true });
-		return await child.run(prompt);
+		this.crew.set(child, Date.now());
+		try {
+			return await child.run(prompt);
+		} finally {
+			this.crew.delete(child);
+		}
 	}
 
 	async updateChild(botId: string, patch: BotPatch): Promise<BotInfo> {
@@ -200,6 +223,7 @@ export class Bot {
 
 	cancel(): void {
 		this.cancelled = true;
+		this.running.clear();
 		this.take();
 		for (const pending of this.approvals.slice()) {
 			this.resolveApproval(pending, false);
@@ -339,10 +363,12 @@ export class Bot {
 			return;
 		}
 		if (event.type === "tool_execution_start") {
+			this.running.set(event.toolCallId, event.toolName);
 			this.emit({ type: "tool", toolName: event.toolName, input: event.args });
 			return;
 		}
 		if (event.type === "tool_execution_end") {
+			this.running.delete(event.toolCallId);
 			if (this.cancelled) {
 				return;
 			}

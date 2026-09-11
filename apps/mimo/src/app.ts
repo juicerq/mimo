@@ -9,7 +9,7 @@ import {
 } from "@opentui/core";
 import { Bot, deleteBot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
-import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode } from "@agent/bot/types";
+import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode, type TeamMember } from "@agent/bot/types";
 import { modelOption } from "@agent/model/catalog";
 import type { ModelInfo, ModelSelection } from "@agent/model/types";
 import { describeError } from "./errors";
@@ -26,6 +26,7 @@ const TOOL_VIEWS = ["names", "details", "hidden"] as const;
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const SPINNER_MS = 100;
 const FLASH_MS = 2000;
+const TEAM_MS = 1000;
 const WORKING_LABELS: Record<string, string> = { loading: "loading", thinking: "thinking", cancelling: "stopping" };
 
 type ToolView = (typeof TOOL_VIEWS)[number];
@@ -41,6 +42,9 @@ export class MimoApp {
 	private readonly input: InputRenderable;
 	private readonly panels: Panels;
 	private readonly queue: BoxRenderable;
+	private readonly team: BoxRenderable;
+	private teamLines: string[] = [];
+	private teamTimer: ReturnType<typeof setInterval> | null = null;
 	private conversation: Bot | null = null;
 	private unsubscribe: (() => void) | null = null;
 	private screen: Screen = { kind: "bots", bots: [] };
@@ -136,6 +140,13 @@ export class MimoApp {
 		});
 		composer.add(this.input);
 
+		this.team = new BoxRenderable(renderer, {
+			id: "team",
+			width: "100%",
+			flexDirection: "column",
+			flexShrink: 0,
+			paddingLeft: 2,
+		});
 		this.queue = new BoxRenderable(renderer, {
 			id: "queue",
 			width: "100%",
@@ -153,6 +164,7 @@ export class MimoApp {
 		container.add(this.panels.row);
 		container.add(this.transcript);
 		container.add(this.panels.box);
+		container.add(this.team);
 		container.add(this.queue);
 		container.add(composer);
 		container.add(statusRow);
@@ -350,6 +362,7 @@ export class MimoApp {
 		this.approval = null;
 		this.lastEscapeAt = null;
 		this.renderQueue([]);
+		this.stopTeam();
 		this.setStatus("loading");
 		return this.view.signal;
 	}
@@ -418,6 +431,7 @@ export class MimoApp {
 				this.renderEvent(event);
 			}
 			this.renderQueue(conversation.queue);
+			this.teamTimer = setInterval(() => this.renderTeam(), TEAM_MS);
 			this.transcript.scrollTo(this.transcript.scrollHeight);
 			this.unsubscribe = conversation.subscribe((event) => {
 				if (!signal.aborted) {
@@ -532,17 +546,39 @@ export class MimoApp {
 	}
 
 	private renderQueue(items: readonly string[]): void {
-		for (const child of this.queue.getChildren()) {
+		this.fill(this.queue, items.map((item) => `queue: ${item}`));
+	}
+
+	private fill(box: BoxRenderable, lines: string[]): void {
+		for (const child of box.getChildren()) {
 			child.destroyRecursively();
 		}
-		for (const item of items) {
-			this.queue.add(new TextRenderable(this.renderer, {
-				content: `queue: ${item}`,
+		for (const line of lines) {
+			box.add(new TextRenderable(this.renderer, {
+				content: line,
 				fg: T4,
 				width: "100%",
 				wrapMode: "word",
 			}));
 		}
+	}
+
+	private stopTeam(): void {
+		if (this.teamTimer !== null) {
+			clearInterval(this.teamTimer);
+			this.teamTimer = null;
+		}
+		this.teamLines = [];
+		this.fill(this.team, []);
+	}
+
+	private renderTeam(): void {
+		const lines = (this.conversation?.team ?? []).map(teamLine);
+		if (lines.length === this.teamLines.length && lines.every((line, index) => line === this.teamLines[index])) {
+			return;
+		}
+		this.teamLines = lines;
+		this.fill(this.team, lines);
 	}
 
 	private renderFailure(message: string): void {
@@ -755,6 +791,12 @@ function formatTokens(tokens: number): string {
 	const thousands = tokens / 1_000;
 	const text = Number.isInteger(thousands) ? String(thousands) : thousands.toFixed(1);
 	return `${text}k`;
+}
+
+function teamLine(member: TeamMember): string {
+	const seconds = Math.floor((Date.now() - member.startedAt) / 1000);
+	const elapsed = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m`;
+	return `team: ${member.name} · ${elapsed} · ${member.tool ?? "thinking"}`;
 }
 
 function truncate(text: string, max: number): string {
