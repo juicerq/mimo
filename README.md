@@ -18,7 +18,7 @@ Depois de enviar, a conversa mostra uma linha viva com o que o bot faz: `⠙ thi
 
 O rodapé mostra contexto e o modelo com o esforço. Modo e ferramentas aparecem por 2 segundos quando você os muda, e depois somem. O estado do turno não fica no rodapé: fica na conversa. Dentro dos painéis, o rodapé mostra `status:` enquanto carrega ou grava. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
 
-Você pode escrever enquanto o bot trabalha. A mensagem fica acima do composer como `queue: <texto>` e entra na conversa assim que o bot termina o passo atual. Várias mensagens esperam em ordem. Dois `Esc` descartam a fila junto com o turno.
+Você pode escrever enquanto o bot trabalha. A mensagem fica acima do composer como `queue: <texto>` e entra na conversa assim que o bot termina o passo atual. Várias mensagens esperam em ordem e chegam juntas, num turno só. Dois `Esc` descartam a fila junto com o turno.
 
 Durante uma resposta, dois `Esc` em até 400 ms interrompem o turno. Um `Esc` isolado não interrompe; dentro do painel de modelos ele apenas volta à conversa. Se houver uma aprovação pendente, o atalho a recusa. Depois de uma falha ou interrupção, escreva “continue”, ajuste o pedido ou mude de assunto normalmente. Interromper não desfaz ações já concluídas.
 

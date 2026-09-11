@@ -60,6 +60,7 @@ export class Bot {
 				messages,
 				tools: botTools(this),
 			},
+			steeringMode: "all",
 			beforeToolCall: async ({ toolCall, args }, signal) => await this.approve(toolCall.id, toolCall.name, args, signal),
 		});
 		this.agent.subscribe((event) => this.translate(event));

@@ -33,7 +33,7 @@ Um trabalho que um Bot entrega a um Bot filho e cuja resposta ele espera. Só um
 _Evitar_: Chamada, mensagem entre bots
 
 **Fila**:
-As entregas que a pessoa escreve enquanto o Bot trabalha. Esperam acima do composer e entram na Sessão na ordem, assim que o Bot termina o passo atual. Interromper o Turno descarta a Fila.
+As entregas que a pessoa escreve enquanto o Bot trabalha. Esperam acima do composer e entram na Sessão juntas e na ordem, num Turno só, assim que o Bot termina o passo atual. Interromper o Turno descarta a Fila.
 _Evitar_: Buffer, rascunho
 
 **Rotina**:
