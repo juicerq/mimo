@@ -10,7 +10,7 @@ import { webTools } from "../web/tools";
 import type { ToolContext } from "./context";
 import { tool } from "./tool";
 
-const APPROVAL_TOOLS = new Set(["send_email", "send_draft", "delete_routine"]);
+const APPROVAL_TOOLS = new Set(["send_email", "send_draft", "delete_routine", "disconnect_gmail"]);
 const SetModeInput = z.object({ mode: BotModeSchema.describe("Modo desejado.") });
 
 export function botTools(context: ToolContext): AgentTool[] {

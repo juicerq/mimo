@@ -25,6 +25,7 @@ Preconditions:
 - `.env.local` na raiz com `GMAIL_CLIENT_ID` e `GMAIL_CLIENT_SECRET`.
 - Instância em `ready`; por padrão o sandbox não tem contas. Para verificar o Gmail, copie o store real para o sandbox: `DATA=$($CONTROL data); mkdir -p "$DATA/gmail" && cp .data/gmail/accounts.json "$DATA/gmail/accounts.json"` (as tools leem o arquivo a cada chamada; não precisa reiniciar). Alternativa: `$CONTROL launch --data .data`, que usa os dados reais com snapshot/restore de bots e rotinas — Gmail continua real.
 - `<conta>` é um endereço real vindo do `$CONTROL doctor` ou da primeira resposta.
+- `disconnect_gmail` desconecta uma conta e pede aprovação no modo normal; use uma conta falsa no sandbox.
 - Sem conta conectada, o bot chama `connect_gmail` e a TUI abre a tela de login no meio do turno. A pessoa autoriza no navegador; `Esc` cancela e a tool falha com `Login cancelled.`. Veja [login.md](login.md).
 - As leituras são da caixa real; a receita padrão de envio recusa a aprovação.
 

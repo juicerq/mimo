@@ -2,7 +2,7 @@ import { z } from "zod";
 import { recordAction, recordFailure } from "../actions/actions";
 import type { ToolContext } from "../tools/context";
 import { tool } from "../tools/tool";
-import { accountField, listAccounts, resolveAccount } from "./accounts";
+import { accountField, disconnectAccount, listAccounts, resolveAccount } from "./accounts";
 import { createDraft, listUnread, readThread, sendDraft, sendEmail } from "./api";
 
 export function gmailTools(context: ToolContext) {
@@ -24,6 +24,15 @@ export function gmailTools(context: ToolContext) {
 			async execute() {
 				await context.login("gmail").finished;
 				return { accounts: (await listAccounts()).map((account) => account.email) };
+			},
+		}),
+		tool({
+			name: "disconnect_gmail",
+			description:
+				"Desconecta uma conta do Gmail: apaga a conta guardada e revoga o acesso no Google. No modo normal, a chamada espera aprovação no terminal.",
+			input: z.object({ account: accountField }),
+			async execute({ account }) {
+				return await disconnectAccount(account);
 			},
 		}),
 		tool({

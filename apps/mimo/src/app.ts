@@ -10,6 +10,7 @@ import {
 import { Bot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode } from "@agent/bot/types";
+import { disconnectAccount, listAccounts } from "@agent/gmail/accounts";
 import { listModels } from "@agent/model/catalog";
 import { LOGIN_GROUP_NAMES, LOGIN_TARGETS, LoginSession, type LoginEvent, type LoginGroup, type LoginPrompt, type LoginTarget } from "@agent/login/login";
 import { PROVIDER_NAMES, type ModelInfo, type ModelOption, type ModelSelection } from "@agent/model/types";
@@ -36,10 +37,11 @@ type PickerScreen =
 	| { kind: "models"; bot: BotInfo; options: ModelOption[] }
 	| { kind: "effort"; bot: BotInfo; option: ModelOption }
 	| { kind: "providers" }
+	| { kind: "accounts"; emails: string[] }
 	| { kind: "login"; target: LoginTarget; session: LoginSession; url: string | null; prompt: LoginPrompt | null };
 type Screen = HomeScreen | PickerScreen | { kind: "saving" };
 
-const PICKER_KINDS = new Set(["models", "effort", "providers", "login"]);
+const PICKER_KINDS = new Set(["models", "effort", "providers", "accounts", "login"]);
 
 function isPicker(screen: Screen): screen is PickerScreen {
 	return PICKER_KINDS.has(screen.kind);
@@ -264,7 +266,13 @@ export class MimoApp {
 			return true;
 		}
 		if (text === "/login") {
+			this.input.value = "";
 			this.showProviders();
+			return true;
+		}
+		if (text === "/logout") {
+			this.input.value = "";
+			void this.showAccounts();
 			return true;
 		}
 		return false;
@@ -291,6 +299,13 @@ export class MimoApp {
 			return;
 		}
 		const index = Number(text) - 1;
+		if (screen.kind === "accounts") {
+			const email = screen.emails[index];
+			if (email) {
+				void this.removeAccount(email);
+				return;
+			}
+		}
 		if (screen.kind === "providers") {
 			const target = LOGIN_TARGETS[index];
 			if (target) {
@@ -371,6 +386,52 @@ export class MimoApp {
 		}
 		this.appendPickerLine("/cancel to return or press Esc", T4);
 		this.setPickerStatus("ready");
+	}
+
+	private async showAccounts() {
+		const signal = this.openPicker({ kind: "accounts", emails: [] }, "logout");
+		try {
+			const accounts = await listAccounts();
+			if (signal.aborted) {
+				return;
+			}
+			this.screen = { kind: "accounts", emails: accounts.map((account) => account.email) };
+			if (accounts.length === 0) {
+				this.appendPickerLine("No Gmail account is connected.", T3, 0);
+			}
+			for (const [index, account] of accounts.entries()) {
+				this.appendPickerLine(`${index + 1}. ${account.email}`, T2, 0);
+			}
+			this.appendPickerLine("/cancel to return or press Esc", T4);
+			this.setPickerStatus("ready");
+		} catch (error) {
+			if (!signal.aborted) {
+				this.appendPickerLine(describeError(error), ERROR_COLOR);
+				this.setPickerStatus("ready");
+			}
+		}
+	}
+
+	private async removeAccount(email: string) {
+		const picker = this.screen;
+		const signal = this.picker?.view.signal;
+		this.screen = { kind: "saving" };
+		this.setPickerStatus("loading");
+		try {
+			const result = await disconnectAccount(email);
+			if (signal?.aborted) {
+				return;
+			}
+			this.closePicker();
+			const revoke = result.revoked ? "" : " Google did not confirm the revoke.";
+			this.appendLine(`Disconnected ${result.email}.${revoke}`, T3);
+		} catch (error) {
+			if (!signal?.aborted) {
+				this.screen = picker;
+				this.appendPickerLine(describeError(error), ERROR_COLOR);
+				this.setPickerStatus("ready");
+			}
+		}
 	}
 
 	private startLogin(target: (typeof LOGIN_TARGETS)[number]) {

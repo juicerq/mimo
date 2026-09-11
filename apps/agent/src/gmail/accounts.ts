@@ -4,6 +4,7 @@ import { readJsonFile, writeTextFile } from "../storage/files";
 
 const STORE_PATH = dataPath("gmail", "accounts.json");
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
+const REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 const REFRESH_SKEW_MS = 60_000;
 
 const accountSchema = z.object({
@@ -89,6 +90,22 @@ export async function saveAccount(account: GmailAccount): Promise<void> {
 	const accounts = await listAccounts();
 	const updated = [...accounts.filter((existing) => existing.email !== account.email), account];
 	await writeTextFile(STORE_PATH, `${JSON.stringify({ accounts: updated }, null, "\t")}\n`, 0o600);
+}
+
+export async function disconnectAccount(email?: string): Promise<{ email: string; revoked: boolean }> {
+	const account = await resolveAccount(email);
+	const accounts = await listAccounts();
+	await writeTextFile(
+		STORE_PATH,
+		`${JSON.stringify({ accounts: accounts.filter((existing) => existing.email !== account.email) }, null, "\t")}\n`,
+		0o600,
+	);
+	cachedTokens.delete(account.email);
+	const revoked = await fetch(`${REVOKE_URL}?token=${encodeURIComponent(account.refreshToken)}`, { method: "POST" })
+		.then((response) => response.ok)
+		.catch(() => false);
+
+	return { email: account.email, revoked };
 }
 
 function accountList(accounts: GmailAccount[]): string {
