@@ -11,7 +11,9 @@ import { Bot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode } from "@agent/bot/types";
 import { listModels } from "@agent/model/catalog";
-import { PROVIDER_NAMES, type ModelInfo, type ModelOption, type ModelSelection } from "@agent/model/types";
+import { LoginSession, type LoginEvent, type LoginPrompt } from "@agent/model/login";
+import { PROVIDER_NAMES, ProviderSchema, type ModelInfo, type ModelOption, type ModelSelection, type Provider } from "@agent/model/types";
+import { copyToClipboard } from "./clipboard";
 
 const T1 = "#F2F2F3";
 const T2 = "#C9C9CC";
@@ -27,14 +29,21 @@ const ATTENTION_COLOR = T1;
 const DOUBLE_ESCAPE_MS = 400;
 const APPROVAL_INPUT_CHARACTERS = 240;
 
+type HomeScreen =
+	| { kind: "bots"; bots: BotInfo[] }
+	| { kind: "conversation"; bot: BotInfo };
 type PickerScreen =
 	| { kind: "models"; bot: BotInfo; options: ModelOption[] }
-	| { kind: "effort"; bot: BotInfo; option: ModelOption };
-type Screen =
-	| { kind: "bots"; bots: BotInfo[] }
-	| { kind: "conversation"; bot: BotInfo }
-	| PickerScreen
-	| { kind: "saving" };
+	| { kind: "effort"; bot: BotInfo; option: ModelOption }
+	| { kind: "providers" }
+	| { kind: "login"; session: LoginSession; url: string | null; prompt: LoginPrompt | null };
+type Screen = HomeScreen | PickerScreen | { kind: "saving" };
+
+const PICKER_KINDS = new Set(["models", "effort", "providers", "login"]);
+
+function isPicker(screen: Screen): screen is PickerScreen {
+	return PICKER_KINDS.has(screen.kind);
+}
 
 export class MimoApp {
 	private readonly renderer: CliRenderer;
@@ -43,7 +52,7 @@ export class MimoApp {
 	private readonly input: InputRenderable;
 	private readonly heading: TextRenderable;
 	private readonly pickerTranscript: ScrollBoxRenderable;
-	private picker: { view: AbortController; draft: string; state: string } | null = null;
+	private picker: { view: AbortController; draft: string; state: string; back: HomeScreen } | null = null;
 	private conversation: Bot | null = null;
 	private unsubscribe: (() => void) | null = null;
 	private screen: Screen = { kind: "bots", bots: [] };
@@ -113,6 +122,9 @@ export class MimoApp {
 		renderer.keyInput.on("keypress", (key) => {
 			if (key.ctrl && key.name === "p" && this.screen.kind === "conversation" && this.conversation) {
 				void this.showModels(this.screen.bot);
+			} else if (key.name === "c" && !key.ctrl && !key.meta && this.copyAuthUrl()) {
+				key.preventDefault();
+				this.lastEscapeAt = null;
 			} else if (key.name === "escape") {
 				this.handleEscape();
 			} else {
@@ -168,7 +180,7 @@ export class MimoApp {
 		if ((this.picker ? this.picker.state !== "ready" : this.busy) || text.length === 0) {
 			return;
 		}
-		if (this.screen.kind === "models" || this.screen.kind === "effort") {
+		if (isPicker(this.screen)) {
 			this.selectOption(text);
 			return;
 		}
@@ -192,8 +204,20 @@ export class MimoApp {
 		void this.dispatch(async () => await conversation.deliver(text));
 	}
 
+	private copyAuthUrl(): boolean {
+		const screen = this.screen;
+		if (screen.kind !== "login" || screen.url === null || this.input.value.length > 0) {
+			return false;
+		}
+		void copyToClipboard(screen.url).then(
+			() => this.appendPickerLine("Link copied.", T3),
+			() => this.appendPickerLine("Could not copy the link.", ERROR_COLOR),
+		);
+		return true;
+	}
+
 	private handleEscape() {
-		if (this.screen.kind === "models" || this.screen.kind === "effort") {
+		if (isPicker(this.screen)) {
 			this.lastEscapeAt = null;
 			this.cancelSelection();
 			return;
@@ -231,30 +255,49 @@ export class MimoApp {
 		}
 		if (text === "/model") {
 			this.input.value = "";
-			if (this.screen.kind === "bots") {
+			const home = this.homeScreen();
+			if (home.kind === "bots") {
 				this.appendLine("Open a bot to choose its model.", T3);
 				return true;
 			}
-			void this.showModels(this.screen.bot);
+			void this.showModels(home.bot);
+			return true;
+		}
+		if (text === "/login") {
+			this.showProviders();
 			return true;
 		}
 		return false;
 	}
 
 	private cancelSelection() {
-		if (this.screen.kind === "models" || this.screen.kind === "effort") {
-			this.closePicker(this.screen.bot);
+		if (this.screen.kind === "login") {
+			this.screen.session.cancel();
+		}
+		if (isPicker(this.screen)) {
+			this.closePicker();
 		}
 	}
 
 	private selectOption(text: string) {
 		const screen = this.screen;
 		this.input.value = "";
+		if (screen.kind === "login") {
+			this.answerLogin(screen, text);
+			return;
+		}
 		if (!/^[1-9]\d*$/.test(text)) {
 			this.appendPickerLine("Choose a number, or /cancel to return.", T3);
 			return;
 		}
 		const index = Number(text) - 1;
+		if (screen.kind === "providers") {
+			const provider = ProviderSchema.options[index];
+			if (provider) {
+				this.startLogin(provider);
+				return;
+			}
+		}
 		if (screen.kind === "models") {
 			const option = screen.options[index];
 			if (option) {
@@ -276,17 +319,7 @@ export class MimoApp {
 		if (!this.conversation) {
 			return;
 		}
-		this.picker?.view.abort();
-		this.picker = { view: new AbortController(), draft: this.picker?.draft ?? this.input.value, state: "loading" };
-		const signal = this.picker.view.signal;
-		this.screen = { kind: "models", bot, options: [] };
-		this.clearPicker();
-		this.transcript.visible = false;
-		this.pickerTranscript.visible = true;
-		this.input.value = "";
-		this.setStatus(this.lastState);
-		this.heading.content = `${bot.name}  ·  model`;
-		this.input.placeholder = "number or /cancel";
+		const signal = this.openPicker({ kind: "models", bot, options: [] }, `${bot.name}  ·  model`);
 		try {
 			const catalog = await listModels();
 			if (signal.aborted) {
@@ -315,15 +348,78 @@ export class MimoApp {
 			void this.saveModel(bot, { provider: option.provider, id: option.id, reasoning: option.reasoningOptions[0] });
 			return;
 		}
-		this.screen = { kind: "effort", bot, option };
-		this.clearPicker();
-		this.heading.content = `${option.name}  ·  effort`;
-		this.input.placeholder = "number or /cancel";
+		this.openPicker({ kind: "effort", bot, option }, `${option.name}  ·  effort`);
 		for (const [index, effort] of option.reasoningOptions.entries()) {
 			this.appendPickerLine(`${index + 1}. ${effort}`, T2, 0);
 		}
 		this.appendPickerLine("/cancel to return", T4);
 		this.setPickerStatus("ready");
+	}
+
+	private showProviders() {
+		this.openPicker({ kind: "providers" }, "login");
+		for (const [index, provider] of ProviderSchema.options.entries()) {
+			const how = provider === "openai-codex" ? "OAuth" : "API key";
+			this.appendPickerLine(`${index + 1}. ${PROVIDER_NAMES[provider]} · ${how}`, T2, 0);
+		}
+		this.appendPickerLine("/cancel to return", T4);
+		this.setPickerStatus("ready");
+	}
+
+	private startLogin(provider: Provider) {
+		const session = new LoginSession(provider);
+		const screen: PickerScreen = { kind: "login", session, url: null, prompt: null };
+		const signal = this.openPicker(screen, `${PROVIDER_NAMES[provider]}  ·  login`);
+		this.input.placeholder = "waiting";
+		session.subscribe((event) => {
+			if (!signal.aborted) {
+				this.renderLoginEvent(screen, event);
+			}
+		});
+	}
+
+	private renderLoginEvent(screen: Extract<PickerScreen, { kind: "login" }>, event: LoginEvent) {
+		if (event.type === "info") {
+			this.appendPickerLine(event.text, T3);
+			return;
+		}
+		if (event.type === "url") {
+			screen.url = event.url;
+			this.appendPickerLine(event.url, T1, 0);
+			if (event.instructions) {
+				this.appendPickerLine(event.instructions, T4);
+			}
+			this.appendPickerLine("Press c to copy the link.", T4);
+			return;
+		}
+		if (event.type === "prompt") {
+			screen.prompt = event.prompt;
+			this.appendPickerLine(event.prompt.message, T2, 0);
+			for (const [index, option] of event.prompt.options.entries()) {
+				this.appendPickerLine(`${index + 1}. ${option.label}`, T2, 0);
+			}
+			this.appendPickerLine("/cancel to return", T4);
+			this.input.placeholder = event.prompt.kind === "select" ? "number or /cancel" : "type here or /cancel";
+			this.setPickerStatus("ready");
+			return;
+		}
+		if (event.type === "failed") {
+			this.appendPickerLine(event.message, ERROR_COLOR);
+			this.setPickerStatus("ready");
+			return;
+		}
+		this.closePicker();
+		this.appendLine(`Connected. Use /model to pick a model.`, T3);
+	}
+
+	private answerLogin(screen: Extract<PickerScreen, { kind: "login" }>, text: string) {
+		if (!screen.prompt) {
+			return;
+		}
+		screen.prompt = null;
+		this.input.placeholder = "waiting";
+		this.setPickerStatus("loading");
+		screen.session.answer(text);
 	}
 
 	private async saveModel(bot: BotInfo, selection: ModelSelection) {
@@ -339,7 +435,7 @@ export class MimoApp {
 			if (signal?.aborted) {
 				return;
 			}
-			this.closePicker(updated);
+			this.closePicker({ kind: "conversation", bot: updated });
 			this.appendLine("Model saved for the next response.", T3);
 		} catch (error) {
 			if (!signal?.aborted) {
@@ -374,22 +470,54 @@ export class MimoApp {
 		this.setStatus(this.lastState);
 	}
 
-	private closePicker(bot: BotInfo) {
+	private closePicker(back?: HomeScreen) {
 		const draft = this.picker?.draft ?? "";
+		const screen = back ?? this.picker?.back ?? { kind: "bots", bots: [] };
 		this.picker?.view.abort();
 		this.picker = null;
 		this.clearPicker();
 		this.pickerTranscript.visible = false;
 		this.transcript.visible = true;
-		this.screen = { kind: "conversation", bot };
-		this.modelInfo = bot.model;
-		this.heading.content = `${bot.name}  ·  /bots  /model`;
-		this.input.placeholder = "write your prompt";
+		this.screen = screen;
+		if (screen.kind === "conversation") {
+			this.modelInfo = screen.bot.model;
+			this.heading.content = `${screen.bot.name}  ·  /bots  /model`;
+			this.input.placeholder = "write your prompt";
+		} else {
+			this.heading.content = "bots";
+			this.input.placeholder = "number or /new <name>";
+		}
 		this.input.value = draft;
 		this.setStatus(this.lastState);
 	}
 
-	private resetView(screen: Exclude<Screen, { kind: "saving" }>) {
+	private openPicker(screen: PickerScreen, heading: string) {
+		const back = this.picker?.back ?? this.homeScreen();
+		this.picker?.view.abort();
+		this.picker = { view: new AbortController(), draft: this.picker?.draft ?? this.input.value, state: "loading", back };
+		this.screen = screen;
+		this.clearPicker();
+		this.transcript.visible = false;
+		this.pickerTranscript.visible = true;
+		this.input.value = "";
+		this.heading.content = heading;
+		this.input.placeholder = "number or /cancel";
+		this.setStatus(this.lastState);
+		return this.picker.view.signal;
+	}
+
+	private homeScreen(): HomeScreen {
+		const screen = this.screen;
+		if (screen.kind === "conversation" || screen.kind === "bots") {
+			return screen;
+		}
+		return { kind: "bots", bots: [] };
+	}
+
+	private resetView(screen: HomeScreen) {
+		if (this.screen.kind === "login") {
+			this.screen.session.cancel();
+		}
 		this.picker?.view.abort();
 		this.picker = null;
 		this.clearPicker();

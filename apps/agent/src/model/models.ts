@@ -45,14 +45,15 @@ const AUTH_FILES: Record<Provider, AuthFile> = {
 			if (credential.type !== "oauth") {
 				return raw;
 			}
-			const auth = CodexAuthSchema.parse(raw);
+			const auth = CodexAuthSchema.partial().parse(raw ?? {});
 			return {
+				auth_mode: "chatgpt",
 				...auth,
 				tokens: {
 					...auth.tokens,
 					access_token: credential.access,
 					refresh_token: credential.refresh,
-					account_id: credential.accountId ?? auth.tokens.account_id,
+					account_id: credential.accountId,
 				},
 				last_refresh: new Date(credential.expires - CODEX_TOKEN_LIFETIME_MS).toISOString(),
 			};
@@ -67,8 +68,8 @@ const AUTH_FILES: Record<Provider, AuthFile> = {
 			if (credential.type !== "api_key") {
 				return raw;
 			}
-			const auth = OpencodeAuthSchema.parse(raw);
-			return { ...auth, "opencode-go": { ...auth["opencode-go"], key: credential.key } };
+			const auth = OpencodeAuthSchema.partial().parse(raw ?? {});
+			return { ...auth, "opencode-go": { ...auth["opencode-go"], type: "api", key: credential.key } };
 		},
 	},
 };
@@ -105,9 +106,6 @@ async function readCredential(providerId: string): Promise<Credential | undefine
 async function persist(provider: Provider, credential: Credential): Promise<void> {
 	const file = AUTH_FILES[provider];
 	const raw = await readRaw(file);
-	if (raw === null) {
-		return;
-	}
 	await writeTextFile(file.path, `${JSON.stringify(file.serialize(raw, credential), null, 2)}\n`, 0o600);
 }
 
