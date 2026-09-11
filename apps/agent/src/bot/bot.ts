@@ -26,6 +26,11 @@ interface Pending {
 	resolve: (approved: boolean) => void;
 }
 
+interface Entry {
+	text: string;
+	kind: "user" | "note";
+}
+
 export async function deleteBot(id: string): Promise<void> {
 	for (const child of await listChildren(id)) {
 		await deleteBot(child.id);
@@ -41,13 +46,14 @@ export class Bot {
 	private readonly agent: Agent;
 	private readonly listeners = new Set<(event: BotEvent) => void>();
 	private readonly approvals: Pending[] = [];
-	private readonly queued: string[] = [];
+	private readonly queued: Entry[] = [];
 	private readonly crew = new Map<Bot, number>();
 	private readonly running = new Map<string, string>();
 	private record: BotInfo;
 	private session = uuidv7();
 	private host: Bot | null = null;
 	private cancelled = false;
+	private draining = false;
 	private reply = "";
 	private failure: string | null = null;
 
@@ -110,8 +116,8 @@ export class Bot {
 		return this.record.tools;
 	}
 
-	get queue(): readonly string[] {
-		return this.queued;
+	get queue(): string[] {
+		return this.queued.filter((entry) => entry.kind === "user").map((entry) => entry.text);
 	}
 
 	get team(): TeamMember[] {
@@ -150,17 +156,25 @@ export class Bot {
 		void writeBot(this.record);
 	}
 
-	async delegate(botId: string, prompt: string, signal?: AbortSignal): Promise<string> {
+	async delegate(botId: string, prompt: string): Promise<void> {
 		await this.child(botId);
 		const child = await Bot.open(botId);
-		child.host = this;
-		signal?.addEventListener("abort", () => child.cancel(), { once: true });
-		this.crew.set(child, Date.now());
-		try {
-			return await child.run(prompt);
-		} finally {
-			this.crew.delete(child);
+		if (child.busy) {
+			throw new Error("Este filho está trabalhando. Espere ele terminar.");
 		}
+		child.host = this;
+		this.crew.set(child, Date.now());
+		void this.work(child, prompt);
+	}
+
+	stopChild(botId: string): string {
+		for (const child of this.crew.keys()) {
+			if (child.record.id === botId) {
+				child.cancel();
+				return child.record.name;
+			}
+		}
+		throw new Error("Este filho não está trabalhando.");
 	}
 
 	async updateChild(botId: string, patch: BotPatch): Promise<BotInfo> {
@@ -209,36 +223,42 @@ export class Bot {
 	}
 
 	async send(text: string): Promise<void> {
-		if (this.agent.state.isStreaming) {
-			this.queued.push(text);
-			this.emit({ type: "queue", items: this.queue });
-			return;
-		}
-		this.emit({ type: "user", text });
-		this.emit({ type: "turn-started" });
-		this.cancelled = false;
-		this.agent.state.systemPrompt = `${this.basePrompt()}\n\n${await recallMemory(this.record.id)}`;
-		await this.agent.prompt(text);
+		await this.push({ text, kind: "user" });
 	}
 
 	cancel(): void {
 		this.cancelled = true;
 		this.running.clear();
-		this.take();
+		this.discard();
 		for (const pending of this.approvals.slice()) {
 			this.resolveApproval(pending, false);
 		}
 		this.agent.abort();
 	}
 
+	private async work(child: Bot, prompt: string): Promise<void> {
+		const note = await child.run(prompt).then(
+			(reply) => `O filho ${child.record.name} terminou e respondeu:\n\n${reply}`,
+			(error: unknown) => `O filho ${child.record.name} não terminou: ${errorText(error)}`,
+		);
+		this.crew.delete(child);
+		await this.push({ text: note, kind: "note" });
+	}
+
+	private async push(entry: Entry): Promise<void> {
+		this.queued.push(entry);
+		this.emit({ type: "queue", items: this.queue });
+		await this.drain();
+	}
+
 	private steerQueue(): void {
-		for (const text of this.take()) {
-			this.emit({ type: "user", text });
-			this.agent.steer({ role: "user", content: text, timestamp: Date.now() });
+		for (const entry of this.take()) {
+			this.announce(entry);
+			this.agent.steer({ role: "user", content: entry.text, timestamp: Date.now() });
 		}
 	}
 
-	private take(): string[] {
+	private take(): Entry[] {
 		if (this.queued.length === 0) {
 			return [];
 		}
@@ -247,14 +267,42 @@ export class Bot {
 		return pending;
 	}
 
-	private async drain(): Promise<void> {
-		await this.agent.waitForIdle();
-		const first = this.queued.shift();
-		if (first === undefined) {
+	private discard(): void {
+		const kept = this.queued.filter((entry) => entry.kind === "note");
+		this.queued.splice(0, this.queued.length, ...kept);
+		this.emit({ type: "queue", items: this.queue });
+	}
+
+	private announce(entry: Entry): void {
+		if (entry.kind === "note") {
+			this.emit({ type: "note", text: entry.text });
 			return;
 		}
-		this.emit({ type: "queue", items: this.queue });
-		await this.send(first);
+		this.emit({ type: "user", text: entry.text });
+	}
+
+	private async drain(): Promise<void> {
+		if (this.draining || this.agent.state.isStreaming) {
+			return;
+		}
+		const batch = this.take();
+		if (batch.length === 0) {
+			return;
+		}
+		this.draining = true;
+		try {
+			this.cancelled = false;
+			for (const entry of batch) {
+				this.announce(entry);
+			}
+			this.emit({ type: "turn-started" });
+			this.agent.state.systemPrompt = `${this.basePrompt()}\n\n${await recallMemory(this.record.id)}`;
+			const run = this.agent.prompt(batch.map((entry) => ({ role: "user", content: entry.text, timestamp: Date.now() })));
+			this.draining = false;
+			await run;
+		} finally {
+			this.draining = false;
+		}
 	}
 
 	private async finish(): Promise<void> {
@@ -270,6 +318,9 @@ export class Bot {
 		await this.send(prompt);
 		if (this.failure !== null) {
 			throw new Error(this.failure);
+		}
+		if (this.cancelled) {
+			throw new Error("O trabalho foi parado.");
 		}
 		return this.reply;
 	}
@@ -418,6 +469,13 @@ export class Bot {
 		}
 		await writeTranscript(this.record.id, this.agent.state.messages);
 	}
+}
+
+function errorText(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	return String(error);
 }
 
 function toolErrorText(result: unknown): string {

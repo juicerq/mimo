@@ -1,7 +1,7 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
 import { createBot, listChildren, type BotPatch } from "../bot/store";
-import { BotNameSchema, BotPromptSchema, ToolGroupSchema, type BotInfo } from "../bot/types";
+import { BotNameSchema, BotPromptSchema, ToolGroupSchema, type BotInfo, type TeamMember } from "../bot/types";
 import { listModels, selectModel } from "../model/catalog";
 import { ModelSelectionSchema } from "../model/types";
 import type { ToolContext } from "../tools/context";
@@ -53,6 +53,13 @@ function botPatch(input: z.output<typeof UpdateBotInput>): BotPatch {
 	};
 }
 
+function teamView(name: string, member: TeamMember | undefined) {
+	if (!member) {
+		return { name, working: false };
+	}
+	return { name, working: true, tool: member.tool, seconds: Math.floor((Date.now() - member.startedAt) / 1_000) };
+}
+
 async function child(context: ToolContext, name: string): Promise<BotInfo> {
 	const found = (await listChildren(context.botId)).find((bot) => bot.name === name);
 	if (!found) {
@@ -81,11 +88,30 @@ export function teamTools(context: ToolContext): AgentTool[] {
 		}),
 		tool({
 			name: "delegate",
-			description: "Entrega um trabalho a um filho e espera a resposta dele. O filho não vê esta conversa: escreva o pedido inteiro no prompt.",
+			description: "Começa um trabalho num filho e volta na hora. A resposta dele chega depois, sozinha. O filho não vê esta conversa: escreva o pedido inteiro no prompt.",
 			input: DelegateInput,
-			async execute(input, signal) {
+			async execute(input) {
 				const target = await child(context, input.bot);
-				return { bot: target.name, reply: await context.delegate(target.id, input.prompt, signal) };
+				await context.delegate(target.id, input.prompt);
+				return { bot: target.name, status: "started" };
+			},
+		}),
+		tool({
+			name: "check_team",
+			description: "Mostra o que cada filho está fazendo agora: a tool do momento e há quanto tempo trabalha.",
+			input: z.object({}),
+			async execute() {
+				const working = new Map(context.team.map((member) => [member.name, member]));
+				return (await listChildren(context.botId)).map((bot) => teamView(bot.name, working.get(bot.name)));
+			},
+		}),
+		tool({
+			name: "stop_bot",
+			description: "Para o trabalho de um filho agora. O trabalho já feito não é desfeito.",
+			input: DeleteBotInput,
+			async execute(input) {
+				const target = await child(context, input.bot);
+				return { stopped: context.stopChild(target.id) };
 			},
 		}),
 		tool({
