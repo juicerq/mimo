@@ -1,10 +1,10 @@
 # Modelos por bot
 
-`/model` abre a lista numerada dentro da conversa. `Ctrl+P` abre o mesmo seletor preservando o rascunho. O segundo passo oferece os esforços compatíveis. Modelos com um único esforço salvam a escolha no primeiro passo. `/cancel` e `Esc` voltam à conversa sem escolher.
+`/model` abre o seletor dentro da conversa. O primeiro passo escolhe o provedor e mostra quantos modelos ele tem; o segundo lista os modelos desse provedor; o terceiro oferece os esforços compatíveis. `Ctrl+P` abre o mesmo seletor preservando o rascunho. Modelos com um único esforço salvam a escolha no primeiro passo. `/cancel` e `Esc` voltam à conversa sem escolher.
 
 ## Verificação
 
-1. Crie um bot em sandbox. Confira o modelo e o esforço no rodapé antes da primeira mensagem. Abra `/model`, capture as opções e escolha um modelo da assinatura OpenAI. Escolha `max` quando disponível. Confira o rodapé e `model` em `bots/<id>.json`.
+1. Crie um bot em sandbox. Confira o modelo e o esforço no rodapé antes da primeira mensagem. Abra `/model`, escolha OpenAI, capture a lista do provedor e escolha um modelo. Escolha `max` quando disponível. Confira o rodapé e `model` em `bots/<id>.json`.
 2. Envie um pedido com marcador único e uma ferramenta de leitura. Confira a resposta e a linha `⚙ <tool>`. O rodapé deve continuar mostrando a escolha salva.
 3. Guarde um fato banal na memória e troque para outro modelo. Pergunte pelo fato sem repetir seu valor. Confira que o bot mantém o transcript e `bots/<id>/memory.md`.
 4. Crie outro bot e escolha um modelo diferente. Alterne entre os bots e reinicie com os mesmos dados. Cada bot deve manter sua escolha, inclusive ao reexibir mensagens antigas de outros modelos.

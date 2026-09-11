@@ -13,7 +13,7 @@ import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode
 import { disconnectAccount, listAccounts } from "@agent/gmail/accounts";
 import { listModels } from "@agent/model/catalog";
 import { LOGIN_GROUP_NAMES, LOGIN_TARGETS, LoginSession, type LoginEvent, type LoginGroup, type LoginPrompt, type LoginTarget } from "@agent/login/login";
-import { PROVIDER_NAMES, type ModelInfo, type ModelOption, type ModelSelection } from "@agent/model/types";
+import { PROVIDER_NAMES, ProviderSchema, type ModelCatalog, type ModelInfo, type ModelOption, type ModelSelection, type Provider } from "@agent/model/types";
 import { copyToClipboard } from "./clipboard";
 
 const T1 = "#F2F2F3";
@@ -34,6 +34,7 @@ type HomeScreen =
 	| { kind: "bots"; bots: BotInfo[] }
 	| { kind: "conversation"; bot: BotInfo };
 type PickerScreen =
+	| { kind: "catalog"; bot: BotInfo; catalog: ModelCatalog }
 	| { kind: "models"; bot: BotInfo; options: ModelOption[] }
 	| { kind: "effort"; bot: BotInfo; option: ModelOption }
 	| { kind: "providers" }
@@ -41,7 +42,7 @@ type PickerScreen =
 	| { kind: "login"; target: LoginTarget; session: LoginSession; url: string | null; prompt: LoginPrompt | null };
 type Screen = HomeScreen | PickerScreen | { kind: "saving" };
 
-const PICKER_KINDS = new Set(["models", "effort", "providers", "accounts", "login"]);
+const PICKER_KINDS = new Set(["catalog", "models", "effort", "providers", "accounts", "login"]);
 
 function isPicker(screen: Screen): screen is PickerScreen {
 	return PICKER_KINDS.has(screen.kind);
@@ -313,6 +314,13 @@ export class MimoApp {
 				return;
 			}
 		}
+		if (screen.kind === "catalog") {
+			const provider = ProviderSchema.options[index];
+			if (provider) {
+				this.showProviderModels(screen.bot, provider, screen.catalog);
+				return;
+			}
+		}
 		if (screen.kind === "models") {
 			const option = screen.options[index];
 			if (option) {
@@ -334,21 +342,21 @@ export class MimoApp {
 		if (!this.conversation) {
 			return;
 		}
-		const signal = this.openPicker({ kind: "models", bot, options: [] }, `${bot.name}  ·  model`);
+		const signal = this.openPicker({ kind: "catalog", bot, catalog: { models: [], errors: [] } }, `${bot.name}  ·  model`);
 		try {
 			const catalog = await listModels();
 			if (signal.aborted) {
 				return;
 			}
-			this.screen = { kind: "models", bot, options: catalog.models };
-			for (const [index, option] of catalog.models.entries()) {
-				this.appendPickerLine(`${index + 1}. ${option.name} · ${PROVIDER_NAMES[option.provider]}`, T2, 0);
+			this.screen = { kind: "catalog", bot, catalog };
+			for (const [index, provider] of ProviderSchema.options.entries()) {
+				const count = catalog.models.filter((option) => option.provider === provider).length;
+				this.appendPickerLine(`${index + 1}. ${PROVIDER_NAMES[provider]} · ${count} models`, T2, 0);
 			}
 			for (const error of catalog.errors) {
 				this.appendPickerLine(`${PROVIDER_NAMES[error.provider]}: ${error.message}`, T3);
 			}
 			this.appendPickerLine("/cancel to return or press Esc", T4);
-			this.pickerTranscript.scrollTo(0);
 			this.setPickerStatus("ready");
 		} catch (error) {
 			if (!signal.aborted) {
@@ -356,6 +364,21 @@ export class MimoApp {
 				this.setPickerStatus("ready");
 			}
 		}
+	}
+
+	private showProviderModels(bot: BotInfo, provider: Provider, catalog: ModelCatalog) {
+		const options = catalog.models.filter((option) => option.provider === provider);
+		this.openPicker({ kind: "models", bot, options }, `${PROVIDER_NAMES[provider]}  ·  model`);
+		if (options.length === 0) {
+			const failure = catalog.errors.find((error) => error.provider === provider);
+			this.appendPickerLine(failure?.message ?? "No model is available for this provider.", T3, 0);
+		}
+		for (const [index, option] of options.entries()) {
+			this.appendPickerLine(`${index + 1}. ${option.name}`, T2, 0);
+		}
+		this.appendPickerLine("/cancel to return or press Esc", T4);
+		this.pickerTranscript.scrollTo(0);
+		this.setPickerStatus("ready");
 	}
 
 	private showEfforts(bot: BotInfo, option: ModelOption) {
