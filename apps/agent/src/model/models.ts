@@ -1,39 +1,87 @@
 import { createModels, type Credential, type CredentialStore, type Models } from "@earendil-works/pi-ai";
 import { openaiCodexProvider } from "@earendil-works/pi-ai/providers/openai-codex";
 import { opencodeGoProvider } from "@earendil-works/pi-ai/providers/opencode-go";
-import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
+import { readTextFile, writeTextFile } from "../storage/files";
 import { ProviderSchema, type Provider } from "./types";
 
-const CodexAuthSchema = z
-	.object({
-		tokens: z.object({
-			access_token: z.string().min(1),
-			refresh_token: z.string().min(1),
-			account_id: z.string().min(1),
-		}),
-		last_refresh: z.string().min(1),
-	})
-	.transform((auth): Credential => ({
-		type: "oauth",
-		access: auth.tokens.access_token,
-		refresh: auth.tokens.refresh_token,
-		expires: Date.parse(auth.last_refresh) + 3_600_000,
-		accountId: auth.tokens.account_id,
-	}));
+const CODEX_TOKEN_LIFETIME_MS = 3_600_000;
 
-const OpencodeAuthSchema = z
-	.object({ "opencode-go": z.object({ key: z.string().min(1) }) })
-	.transform((auth): Credential => ({ type: "api_key", key: auth["opencode-go"].key }));
+const CodexAuthSchema = z.looseObject({
+	tokens: z.looseObject({
+		access_token: z.string().min(1),
+		refresh_token: z.string().min(1),
+		account_id: z.string().min(1),
+	}),
+	last_refresh: z.string().min(1),
+});
 
-const AUTH_FILES: Record<Provider, { path: string; schema: z.ZodType<Credential, unknown> }> = {
-	"openai-codex": { path: join(homedir(), ".codex", "auth.json"), schema: CodexAuthSchema },
-	"opencode-go": { path: join(homedir(), ".local", "share", "opencode", "auth.json"), schema: OpencodeAuthSchema },
+const OpencodeAuthSchema = z.looseObject({
+	"opencode-go": z.looseObject({ key: z.string().min(1) }),
+});
+
+interface AuthFile {
+	path: string;
+	parse(raw: unknown): Credential;
+	serialize(raw: unknown, credential: Credential): unknown;
+}
+
+const AUTH_FILES: Record<Provider, AuthFile> = {
+	"openai-codex": {
+		path: join(homedir(), ".codex", "auth.json"),
+		parse(raw) {
+			const auth = CodexAuthSchema.parse(raw);
+			return {
+				type: "oauth",
+				access: auth.tokens.access_token,
+				refresh: auth.tokens.refresh_token,
+				expires: Date.parse(auth.last_refresh) + CODEX_TOKEN_LIFETIME_MS,
+				accountId: auth.tokens.account_id,
+			};
+		},
+		serialize(raw, credential) {
+			if (credential.type !== "oauth") {
+				return raw;
+			}
+			const auth = CodexAuthSchema.parse(raw);
+			return {
+				...auth,
+				tokens: {
+					...auth.tokens,
+					access_token: credential.access,
+					refresh_token: credential.refresh,
+					account_id: credential.accountId ?? auth.tokens.account_id,
+				},
+				last_refresh: new Date(credential.expires - CODEX_TOKEN_LIFETIME_MS).toISOString(),
+			};
+		},
+	},
+	"opencode-go": {
+		path: join(homedir(), ".local", "share", "opencode", "auth.json"),
+		parse(raw) {
+			return { type: "api_key", key: OpencodeAuthSchema.parse(raw)["opencode-go"].key };
+		},
+		serialize(raw, credential) {
+			if (credential.type !== "api_key") {
+				return raw;
+			}
+			const auth = OpencodeAuthSchema.parse(raw);
+			return { ...auth, "opencode-go": { ...auth["opencode-go"], key: credential.key } };
+		},
+	},
 };
 
 const loaded = new Map<Provider, Credential>();
+
+async function readRaw(file: AuthFile): Promise<unknown> {
+	const raw = await readTextFile(file.path);
+	if (raw === null) {
+		return null;
+	}
+	return JSON.parse(raw);
+}
 
 async function readCredential(providerId: string): Promise<Credential | undefined> {
 	const provider = ProviderSchema.safeParse(providerId);
@@ -45,13 +93,22 @@ async function readCredential(providerId: string): Promise<Credential | undefine
 		return cached;
 	}
 	const file = AUTH_FILES[provider.data];
-	const raw = await readFile(file.path, "utf8").catch(() => null);
+	const raw = await readRaw(file);
 	if (raw === null) {
 		return undefined;
 	}
-	const credential = file.schema.parse(JSON.parse(raw));
+	const credential = file.parse(raw);
 	loaded.set(provider.data, credential);
 	return credential;
+}
+
+async function persist(provider: Provider, credential: Credential): Promise<void> {
+	const file = AUTH_FILES[provider];
+	const raw = await readRaw(file);
+	if (raw === null) {
+		return;
+	}
+	await writeTextFile(file.path, `${JSON.stringify(file.serialize(raw, credential), null, 2)}\n`, 0o600);
 }
 
 const credentials: CredentialStore = {
@@ -71,6 +128,7 @@ const credentials: CredentialStore = {
 		const provider = ProviderSchema.safeParse(providerId);
 		if (next && provider.success) {
 			loaded.set(provider.data, next);
+			await persist(provider.data, next);
 		}
 		return next;
 	},
