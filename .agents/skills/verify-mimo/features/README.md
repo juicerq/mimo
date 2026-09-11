@@ -5,11 +5,11 @@ Este diretório é a fonte mantida para verificar o comportamento visível do mi
 ## Precondições de linha de base
 
 - Rode tudo da raiz do repo com `CONTROL=.agents/skills/verify-mimo/scripts/control-mimo`.
-- Uma instância por vez: `$CONTROL launch` exige a porta 2000 livre e a sessão tmux `mimo-verify` ausente.
+- Uma instância por vez: `$CONTROL launch` exige a porta de `MIMO_AGENT_URL` (padrão 2000) livre e a sessão tmux `mimo-verify` ausente.
 - `launch` roda em sandbox de dados por padrão (`.verify/runs/<id>/data`); `$CONTROL data` imprime o caminho. Só use `--data apps/agent/.data` quando a receita exigir os dados reais.
 - `$CONTROL doctor` precisa confirmar health, HEAD, env e pane em `ready`.
-- Cada abertura da TUI é uma conversa nova; nada é retomado entre aberturas, exceto a memória durável.
-- O modelo é remoto (`opencode-go/deepseek-flash`); turnos levam segundos e a redação varia.
+- A TUI abre a lista de bots. Crie um bot com `/new <nome>` antes de conversar. Ao reabrir um bot, a sessão, o histórico e as aprovações pendentes são retomados. Veja [bots.md](bots.md) para criação, retomada e isolamento.
+- O modelo é remoto; turnos levam segundos e a redação varia. Use `/model` dentro do bot para escolher uma integração disponível. O padrão inicial é `opencode-go/deepseek-flash`.
 
 ## Convenções de condução
 
@@ -30,6 +30,7 @@ Este diretório é a fonte mantida para verificar o comportamento visível do mi
 
 ## Features
 
+- [Modelos](./models.md) cobre escolha por bot, esforços, troca entre provedores e continuidade de respostas com aprovação.
 - [Conversa](./chat.md) cobre envio, streaming, ferramentas, contexto e erros na TUI.
 - [Buscar na web](./web-search.md) cobre a tool `web_search` sem chave e seus erros acionáveis.
 - [Gmail](./gmail.md) cobre contas, não lidos, thread, rascunho, aprovação de envio e multi-conta.

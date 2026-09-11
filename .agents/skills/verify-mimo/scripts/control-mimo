@@ -49,18 +49,11 @@ pane_text() {
 }
 
 status_state() {
-	pane_text | grep -oE 'status:[─ ]*(connecting|ready|thinking|waiting|cancelled|error|offline)' | tail -n1 | sed -E 's/^status:[─ ]*//' || true
+	pane_text | grep -oE 'status:[─ ]*(connecting|loading|ready|thinking|waiting|cancelling|cancelled|ended|error|offline)' | tail -n1 | sed -E 's/^status:[─ ]*//' || true
 }
 
 composer_line() {
-	local pane
-	local status_line
-	pane="$(pane_text)"
-	status_line="$(printf '%s\n' "$pane" | grep -nE 'status:.*(connecting|ready|thinking|waiting|cancelled|error|offline)' | tail -n1 | cut -d: -f1 || true)"
-	if [ -z "$status_line" ] || [ "$status_line" -le 2 ]; then
-		return 0
-	fi
-	printf '%s\n' "$pane" | sed -n "$((status_line - 2))p"
+	pane_text | grep "^│" | tail -n1 || true
 }
 
 agent_port() {
@@ -149,6 +142,9 @@ snapshot_state() {
 	local run_dir="$1"
 	local data_dir="$2"
 	mkdir -p "$run_dir/state-before"
+	if [ -d "$data_dir/bots" ]; then
+		cp -a "$data_dir/bots" "$run_dir/state-before/bots"
+	fi
 	if [ -f "$data_dir/routines.json" ]; then
 		cp -a "$data_dir/routines.json" "$run_dir/state-before/routines.json"
 	fi
@@ -164,6 +160,9 @@ capture_state_after() {
 	local run_dir="$1"
 	local data_dir="$2"
 	mkdir -p "$run_dir/state-after"
+	if [ -d "$data_dir/bots" ]; then
+		cp -a "$data_dir/bots" "$run_dir/state-after/bots"
+	fi
 	if [ -f "$data_dir/routines.json" ]; then
 		cp -a "$data_dir/routines.json" "$run_dir/state-after/routines.json"
 	fi
@@ -181,6 +180,12 @@ restore_state() {
 	[ -n "$run_dir" ] || return 0
 	capture_state_after "$run_dir" "$data_dir"
 	mkdir -p "$data_dir"
+	if [ -d "$run_dir/state-before/bots" ]; then
+		rm -rf "$data_dir/bots"
+		cp -a "$run_dir/state-before/bots" "$data_dir/bots"
+	elif [ -d "$data_dir/bots" ]; then
+		rm -rf "$data_dir/bots"
+	fi
 	if [ -f "$run_dir/state-before/routines.json" ]; then
 		cp -a "$run_dir/state-before/routines.json" "$data_dir/routines.json"
 	elif [ -f "$data_dir/routines.json" ]; then
@@ -227,7 +232,14 @@ launch() {
 	git -C "$REPO_DIR" rev-parse HEAD >"$run_dir/head.txt"
 	date -u +"%Y-%m-%dT%H:%M:%SZ" >"$run_dir/started.txt"
 	printf '%s' "$run_dir" >"$CURRENT_RUN_FILE"
-	tmux new-session -d -s "$SESSION" -x 140 -y 42 -c "$REPO_DIR" "MIMO_DATA_DIR='$data_dir' bun run dev"
+	local -a runtime_env=("MIMO_DATA_DIR=$data_dir" "MIMO_AGENT_URL=$AGENT_URL")
+	local setting
+	for setting in MIMO_MODEL MIMO_CONTEXT_WINDOW MIMO_REASONING; do
+		if [ -n "${!setting:-}" ]; then
+			runtime_env+=("$setting=${!setting}")
+		fi
+	done
+	tmux new-session -d -s "$SESSION" -x 140 -y 42 -c "$REPO_DIR" env -u MIMO_MODEL -u MIMO_CONTEXT_WINDOW -u MIMO_REASONING "${runtime_env[@]}" bun run dev
 	if ! wait_for "$READY_PATTERN" "$LAUNCH_TIMEOUT_SECONDS"; then
 		pane_text >"$run_dir/00-launch.txt" || true
 		echo "a TUI não ficou pronta em ${LAUNCH_TIMEOUT_SECONDS}s; veja o log: $AGENT_LOG" >&2
@@ -277,7 +289,7 @@ doctor() {
 		echo "agente: sem resposta em $AGENT_URL"
 	fi
 	if session_up; then
-		if [ "1000 3 90 955 956 979 982 983 985 989 995 998 1000status_state)" = "ready" ]; then
+		if [ "$(status_state)" = "ready" ]; then
 			echo "pane: ready"
 		else
 			echo "pane: fora de pronto (veja: $0 capture <arquivo>)"
@@ -326,7 +338,7 @@ send_text() {
 	local state
 	state="$(status_state)"
 	case "$state" in
-	pensando | conectando)
+	thinking | connecting | loading | cancelling)
 		echo "bot ocupado (status: $state); espere e tente de novo" >&2
 		exit 1
 		;;
@@ -361,10 +373,10 @@ send_text() {
 	while [ "$SECONDS" -le "$deadline" ]; do
 		state="$(status_state)"
 		if [ "$saw_busy" -eq 1 ]; then
-			if [ "$state" != "pensando" ] && [ "$state" != "conectando" ]; then
+			if [ "$state" != "thinking" ] && [ "$state" != "connecting" ] && [ "$state" != "loading" ] && [ "$state" != "cancelling" ]; then
 				return 0
 			fi
-		elif [ "$state" = "pensando" ] || [ "$state" = "conectando" ]; then
+		elif [ "$state" = "thinking" ] || [ "$state" = "connecting" ] || [ "$state" = "loading" ] || [ "$state" = "cancelling" ]; then
 			saw_busy=1
 		elif [ "$SECONDS" -gt "$busy_deadline" ]; then
 			return 0

@@ -15,7 +15,7 @@ CONTROL=.agents/skills/verify-mimo/scripts/control-mimo
 
 ## Launch
 
-Uma instância por vez: a porta 2000 é fixa, então o helper recusa `launch` se a sessão tmux `mimo-verify` existe ou se há agente respondendo — nunca dirija uma instância que você não iniciou.
+A porta padrão é 2000; `MIMO_AGENT_URL` permite escolher outra porta local. Uma instância por sessão tmux: então o helper recusa `launch` se a sessão tmux `mimo-verify` existe ou se há agente respondendo — nunca dirija uma instância que você não iniciou.
 
 ```sh
 $CONTROL launch
@@ -24,8 +24,8 @@ $CONTROL doctor
 
 - Por padrão o `launch` cria um sandbox em `.verify/runs/<UTC>/data` e sobe `bun run dev` com `MIMO_DATA_DIR` apontando para lá: memória, contas e rotinas da execução não tocam `apps/agent/.data`. `$CONTROL data` imprime o diretório em uso.
 - Para reusar um diretório (por exemplo, entre duas sessões de memória) use `--data <dir>`, relativo à raiz do repo ou absoluto; `MIMO_VERIFY_DATA_DIR` faz o mesmo por ambiente. Só aponte para `apps/agent/.data` quando a receita exigir os dados reais: o snapshot/restore protege memória e rotinas, mas Gmail continua real.
-- `launch` sobe a TUI numa sessão tmux 140x42 na raiz do repo e espera até 150 s pela linha `mode: normal · status: ready`. `bun run dev` sobe o agente, espera o health e só então abre a TUI.
-- Antes de subir, salva `routines.json`, `memory/` e `actions.jsonl` do diretório de dados em `.verify/runs/<UTC>/state-before/` e grava o HEAD em `head.txt`; ao final, também grava o PID do listener em `agent.pid`.
+- `launch` sobe a TUI numa sessão tmux 140x42 na raiz do repo e espera até 150 s pela linha `status: ready`. `bun run dev` sobe o agente, espera o health e só então abre a TUI.
+- Antes de subir, salva `bots/`, `routines.json`, `memory/` e `actions.jsonl` do diretório de dados em `.verify/runs/<UTC>/state-before/` e grava o HEAD em `head.txt`; ao final, também grava o PID do listener em `agent.pid`.
 - O log do agente fica em `apps/agent/.eve/dev-server.log`.
 
 Teardown:
@@ -63,9 +63,9 @@ $CONTROL capture .verify/runs/<id>/01-chat.txt
 
 - `send` digita literalmente e pressiona Enter. Ele recusa quando o status está `thinking` ou `connecting` e só retorna quando o turno sai de `thinking` (termina em `ready`, para em `waiting` ou falha em `error`). Se o texto ficar preso no composer, ele falha com aviso em vez de deixar o próximo envio se misturar.
 - Depois do `send`, o turno já terminou; use `wait` para conferir conteúdo (a espera casa na hora). Para turnos disparados fora do `send` (rotina), espere o marcador com `wait`.
-- Estados do status: `connecting`, `ready`, `thinking`, `waiting`, `cancelled`, `error`, `offline`.
+- Estados do status: `connecting`, `loading`, `ready`, `thinking`, `waiting`, `cancelling`, `cancelled`, `ended`, `error`, `offline`.
 - HITL aparece como `⏸ approval: <tool>` ou como pergunta com opções. Responda pelo composer com número, id, rótulo ou texto livre (`1` aprova, `2` cancela); o `send` retorna quando o turno retomado termina.
-- Cada abertura da TUI é uma conversa nova; é assim que se prova memória entre sessões.
+- A TUI abre a lista de bots. Crie com `/new <nome>` ou escolha pelo número. `/bots` volta à lista; reabrir um bot retoma a mesma sessão e seu histórico. Verifique memória reiniciando e abrindo o mesmo bot, e isolamento criando outro.
 
 ## Evidence
 
@@ -111,4 +111,4 @@ $CONTROL stop
 
 ## Mapa de features
 
-`features/README.md` é a fonte de verificação por feature: conversa, busca na web, Gmail, rotinas e memória. Leia o índice antes de dirigir e use o arquivo da feature como receita.
+`features/README.md` é a fonte de verificação por feature: conversa, modelos, busca na web, Gmail, rotinas e memória. Leia o índice antes de dirigir e use o arquivo da feature como receita.

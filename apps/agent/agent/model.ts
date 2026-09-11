@@ -1,86 +1,122 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { chatgptOAuth } from "@grikomsn/ai-sdk-provider-chatgpt-oauth";
-import type { LanguageModel } from "ai";
+import type { AgentModelOptionsDefinition } from "eve";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { z } from "zod";
+import { ProviderSchema, ReasoningSchema, type ModelCatalog, type ModelInfo, type ModelOption, type ModelSelection } from "./model-info";
+import { openaiModel, openaiModels } from "./openai";
 
-const DEFAULT_MODEL = "opencode-go/deepseek-flash";
-const MAX_CONTEXT_WINDOW = 300_000;
-const FALLBACK_CONTEXT_WINDOW = 200_000;
 const OPENCODE_BASE_URL = "https://opencode.ai/zen/go/v1";
 const OPENCODE_AUTH_PATH = join(homedir(), ".local", "share", "opencode", "auth.json");
+const OpencodeAuthSchema = z.object({ "opencode-go": z.object({ key: z.string().min(1) }).optional() });
+const OPENCODE_MODELS: ModelOption[] = [
+	{ provider: "opencode-go", id: "deepseek-flash", name: "deepseek-v4.1-flash", contextWindowTokens: 1_000_000, reasoningOptions: ["high"], defaultReasoning: "high" },
+	{ provider: "opencode-go", id: "deepseek-v4-pro", name: "deepseek-v4-pro", contextWindowTokens: 1_000_000, reasoningOptions: ["high"], defaultReasoning: "high" },
+	{ provider: "opencode-go", id: "glm-5.3", name: "glm-5.3", contextWindowTokens: 1_000_000, reasoningOptions: ["provider-default"], defaultReasoning: "provider-default" },
+	{ provider: "opencode-go", id: "kimi-k3", name: "kimi-k3", contextWindowTokens: 1_048_576, reasoningOptions: ["provider-default"], defaultReasoning: "provider-default" },
+];
 
-const CONTEXT_WINDOWS: Record<string, number> = {
-	"opencode-go/deepseek-flash": 1_000_000,
-	"opencode-go/glm-5.3": 1_000_000,
-	"opencode-go/deepseek-v4-pro": 1_000_000,
-	"opencode-go/kimi-k3": 1_048_576,
-	"openai-oauth/gpt-5.5": 372_000,
-	"openai-oauth/gpt-5.4": 272_000,
-	"openai-oauth/gpt-5.4-mini": 272_000,
-};
-
-let cachedOpencodeKey: string | undefined;
-
-function opencodeKey(): string {
-	if (cachedOpencodeKey !== undefined) {
-		return cachedOpencodeKey;
+function opencodeKey() {
+	if (process.env.OPENCODE_API_KEY) {
+		return process.env.OPENCODE_API_KEY;
 	}
-	const fromEnv = process.env.OPENCODE_API_KEY;
-	if (fromEnv) {
-		cachedOpencodeKey = fromEnv;
-		return cachedOpencodeKey;
-	}
-	const auth: { "opencode-go"?: { key?: string } } = JSON.parse(
-		readFileSync(OPENCODE_AUTH_PATH, "utf8"),
-	);
+	const auth = OpencodeAuthSchema.parse(JSON.parse(readFileSync(OPENCODE_AUTH_PATH, "utf8")));
 	const stored = auth["opencode-go"]?.key;
 	if (!stored) {
-		throw new Error("chave do opencode-go ausente");
+		throw new Error("OpenCode Go is not connected. Set OPENCODE_API_KEY or log in through OpenCode.");
 	}
-	cachedOpencodeKey = stored;
-	return cachedOpencodeKey;
+	return stored;
 }
 
-function splitModel(spec: string): { provider: string; id: string } {
-	const slash = spec.indexOf("/");
-	if (slash === -1) {
-		throw new Error(`modelo invalido: ${spec}`);
-	}
-	return { provider: spec.slice(0, slash), id: spec.slice(slash + 1) };
-}
-
-function createModel(provider: string, id: string, sessionId: string): LanguageModel {
+async function providerModels(provider: ModelSelection["provider"]) {
 	if (provider === "openai-oauth") {
-		return chatgptOAuth()(id);
+		return await openaiModels();
 	}
-	return createOpenAICompatible({
-		name: "opencode-go",
-		baseURL: OPENCODE_BASE_URL,
-		apiKey: opencodeKey(),
-		headers: {
-			"user-agent": "mimo-tui/0.1",
-			"x-opencode-session": sessionId,
-		},
-	})(id);
+	opencodeKey();
+	return OPENCODE_MODELS;
 }
 
-export interface ResolvedModel {
-	model: LanguageModel;
-	contextWindowTokens: number;
+export async function listModels(): Promise<ModelCatalog> {
+	const providers = ProviderSchema.options;
+	const results = await Promise.allSettled(providers.map(providerModels));
+	const catalog: ModelCatalog = { models: [], errors: [] };
+	for (const [index, result] of results.entries()) {
+		if (result.status === "fulfilled") {
+			catalog.models.push(...result.value);
+		} else {
+			catalog.errors.push({ provider: providers[index], message: catalogError(result.reason) });
+		}
+	}
+	return catalog;
 }
 
-export function resolveModel(
-	sessionId: string,
-	spec = process.env.MIMO_MODEL ?? DEFAULT_MODEL,
-): ResolvedModel {
-	const { provider, id } = splitModel(spec);
-	const declaredContextWindow = Number(
-		process.env.MIMO_CONTEXT_WINDOW ?? CONTEXT_WINDOWS[spec] ?? FALLBACK_CONTEXT_WINDOW,
-	);
+function catalogError(error: unknown) {
+	if (error instanceof Error && error.name === "TimeoutError") {
+		return "The model catalog timed out. Try /model again.";
+	}
+	if (error instanceof Error) {
+		return `${error.message} Check the provider login and try /model again.`;
+	}
+	return "Could not load models. Check the provider login and try /model again.";
+}
+
+export async function selectModel(selection: ModelSelection): Promise<ModelInfo> {
+	const models = await providerModels(selection.provider);
+	const option = models.find((model) => model.id === selection.id);
+	if (!option || !option.reasoningOptions.includes(selection.reasoning)) {
+		throw new Error("This model or effort is unavailable. Open /model again.");
+	}
+	return { ...selection, name: option.name, contextWindowTokens: option.contextWindowTokens };
+}
+
+export async function initialModel(): Promise<ModelInfo> {
+	const spec = process.env.MIMO_MODEL ?? "opencode-go/deepseek-flash";
+	const slash = spec.indexOf("/");
+	const provider = ProviderSchema.parse(spec.slice(0, slash));
+	const id = spec.slice(slash + 1);
+	const models = provider === "opencode-go" ? OPENCODE_MODELS : await openaiModels();
+	const option = models.find((model) => model.id === id);
+	if (!option) {
+		throw new Error(`Unknown initial model: ${spec}.`);
+	}
+	const reasoning = ReasoningSchema.parse(process.env.MIMO_REASONING ?? option.defaultReasoning);
+	if (!option.reasoningOptions.includes(reasoning)) {
+		throw new Error(`Unsupported effort ${reasoning} for ${spec}.`);
+	}
 	return {
-		model: createModel(provider, id, sessionId),
-		contextWindowTokens: Math.min(declaredContextWindow, MAX_CONTEXT_WINDOW),
+		provider,
+		id,
+		reasoning,
+		name: option.name,
+		contextWindowTokens: z.coerce.number().int().positive().parse(process.env.MIMO_CONTEXT_WINDOW ?? option.contextWindowTokens),
+	};
+}
+
+function providerOptions({ provider, reasoning }: ModelSelection): AgentModelOptionsDefinition {
+	if (provider === "openai-oauth") {
+		return { providerOptions: { openai: reasoning === "provider-default" ? {} : { reasoningEffort: reasoning } } };
+	}
+	return { providerOptions: { opencodeGo: reasoning === "provider-default" ? {} : { reasoningEffort: reasoning } } };
+}
+
+export function resolveModel(selection: ModelInfo, sessionId: string) {
+	const { provider, id, contextWindowTokens } = selection;
+	if (provider === "openai-oauth") {
+		return {
+			model: openaiModel(id),
+			modelContextWindowTokens: contextWindowTokens,
+			modelOptions: providerOptions(selection),
+		};
+	}
+	return {
+		model: createOpenAICompatible({
+			name: "opencode-go",
+			baseURL: OPENCODE_BASE_URL,
+			apiKey: opencodeKey(),
+			headers: { "user-agent": "mimo-tui/0.1", "x-opencode-session": sessionId },
+		})(id),
+		modelContextWindowTokens: contextWindowTokens,
+		modelOptions: providerOptions(selection),
 	};
 }

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dataPath } from "./data";
+import { findSessionBot } from "./bots";
 import { readJsonFile, writeTextFile } from "./files";
 
 const STORE_PATH = dataPath("routines.json");
@@ -10,7 +11,8 @@ const routineSchema = z.object({
 	id: z.string().min(1),
 	prompt: z.string().min(1),
 	everyMinutes: z.number().int().min(1),
-	sessionId: z.string().min(1),
+	botId: z.uuid().nullable().default(null),
+	sessionId: z.string().min(1).optional(),
 	createdAt: z.string(),
 	nextRunAt: z.string(),
 	lastRunAt: z.string().optional(),
@@ -51,6 +53,7 @@ export interface RoutineInput {
 	prompt: string;
 	everyMinutes: number;
 	startInMinutes: number;
+	botId: string;
 	sessionId: string;
 }
 
@@ -75,9 +78,30 @@ function minutesFrom(now: Date, minutes: number): string {
 	return new Date(now.getTime() + minutes * 60_000).toISOString();
 }
 
-export async function listRoutines(): Promise<Routine[]> {
+async function readRoutines(): Promise<Routine[]> {
 	const store = await readJsonFile(STORE_PATH, storeSchema);
-	return store?.routines ?? [];
+	const stored = store?.routines ?? [];
+	const routines = await Promise.all(stored.map(async (routine) => {
+		if (routine.botId || !routine.sessionId) {
+			return routine;
+		}
+		const botId = await findSessionBot(routine.sessionId);
+		if (!botId) {
+			if (!routine.enabled) {
+				return routine;
+			}
+			return { ...routine, enabled: false, lastError: "The bot for this legacy routine could not be found." };
+		}
+		return { ...routine, botId };
+	}));
+	if (routines.some((routine, index) => routine !== stored[index])) {
+		await writeStore(routines);
+	}
+	return routines;
+}
+
+export async function listRoutines(botId: string) {
+	return await serialize(async () => (await readRoutines()).filter((routine) => routine.botId === botId));
 }
 
 async function writeStore(routines: Routine[]): Promise<void> {
@@ -99,20 +123,21 @@ export async function createRoutine(input: RoutineInput): Promise<Routine> {
 			id: randomUUID(),
 			prompt: input.prompt,
 			everyMinutes: input.everyMinutes,
+			botId: input.botId,
 			sessionId: input.sessionId,
 			createdAt: now.toISOString(),
 			nextRunAt: minutesFrom(now, input.startInMinutes),
 			enabled: true,
 		};
-		await writeStore([...(await listRoutines()), routine]);
+		await writeStore([...(await readRoutines()), routine]);
 		return routine;
 	});
 }
 
-export async function updateRoutine(id: string, patch: RoutinePatch): Promise<Routine> {
+export async function updateRoutine(target: Pick<Routine, "id" | "botId">, patch: RoutinePatch): Promise<Routine> {
 	return serialize(async () => {
-		const routines = await listRoutines();
-		const current = requireRoutine(routines, id);
+		const routines = await readRoutines();
+		const current = requireRoutine(routines.filter((routine) => routine.botId === target.botId), target.id);
 		const updated: Routine = { ...current };
 		if (patch.prompt !== undefined) {
 			updated.prompt = patch.prompt;
@@ -130,10 +155,10 @@ export async function updateRoutine(id: string, patch: RoutinePatch): Promise<Ro
 	});
 }
 
-export async function deleteRoutine(id: string): Promise<boolean> {
+export async function deleteRoutine(target: Pick<Routine, "id" | "botId">): Promise<boolean> {
 	return serialize(async () => {
-		const routines = await listRoutines();
-		const remaining = routines.filter((routine) => routine.id !== id);
+		const routines = await readRoutines();
+		const remaining = routines.filter((routine) => routine.id !== target.id || routine.botId !== target.botId);
 		if (remaining.length === routines.length) {
 			return false;
 		}
@@ -143,15 +168,15 @@ export async function deleteRoutine(id: string): Promise<boolean> {
 }
 
 function isDue(routine: Routine, now: Date): boolean {
-	if (!routine.enabled || new Date(routine.nextRunAt).getTime() > now.getTime()) {
+	if (!routine.botId || !routine.enabled || new Date(routine.nextRunAt).getTime() > now.getTime()) {
 		return false;
 	}
 	return routine.leaseUntil === undefined || new Date(routine.leaseUntil).getTime() <= now.getTime();
 }
 
-export async function claimDue(now: Date, limit: number): Promise<Routine[]> {
+export async function claimDue(now: Date, limit: number) {
 	return serialize(async () => {
-		const routines = await listRoutines();
+		const routines = await readRoutines();
 		const due = routines
 			.filter((routine) => isDue(routine, now))
 			.sort((left, right) => left.nextRunAt.localeCompare(right.nextRunAt))
@@ -163,13 +188,13 @@ export async function claimDue(now: Date, limit: number): Promise<Routine[]> {
 		const leaseUntil = minutesFrom(now, LEASE_MINUTES);
 		const updated = routines.map((routine) => (claimed.has(routine.id) ? { ...routine, leaseUntil } : routine));
 		await writeStore(updated);
-		return updated.filter((routine) => claimed.has(routine.id));
+		return updated.filter((routine): routine is Routine & { botId: string } => claimed.has(routine.id) && routine.botId !== null);
 	});
 }
 
 export async function completeRoutine(id: string, now: Date): Promise<void> {
 	await serialize(async () => {
-		const routines = await listRoutines();
+		const routines = await readRoutines();
 		const current = requireRoutine(routines, id);
 		routines[routines.indexOf(current)] = {
 			...current,
@@ -185,7 +210,7 @@ export async function completeRoutine(id: string, now: Date): Promise<void> {
 export async function failRoutine(id: string, error: unknown): Promise<void> {
 	const message = error instanceof Error ? error.message : String(error);
 	await serialize(async () => {
-		const routines = await listRoutines();
+		const routines = await readRoutines();
 		const current = requireRoutine(routines, id);
 		routines[routines.indexOf(current)] = { ...current, leaseUntil: undefined, lastError: message };
 		await writeStore(routines);

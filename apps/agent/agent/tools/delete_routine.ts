@@ -1,4 +1,5 @@
 import { defineTool } from "eve/tools";
+import { currentBotId } from "../lib/bots";
 import { z } from "zod";
 import { recordAction, recordFailure } from "../lib/actions";
 import { approveInNormalMode, botMode } from "../lib/mode";
@@ -19,7 +20,7 @@ export default defineTool({
 			detail: { routineId: id },
 		};
 		try {
-			if (!(await deleteRoutine(id))) {
+			if (!(await deleteRoutine({ id, botId: currentBotId() }))) {
 				throw new Error(`Rotina ${id} não encontrada.`);
 			}
 			await recordAction(base);

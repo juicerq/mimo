@@ -1,12 +1,17 @@
 import { defineMemory } from "eve/memory";
 import { fileMemory } from "eve/memory/file";
-import { byPrincipal } from "eve/memory/scope";
 import { localMemoryBackend } from "../memory-backend";
+import { botIdFromToken, getBot } from "../lib/bots";
 
 export default defineMemory({
-	description: "Guarda fatos e preferências duráveis da pessoa entre sessões.",
-	// The default namespace hashes the dev-host app root, which changes on every `eve dev`.
-	namespace: "mimo",
+	description: "Guarda fatos, preferências e decisões duráveis desta conversa.",
+	namespace: "mimo.bot",
 	provider: fileMemory({ backend: localMemoryBackend() }),
-	scope: byPrincipal,
+	scope: async (ctx) => {
+		const bot = await getBot(botIdFromToken(ctx.channel.continuationToken));
+		if (!bot) {
+			throw new Error("The bot for this memory no longer exists.");
+		}
+		return bot.memorySessionId ?? bot.sessionId ?? ctx.session.id;
+	},
 });

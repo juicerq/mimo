@@ -1,12 +1,12 @@
 # Rotinas
 
-O usuário cria uma rotina por conversa; o dispatcher entrega o prompt de volta na mesma sessão de tempos em tempos. As rotinas ficam em `routines.json` no diretório de dados (`$CONTROL data`).
+O usuário cria uma rotina por conversa; o dispatcher entrega o prompt ao mesmo bot, na sessão atual, de tempos em tempos. As rotinas ficam em `routines.json` no diretório de dados (`$CONTROL data`).
 
 ## Sub-features
 
 - `routine-create` cria a rotina e devolve id e próximo disparo (`⚙ create_routine`).
 - `routine-persist` grava `routines.json` com escrita atômica.
-- `routine-fire` entrega o prompt na sessão criadora no próximo tick.
+- `routine-fire` entrega o prompt na sessão atual do bot no próximo tick.
 - `routine-list` lista as rotinas (`⚙ list_routines`).
 - `routine-delete` apaga com aprovação no terminal (`⏸ approval: delete_routine`).
 
@@ -32,6 +32,12 @@ Preconditions:
 
 - Só o `bun run dev` dispara o tick; um agente de pé sem o launcher não entrega rotina.
 - O primeiro disparo precisa de `nextRunAt` vencido em algum tick; "começando agora" deixa a rotina vencida imediatamente.
-- A entrega acontece na sessão que criou a rotina; mantenha a TUI aberta e só mande outra mensagem depois que o `send` liberar (ele bloqueia até o turno terminar).
+- A entrega acompanha a sessão atual do bot; mantenha a TUI aberta e só mande outra mensagem depois que o `send` liberar (ele bloqueia até o turno terminar).
 - O token precisa ser único por execução para a espera não casar com outra coisa.
 - `stop` restaura o snapshot e remove a rotina de teste do estado do usuário.
+
+## Continuidade
+
+Depois de criar uma rotina, encerre a sessão pelo controle público do Eve no sandbox. Deixe a rotina vencer e observe o tick real: ele deve criar ou usar a sessão atual, e a TUI deve acompanhar a resposta. Liste, edite e apague a mesma rotina depois da troca; o ID e o bot precisam permanecer iguais.
+
+Para verificar dados anteriores, remova apenas `botId` de uma rotina sintética e mantenha `sessionId` apontando para uma sessão arquivada do seu bot. O próximo acesso deve recuperar a associação e preservar a rotina. Não altere dados reais para preparar esse caso.
