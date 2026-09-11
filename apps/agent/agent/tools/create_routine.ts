@@ -1,4 +1,5 @@
 import { defineTool } from "eve/tools";
+import { currentBotId } from "../lib/bots";
 import { z } from "zod";
 import { createRoutine, routineView } from "../lib/routines";
 
@@ -20,6 +21,7 @@ export default defineTool({
 			prompt,
 			everyMinutes,
 			startInMinutes: startInMinutes ?? everyMinutes,
+			botId: currentBotId(),
 			sessionId: ctx.session.id,
 		});
 		return routineView(routine);

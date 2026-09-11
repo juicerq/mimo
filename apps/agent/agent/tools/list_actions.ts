@@ -7,7 +7,7 @@ export default defineTool({
 	inputSchema: z.object({
 		limit: z.number().int().min(1).max(50).default(10).describe("Quantas ações listar."),
 	}),
-	async execute({ limit }) {
-		return { actions: await listActions(limit) };
+	async execute({ limit }, ctx) {
+		return { actions: await listActions({ limit, sessionId: ctx.session.id }) };
 	},
 });

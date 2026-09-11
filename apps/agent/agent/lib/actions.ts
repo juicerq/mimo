@@ -50,7 +50,7 @@ export async function recordFailure(input: ActionInput, error: unknown): Promise
 	await write(input, "failed", error instanceof Error ? error.message : String(error));
 }
 
-export async function listActions(limit: number): Promise<ActionRecord[]> {
+export async function listActions({ limit, sessionId }: { limit: number; sessionId: string }): Promise<ActionRecord[]> {
 	const raw = await readTextFile(ACTIONS_PATH);
 	if (raw === null) {
 		return [];
@@ -61,7 +61,7 @@ export async function listActions(limit: number): Promise<ActionRecord[]> {
 			continue;
 		}
 		const parsed = actionSchema.safeParse(JSON.parse(line));
-		if (parsed.success) {
+		if (parsed.success && parsed.data.sessionId === sessionId) {
 			records.push(parsed.data);
 		}
 	}

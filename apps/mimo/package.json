@@ -8,6 +8,7 @@
 	},
 	"dependencies": {
 		"@opentui/core": "^0.5.11",
-		"eve": "^0.53.0"
+		"eve": "0.53.0",
+		"zod": "^4.6.1"
 	}
 }

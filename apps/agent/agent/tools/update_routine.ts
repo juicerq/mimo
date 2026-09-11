@@ -1,4 +1,5 @@
 import { defineTool } from "eve/tools";
+import { currentBotId } from "../lib/bots";
 import { z } from "zod";
 import { routineView, updateRoutine } from "../lib/routines";
 
@@ -11,6 +12,6 @@ export default defineTool({
 		enabled: z.boolean().optional().describe("Liga ou desliga a rotina."),
 	}),
 	async execute({ id, ...patch }) {
-		return routineView(await updateRoutine(id, patch));
+		return routineView(await updateRoutine({ id, botId: currentBotId() }, patch));
 	},
 });

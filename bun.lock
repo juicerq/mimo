@@ -15,10 +15,11 @@
       "name": "@mimo/agent",
       "version": "0.1.0",
       "dependencies": {
+        "@ai-sdk/openai": "4.0.65",
         "@ai-sdk/openai-compatible": "^3.0.47",
         "@grikomsn/ai-sdk-provider-chatgpt-oauth": "^2.0.2",
         "ai": "^7.0.97",
-        "eve": "^0.53.0",
+        "eve": "0.53.0",
         "zod": "^4.6.1",
       },
     },
@@ -30,12 +31,15 @@
       },
       "dependencies": {
         "@opentui/core": "^0.5.11",
-        "eve": "^0.53.0",
+        "eve": "0.53.0",
+        "zod": "^4.6.1",
       },
     },
   },
   "packages": {
     "@ai-sdk/gateway": ["@ai-sdk/gateway@4.0.78", "", { "dependencies": { "@ai-sdk/provider": "4.0.13", "@ai-sdk/provider-utils": "5.0.39", "@vercel/oidc": "3.2.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-fcamzmFlcy+c/tIc7QcATLe/kArgSVGQ1QxaddMjhOSX8zypc2hmD5sHB2bp1DSFcSxDD32d6usF9a7xLCTULg=="],
+
+    "@ai-sdk/openai": ["@ai-sdk/openai@4.0.65", "", { "dependencies": { "@ai-sdk/provider": "4.0.13", "@ai-sdk/provider-utils": "5.0.39" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-rpk1Tv7TR0H338zTKmSVMxv4yo++HDOxioiuvBySb8cWkx2fS10tWl/5cEwL0diJbcV/+p3+9gpIOre52UoQJA=="],
 
     "@ai-sdk/openai-compatible": ["@ai-sdk/openai-compatible@3.0.47", "", { "dependencies": { "@ai-sdk/provider": "4.0.13", "@ai-sdk/provider-utils": "5.0.39" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-6w3ymyP2KV4qzKlMH/Fm6Tmk+2ksiqktZFBbKCGIaoPSBWX+M4HmMW0BFUh9Ar0CtjOia3E8GlYAoEERONuhyg=="],
 

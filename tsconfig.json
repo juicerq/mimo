@@ -3,6 +3,9 @@
 		"target": "ES2024",
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
+		"paths": {
+			"@agent/*": ["./apps/agent/agent/*"]
+		},
 		"lib": ["ES2024"],
 		"strict": true,
 		"noEmit": true,
