@@ -32,6 +32,7 @@ export interface Approval {
 
 export type BotEvent =
 	| { type: "user"; text: string }
+	| { type: "queue"; items: readonly string[] }
 	| { type: "reply-delta"; delta: string }
 	| { type: "reply"; text: string }
 	| { type: "tool"; toolName: string; input: unknown }

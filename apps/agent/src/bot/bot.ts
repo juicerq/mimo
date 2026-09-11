@@ -41,6 +41,7 @@ export class Bot {
 	private readonly agent: Agent;
 	private readonly listeners = new Set<(event: BotEvent) => void>();
 	private readonly approvals: Pending[] = [];
+	private readonly queued: string[] = [];
 	private record: BotInfo;
 	private session = uuidv7();
 	private host: Bot | null = null;
@@ -104,6 +105,10 @@ export class Bot {
 
 	get tools(): ToolGroup[] {
 		return this.record.tools;
+	}
+
+	get queue(): readonly string[] {
+		return this.queued;
 	}
 
 	get approval(): Approval | null {
@@ -180,11 +185,12 @@ export class Bot {
 	}
 
 	async send(text: string): Promise<void> {
-		this.emit({ type: "user", text });
 		if (this.agent.state.isStreaming) {
-			this.agent.steer({ role: "user", content: text, timestamp: Date.now() });
+			this.queued.push(text);
+			this.emit({ type: "queue", items: this.queue });
 			return;
 		}
+		this.emit({ type: "user", text });
 		this.emit({ type: "turn-started" });
 		this.cancelled = false;
 		this.agent.state.systemPrompt = `${this.basePrompt()}\n\n${await recallMemory(this.record.id)}`;
@@ -193,10 +199,42 @@ export class Bot {
 
 	cancel(): void {
 		this.cancelled = true;
+		this.take();
 		for (const pending of this.approvals.slice()) {
 			this.resolveApproval(pending, false);
 		}
 		this.agent.abort();
+	}
+
+	private steerQueue(): void {
+		for (const text of this.take()) {
+			this.emit({ type: "user", text });
+			this.agent.steer({ role: "user", content: text, timestamp: Date.now() });
+		}
+	}
+
+	private take(): string[] {
+		if (this.queued.length === 0) {
+			return [];
+		}
+		const pending = this.queued.splice(0, this.queued.length);
+		this.emit({ type: "queue", items: [] });
+		return pending;
+	}
+
+	private async drain(): Promise<void> {
+		await this.agent.waitForIdle();
+		const first = this.queued.shift();
+		if (first === undefined) {
+			return;
+		}
+		this.emit({ type: "queue", items: this.queue });
+		await this.send(first);
+	}
+
+	private async finish(): Promise<void> {
+		await this.settle();
+		await this.drain();
 	}
 
 	private async run(prompt: string): Promise<string> {
@@ -314,9 +352,13 @@ export class Bot {
 			}
 			return;
 		}
+		if (event.type === "turn_end") {
+			this.steerQueue();
+			return;
+		}
 		if (event.type === "agent_end") {
 			this.emit({ type: "turn-finished" });
-			void this.settle();
+			void this.finish();
 		}
 	}
 
