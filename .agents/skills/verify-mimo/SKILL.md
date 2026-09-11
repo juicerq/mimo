@@ -25,7 +25,7 @@ $CONTROL doctor
 - Por padrão o `launch` cria um sandbox em `.verify/runs/<UTC>/data` e sobe a TUI com `MIMO_DATA_DIR` apontando para lá: bots, memória, contas e rotinas da execução não tocam `.data`. `$CONTROL data` imprime o diretório em uso.
 - Para reusar um diretório (por exemplo, entre duas sessões de memória) use `--data <dir>`, relativo à raiz do repo ou absoluto; `MIMO_VERIFY_DATA_DIR` faz o mesmo por ambiente. Só aponte para `.data` quando a receita exigir os dados reais: o snapshot/restore protege bots e rotinas, mas Gmail continua real.
 - O modelo inicial de um bot novo vem de `MIMO_MODEL`/`MIMO_REASONING`, repassados ao `launch`. Use `MIMO_MODEL=openai-codex/gpt-5.6-luna` quando o provedor padrão estiver sem saldo.
-- `launch` sobe a TUI numa sessão tmux 140x42 na raiz do repo e espera até 60 s pela linha `status: ready`. A lista de bots é a primeira tela.
+- `launch` sobe a TUI numa sessão tmux 140x42 na raiz do repo e espera até 60 s pela lista de bots (`/new <name>`). A lista de bots é a primeira tela.
 - Antes de subir, salva `bots/`, `routines.json` e `actions.jsonl` do diretório de dados em `.verify/runs/<UTC>/state-before/` e grava o HEAD em `head.txt`.
 
 Teardown:
@@ -60,9 +60,9 @@ $CONTROL wait '⚙ current_time' 180
 $CONTROL capture .verify/runs/<id>/01-chat.txt
 ```
 
-- `send` digita literalmente e pressiona Enter. Ele recusa quando o status está `thinking` ou `loading` e só retorna quando o turno sai de `thinking` (termina em `ready`, para em `waiting` ou falha em `error`). Se o texto ficar preso no composer, ele falha com aviso em vez de deixar o próximo envio se misturar.
+- `send` digita literalmente e pressiona Enter. Ele recusa quando o bot está ocupado e só retorna quando a linha viva some (termina em `ready` ou para em `waiting`). Se o texto ficar preso no composer, ele falha com aviso em vez de deixar o próximo envio se misturar.
 - Depois do `send`, o turno já terminou; use `wait` para conferir conteúdo. Para turnos disparados fora do `send` (rotina), espere o marcador com `wait`.
-- Estados do status: `loading`, `ready`, `thinking`, `waiting`, `cancelling`, `cancelled`, `error`.
+- O estado vem da conversa, não do rodapé: a linha viva `⠙ thinking|working|stopping|loading · <n>s` significa ocupado; `▌ ⏸ approval:` sem `⏸ approved|denied` depois significa `waiting`; sem nenhum dos dois, `ready`. Dentro de um seletor, o rodapé mostra `status: loading|saving|ready` e o helper usa esse valor.
 - HITL aparece como `▌ ⏸ approval: <tool>` com `1. Approve   2. Cancel`. Responda pelo composer com `1` ou `2`; o `send` retorna quando o turno retomado termina.
 - A TUI abre a lista de bots. Crie com `/new <nome>` ou escolha pelo número. `/bots` volta à lista; reabrir um bot retoma o transcript. Verifique memória reiniciando e abrindo o mesmo bot, e isolamento criando outro.
 

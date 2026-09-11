@@ -31,6 +31,10 @@ const DOUBLE_ESCAPE_MS = 400;
 const APPROVAL_INPUT_CHARACTERS = 240;
 const DETAIL_CHARACTERS = 600;
 const TOOL_VIEWS = ["names", "details", "hidden"] as const;
+const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const SPINNER_MS = 100;
+const FLASH_MS = 2000;
+const WORKING_LABELS: Record<string, string> = { loading: "loading", thinking: "thinking", cancelling: "stopping" };
 
 type ToolView = (typeof TOOL_VIEWS)[number];
 
@@ -75,6 +79,10 @@ export class MimoApp {
 	private contextUsed: number | null = null;
 	private approval: Approval | null = null;
 	private toolView: ToolView = "names";
+	private working: { line: TextRenderable; label: string; startedAt: number; timer: ReturnType<typeof setInterval> } | null = null;
+	private toolRan = false;
+	private readonly flashed = new Set<string>();
+	private readonly flashTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private lastEscapeAt: number | null = null;
 
 	constructor(renderer: CliRenderer) {
@@ -645,6 +653,7 @@ export class MimoApp {
 		this.pickerTranscript.visible = false;
 		this.transcript.visible = true;
 		this.screen = screen;
+		this.stopWorking();
 		this.view.abort();
 		this.view = new AbortController();
 		this.unsubscribe?.();
@@ -812,10 +821,11 @@ export class MimoApp {
 				return;
 			case "mode":
 				this.mode = event.mode;
-				this.setStatus(this.lastState);
+				this.flash("mode");
 				return;
 			case "turn-started":
 				this.lastEscapeAt = null;
+				this.toolRan = false;
 				this.failed = false;
 				this.lastFailure = null;
 				this.busy = true;
@@ -862,6 +872,8 @@ export class MimoApp {
 	}
 
 	private renderTool(toolName: string, input: unknown): void {
+		this.toolRan = true;
+		this.setStatus(this.lastState);
 		if (this.toolView === "hidden") {
 			return;
 		}
@@ -883,6 +895,7 @@ export class MimoApp {
 			return;
 		}
 		this.toolView = TOOL_VIEWS[(TOOL_VIEWS.indexOf(this.toolView) + 1) % TOOL_VIEWS.length];
+		this.flash("tools");
 		void this.openBot(screen.bot);
 	}
 
@@ -917,6 +930,7 @@ export class MimoApp {
 		if (this.reply) {
 			return this.reply;
 		}
+		this.stopWorking();
 		this.replyText = "";
 		this.reply = this.appendLine("");
 		return this.reply;
@@ -936,12 +950,13 @@ export class MimoApp {
 			marginBottom,
 		});
 		this.transcript.add(line);
+		this.raiseWorking();
 		return line;
 	}
 
 	private setStatus(state: string): void {
 		this.lastState = state;
-		const label = this.mode === "autonomous" ? "auto" : "normal";
+		this.renderWorking(state);
 		const parts: string[] = [];
 		const used = this.contextUsed === null ? "0" : formatTokens(this.contextUsed);
 		const modelInfo = this.modelInfo;
@@ -950,8 +965,86 @@ export class MimoApp {
 		parts.push(`context: ${used}/${capacity}`);
 		const model = modelInfo?.name ?? "—";
 		parts.push(`model: ${model} (${modelInfo?.reasoning ?? "default"})`);
-		parts.push(`mode: ${label}`, `tools: ${this.toolView}`, `status: ${this.picker?.state ?? state}`);
+		if (this.flashed.has("mode")) {
+			parts.push(`mode: ${this.mode === "autonomous" ? "auto" : "normal"}`);
+		}
+		if (this.flashed.has("tools")) {
+			parts.push(`tools: ${this.toolView}`);
+		}
+		if (this.picker) {
+			parts.push(`status: ${this.picker.state}`);
+		}
 		this.status.content = parts.join(" | ");
+	}
+
+	private flash(field: string): void {
+		this.flashed.add(field);
+		clearTimeout(this.flashTimers.get(field));
+		this.flashTimers.set(field, setTimeout(() => {
+			this.flashed.delete(field);
+			this.setStatus(this.lastState);
+		}, FLASH_MS));
+		this.setStatus(this.lastState);
+	}
+
+	private renderWorking(state: string): void {
+		const label = this.picker ? undefined : WORKING_LABELS[state];
+		if (label === undefined) {
+			this.stopWorking();
+			return;
+		}
+		const working = this.working;
+		if (working) {
+			working.label = this.workingLabel(label);
+			this.drawWorking();
+			return;
+		}
+		const line = this.appendLine("", T4);
+		this.working = {
+			line,
+			label: this.workingLabel(label),
+			startedAt: performance.now(),
+			timer: setInterval(() => this.drawWorking(), SPINNER_MS),
+		};
+		this.drawWorking();
+	}
+
+	private workingLabel(label: string): string {
+		if (label === "thinking" && this.toolRan) {
+			return "working";
+		}
+		return label;
+	}
+
+	private drawWorking(): void {
+		const working = this.working;
+		if (!working) {
+			return;
+		}
+		const elapsed = performance.now() - working.startedAt;
+		const frame = SPINNER[Math.floor(elapsed / SPINNER_MS) % SPINNER.length];
+		const hint = working.label === "loading" ? "" : " · esc esc to stop";
+		working.line.content = `${frame} ${working.label} · ${Math.floor(elapsed / 1000)}s${hint}`;
+	}
+
+	private stopWorking(): void {
+		const working = this.working;
+		if (!working) {
+			return;
+		}
+		clearInterval(working.timer);
+		this.working = null;
+		this.transcript.remove(working.line);
+		working.line.destroyRecursively();
+	}
+
+	private raiseWorking(): void {
+		const working = this.working;
+		if (!working) {
+			return;
+		}
+		this.transcript.remove(working.line);
+		this.transcript.add(working.line);
 	}
 }
 

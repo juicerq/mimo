@@ -7,7 +7,7 @@ VERIFY_DIR="$REPO_DIR/.verify"
 CURRENT_RUN_FILE="$VERIFY_DIR/current"
 SESSION="${MIMO_VERIFY_SESSION:-mimo-verify}"
 REAL_DATA_DIR="$REPO_DIR/.data"
-READY_PATTERN="status: ready"
+READY_PATTERN="/new <name>"
 LAUNCH_TIMEOUT_SECONDS="${MIMO_VERIFY_LAUNCH_TIMEOUT:-60}"
 WAIT_INTERVAL_SECONDS=2
 WAIT_DEFAULT_SECONDS=180
@@ -40,7 +40,23 @@ pane_text() {
 }
 
 status_state() {
-	pane_text | grep -oE 'status:[─ ]*(loading|ready|thinking|waiting|cancelling|cancelled|error)' | tail -n1 | sed -E 's/^status:[─ ]*//' || true
+	local pane picker approval
+	pane="$(pane_text)"
+	picker="$(printf '%s' "$pane" | grep -oE 'status:[─ ]*(loading|ready|saving)' | tail -n1 | sed -E 's/^status:[─ ]*//' || true)"
+	if [ -n "$picker" ]; then
+		printf '%s' "$picker"
+		return
+	fi
+	if printf '%s' "$pane" | grep -qE '(thinking|working|stopping|loading) · [0-9]+s'; then
+		printf 'thinking'
+		return
+	fi
+	approval="$(printf '%s' "$pane" | grep -oE '⏸ (approval|approved|denied)' | tail -n1 || true)"
+	if [ "$approval" = "⏸ approval" ]; then
+		printf 'waiting'
+		return
+	fi
+	printf 'ready'
 }
 
 composer_line() {

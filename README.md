@@ -8,9 +8,11 @@ Crie um bot com `/new <nome>`. Use `/bots` para ver a lista e digite o número p
 
 Use `/model` dentro da conversa para escolher o provedor, o modelo e o esforço pelo número. `Ctrl+P` abre o mesmo seletor preservando o rascunho. `/effort` pula direto para o esforço do modelo atual. A conversa continua recebendo respostas enquanto o seletor está aberto. Antes de confirmar a escolha, `/cancel` ou `Esc` volta à conversa sem alterar o modelo. A configuração pertence ao bot e permanece salva ao reiniciar.
 
-`Ctrl+O` alterna como as ferramentas aparecem na conversa: `names` mostra só a linha `⚙ tool` (padrão), `details` acrescenta a entrada e o resultado cortados em 600 caracteres, e `hidden` esconde a ferramenta por completo. O rodapé mostra o modo em uso e a conversa é redesenhada inteira, então os turnos antigos acompanham. Uma ferramenta que falha aparece sempre.
+`Ctrl+O` alterna como as ferramentas aparecem na conversa: `names` mostra só a linha `⚙ tool` (padrão), `details` acrescenta a entrada e o resultado cortados em 600 caracteres, e `hidden` esconde a ferramenta por completo. O rodapé mostra o modo escolhido por 2 segundos e a conversa é redesenhada inteira, então os turnos antigos acompanham. Uma ferramenta que falha aparece sempre.
 
-O rodapé mostra contexto, modelo e esforço selecionados, modo e estado. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
+Depois de enviar, a conversa mostra uma linha viva com o que o bot faz: `⠙ thinking · 3s · esc esc to stop` antes da primeira ferramenta e `working` depois dela. A linha some quando o texto da resposta começa a chegar e dá lugar ao streaming. Abrir um bot mostra `loading` no mesmo lugar.
+
+O rodapé mostra contexto e o modelo com o esforço. Modo e ferramentas aparecem por 2 segundos quando você os muda, e depois somem. O estado do turno não fica no rodapé: fica na conversa. Dentro dos seletores, o rodapé mostra `status:` enquanto carrega ou grava. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
 
 Durante uma resposta, dois `Esc` em até 400 ms interrompem o turno. Um `Esc` isolado não interrompe; dentro do seletor de modelos ele apenas volta à conversa. Se houver uma aprovação pendente, o atalho a recusa. Depois de uma falha ou interrupção, escreva “continue”, ajuste o pedido ou mude de assunto normalmente. Interromper não desfaz ações já concluídas.
 
