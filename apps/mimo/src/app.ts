@@ -389,6 +389,7 @@ export class MimoApp {
 			for (const event of conversation.transcript()) {
 				this.renderEvent(event);
 			}
+			this.transcript.scrollTo(this.transcript.scrollHeight);
 			this.unsubscribe = conversation.subscribe((event) => {
 				if (!signal.aborted) {
 					this.renderEvent(event);
