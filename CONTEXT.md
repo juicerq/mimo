@@ -28,6 +28,10 @@ _Evitar_: Subagente, worker
 Os Bots filhos de um Bot. O pai cria, ajusta e apaga os membros, e escolhe a instrução permanente, os grupos de tools e o modelo de cada um.
 _Evitar_: Time, squad, pool
 
+**Delegação**:
+Um trabalho que um Bot entrega a um Bot filho e cuja resposta ele espera. Só um Bot sem pai delega, então a equipe não tem laços nem netos. As Aprovações do filho aparecem na tela de quem o comanda.
+_Evitar_: Chamada, mensagem entre bots
+
 **Rotina**:
 Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Continua pertencendo ao mesmo Bot quando a Sessão muda.
 _Evitar_: Agendamento, cron job, automação

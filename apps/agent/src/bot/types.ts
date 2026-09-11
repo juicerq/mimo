@@ -25,6 +25,7 @@ export interface BotInfo {
 
 export interface Approval {
 	id: string;
+	bot: string;
 	toolName: string;
 	input: unknown;
 }

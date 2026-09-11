@@ -82,9 +82,13 @@ O registro do bot fica em `.data/bots/<id>.json` e o transcript atual em `.data/
 
 ## Equipe
 
-Um bot pode montar uma equipe de bots filhos. As tools `create_bot`, `update_bot`, `list_bots` e `delete_bot` só existem em bots sem pai. Um filho é um bot comum, com memória e sessão próprias, mas não aparece em `/bots` nem em `/delete`: quem cuida dele é o pai. Apagar o pai apaga a equipe inteira, e o painel de `/delete` avisa quais bots vão junto.
+Um bot pode montar uma equipe de bots filhos. As tools `create_bot`, `update_bot`, `list_bots`, `delete_bot`, `delegate` e `list_models` só existem em bots sem pai. Um filho é um bot comum, com memória e sessão próprias, mas não aparece em `/bots` nem em `/delete`: quem cuida dele é o pai. Apagar o pai apaga a equipe inteira, e o painel de `/delete` avisa quais bots vão junto.
 
-Ao criar um filho, o pai escolhe o nome, a instrução permanente, os grupos de tools e o modelo. Os grupos são `computer`, `web`, `gmail` e `routines`; hora, memória, histórico e registro de ações ficam sempre disponíveis. Sem modelo escolhido, o filho nasce com o padrão; `list_models` mostra os valores aceitos. No modo normal, `delete_bot` espera aprovação no terminal.
+Ao criar um filho, o pai escolhe o nome, a instrução permanente, os grupos de tools e o modelo. Os grupos são `computer`, `web`, `gmail` e `routines`; hora, memória, histórico e registro de ações ficam sempre disponíveis. Sem modelo escolhido, o filho nasce com o padrão; `list_models` mostra os valores aceitos. As tools da equipe tratam o filho pelo nome, que é único dentro da equipe.
+
+`delegate` entrega um trabalho ao filho e espera a resposta dele. O filho não vê a conversa da pessoa, então o pedido precisa ser completo. Duas chamadas de `delegate` na mesma mensagem correm em paralelo; cada filho atende um trabalho por vez. Um filho não delega e não cria bots, então a equipe tem um nível só.
+
+O filho não tem tela. Quando uma ação dele precisa de aprovação, ela sobe para quem o comanda e aparece com o nome dele: `⏸ approval: bash · mate`. Pedidos em fila aparecem um de cada vez. O modo do filho é o do pai; ele não muda de modo sozinho. Dois `Esc` param a resposta e param junto o filho que estiver trabalhando.
 
 ## Gmail
 

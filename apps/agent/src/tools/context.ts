@@ -10,6 +10,7 @@ export interface ToolContext {
 	readonly tools: ToolGroup[];
 	setMode(mode: BotMode): void;
 	login(target: LoginTarget): LoginSession;
+	delegate(botId: string, prompt: string, signal?: AbortSignal): Promise<string>;
 	updateChild(botId: string, patch: BotPatch): Promise<BotInfo>;
 	deleteChild(botId: string): Promise<void>;
 }

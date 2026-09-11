@@ -35,7 +35,7 @@ Este diretório é a fonte mantida para verificar o comportamento visível do mi
 - [Conversa](./chat.md) cobre envio, streaming, ferramentas, contexto e erros na TUI.
 - [Buscar na web](./web-search.md) cobre a tool `web_search` sem chave e seus erros acionáveis.
 - [Computador](./computer.md) cobre bash, read, write e edit com aprovação.
-- [Equipe](./team.md) cobre criar, listar, ajustar e apagar bots filhos e a cascata do `/delete`.
+- [Equipe](./team.md) cobre criar, ajustar, apagar e delegar a bots filhos, a aprovação que sobe para o pai e a cascata do `/delete`.
 - [Gmail](./gmail.md) cobre contas, não lidos, thread, rascunho, aprovação de envio e multi-conta.
 - [Rotinas](./routines.md) cobre criar, persistir, disparar, listar e apagar com aprovação.
 - [Memória durável](./memory.md) cobre salvar, recordar entre sessões e remover.
