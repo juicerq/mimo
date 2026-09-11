@@ -30,6 +30,12 @@ export interface Approval {
 	input: unknown;
 }
 
+export interface TeamMember {
+	name: string;
+	tool: string | null;
+	startedAt: number;
+}
+
 export type BotEvent =
 	| { type: "user"; text: string }
 	| { type: "queue"; items: readonly string[] }
