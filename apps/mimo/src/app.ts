@@ -7,13 +7,14 @@ import {
 	TextRenderable,
 	type CliRenderer,
 } from "@opentui/core";
-import { Bot } from "@agent/bot/bot";
+import { Bot, deleteBot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode } from "@agent/bot/types";
 import { modelOption } from "@agent/model/catalog";
 import type { ModelInfo, ModelSelection } from "@agent/model/types";
 import { describeError } from "./errors";
 import { Panels, type PanelResult } from "./panel";
+import { deletePanel } from "./screens/delete";
 import { accountsPanel, loginPanel, loginTargetsPanel } from "./screens/login";
 import { effortPanel, modelPanel } from "./screens/model";
 import { T1, T2, T3, T4, T5 } from "./theme";
@@ -238,6 +239,11 @@ export class MimoApp {
 			this.showEfforts();
 			return true;
 		}
+		if (text === "/delete") {
+			this.input.value = "";
+			this.panels.show(deletePanel(this.removeBot));
+			return true;
+		}
 		if (text === "/login") {
 			this.input.value = "";
 			this.panels.show(loginTargetsPanel());
@@ -276,12 +282,20 @@ export class MimoApp {
 		return await this.requireConversation().selectModel(selection);
 	};
 
+	private readonly removeBot = async (bot: BotInfo): Promise<void> => {
+		await deleteBot(bot.id);
+	};
+
 	private readonly refreshPanels = (): void => {
 		this.transcript.visible = !this.panels.active;
 		this.setStatus(this.lastState);
 	};
 
 	private readonly closePanel = (result: PanelResult): void => {
+		if (result.list) {
+			void this.showBots(result.message);
+			return;
+		}
 		if (result.bot && this.screen.kind === "conversation") {
 			this.screen = { kind: "conversation", bot: result.bot };
 			this.modelInfo = result.bot.model;
@@ -329,7 +343,7 @@ export class MimoApp {
 		return this.view.signal;
 	}
 
-	private async showBots() {
+	private async showBots(note?: string) {
 		const signal = this.resetView({ kind: "bots", bots: [] });
 		this.input.placeholder = "number or /new <name>";
 		try {
@@ -341,7 +355,10 @@ export class MimoApp {
 			for (const [index, bot] of bots.entries()) {
 				this.appendLine(`${index + 1}. ${bot.name}`, T2);
 			}
-			this.appendLine(bots.length ? "/new <name> to create a bot" : "Create your first bot with /new <name>.", T4);
+			this.appendLine(bots.length ? "/new <name> to create a bot, /delete to remove one" : "Create your first bot with /new <name>.", T4);
+			if (note) {
+				this.appendLine(note, T3);
+			}
 			this.busy = false;
 			this.setStatus("ready");
 		} catch (error) {

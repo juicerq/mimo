@@ -1,6 +1,6 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { randomUUID } from "node:crypto";
-import { readdir } from "node:fs/promises";
+import { readdir, rm } from "node:fs/promises";
 import { z } from "zod";
 import { initialModel, selectModel } from "../model/catalog";
 import { ModelSelectionSchema, type ModelInfo } from "../model/types";
@@ -74,6 +74,11 @@ export async function createBot(name: string): Promise<BotInfo> {
 	};
 	await writeBot(bot);
 	return bot;
+}
+
+export async function removeBot(id: string): Promise<void> {
+	await rm(dataPath("bots", id), { recursive: true, force: true });
+	await rm(botPath(id), { force: true });
 }
 
 export async function readTranscript(id: string): Promise<AgentMessage[]> {

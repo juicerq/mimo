@@ -11,7 +11,8 @@ import { computerInstructions } from "../computer/tools";
 import { botTools, needsApproval } from "../tools";
 import instructions from "../instructions.md" with { type: "text" };
 import { compactTranscript } from "./compaction";
-import { readBot, readTranscript, writeBot, writeTranscript } from "./store";
+import { deleteBotRoutines } from "../routines/routines";
+import { readBot, readTranscript, removeBot, writeBot, writeTranscript } from "./store";
 import type { Approval, BotEvent, BotInfo, BotMode } from "./types";
 
 const APPROVE_WORDS = new Set(["1", "approve", "aprovar", "sim", "s"]);
@@ -22,6 +23,14 @@ const open = new Map<string, Bot>();
 interface Pending {
 	approval: Approval;
 	resolve: (approved: boolean) => void;
+}
+
+export async function deleteBot(id: string): Promise<void> {
+	const running = open.get(id);
+	running?.cancel();
+	open.delete(id);
+	await deleteBotRoutines(id);
+	await removeBot(id);
 }
 
 export class Bot {

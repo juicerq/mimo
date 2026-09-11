@@ -8,6 +8,7 @@ const NUMBER_PLACEHOLDER = "number or /cancel";
 export interface PanelResult {
 	message?: string;
 	bot?: BotInfo;
+	list?: boolean;
 }
 
 export interface PanelView {

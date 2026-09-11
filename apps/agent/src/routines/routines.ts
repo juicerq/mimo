@@ -149,6 +149,18 @@ export async function deleteRoutine(target: Pick<Routine, "id" | "botId">): Prom
 	});
 }
 
+export async function deleteBotRoutines(botId: string): Promise<number> {
+	return serialize(async () => {
+		const routines = await readRoutines();
+		const remaining = routines.filter((routine) => routine.botId !== botId);
+		if (remaining.length === routines.length) {
+			return 0;
+		}
+		await writeStore(remaining);
+		return routines.length - remaining.length;
+	});
+}
+
 function isDue(routine: Routine, now: Date): boolean {
 	if (!routine.enabled || new Date(routine.nextRunAt).getTime() > now.getTime()) {
 		return false;
