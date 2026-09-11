@@ -2,7 +2,7 @@ import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
 import { actionTools } from "../actions/tools";
 import { BotModeSchema } from "../bot/types";
-import { fileTools } from "../files/tools";
+import { computerTools } from "../computer/tools";
 import { gmailTools } from "../gmail/tools";
 import { historyTools } from "../history/tools";
 import { memoryTools } from "../memory/tools";
@@ -11,7 +11,7 @@ import { webTools } from "../web/tools";
 import type { ToolContext } from "./context";
 import { tool } from "./tool";
 
-const APPROVAL_TOOLS = new Set(["send_email", "send_draft", "delete_routine", "disconnect_gmail", "write_file"]);
+const APPROVAL_TOOLS = new Set(["send_email", "send_draft", "delete_routine", "disconnect_gmail", "bash", "write", "edit"]);
 const SetModeInput = z.object({ mode: BotModeSchema.describe("Modo desejado.") });
 
 export function botTools(context: ToolContext): AgentTool[] {
@@ -41,7 +41,7 @@ export function botTools(context: ToolContext): AgentTool[] {
 		...historyTools(context),
 		...actionTools(context),
 		...webTools(),
-		...fileTools(),
+		...computerTools(),
 	];
 }
 

@@ -7,6 +7,7 @@ import { resolveModel, selectModel } from "../model/catalog";
 import { models } from "../model/models";
 import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
+import { computerInstructions } from "../computer/tools";
 import { botTools, needsApproval } from "../tools";
 import instructions from "../instructions.md" with { type: "text" };
 import { compactTranscript } from "./compaction";
@@ -35,7 +36,7 @@ export class Bot {
 		this.agent = new Agent({
 			streamFn: (model, context, options) => models().streamSimple(model, context, options),
 			initialState: {
-				systemPrompt: instructions,
+				systemPrompt: `${instructions}\n\n${computerInstructions()}`,
 				model: resolveModel(record.model),
 				thinkingLevel: record.model.reasoning,
 				messages,
@@ -129,7 +130,7 @@ export class Bot {
 			return;
 		}
 		this.emit({ type: "turn-started" });
-		this.agent.state.systemPrompt = `${instructions}\n\n${await recallMemory(this.record.id)}`;
+		this.agent.state.systemPrompt = `${instructions}\n\n${computerInstructions()}\n\n${await recallMemory(this.record.id)}`;
 		await this.agent.prompt(text);
 	}
 
