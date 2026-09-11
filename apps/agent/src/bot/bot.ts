@@ -36,9 +36,9 @@ export async function deleteBot(id: string): Promise<void> {
 export class Bot {
 	private readonly agent: Agent;
 	private readonly listeners = new Set<(event: BotEvent) => void>();
+	private readonly approvals: Pending[] = [];
 	private record: BotInfo;
 	private session = uuidv7();
-	private pending: Pending | null = null;
 
 	private constructor(record: BotInfo, messages: AgentMessage[]) {
 		this.record = record;
@@ -87,7 +87,7 @@ export class Bot {
 	}
 
 	get approval(): Approval | null {
-		return this.pending?.approval ?? null;
+		return this.approvals[0]?.approval ?? null;
 	}
 
 	login(target: LoginTarget): LoginSession {
@@ -125,8 +125,9 @@ export class Bot {
 
 	async deliver(text: string): Promise<void> {
 		const answer = text.trim().toLowerCase();
-		if (this.pending && (APPROVE_WORDS.has(answer) || DENY_WORDS.has(answer))) {
-			this.pending.resolve(APPROVE_WORDS.has(answer));
+		const pending = this.approvals[0];
+		if (pending && (APPROVE_WORDS.has(answer) || DENY_WORDS.has(answer))) {
+			this.resolveApproval(pending, APPROVE_WORDS.has(answer));
 			return;
 		}
 		await this.send(text);
@@ -144,7 +145,9 @@ export class Bot {
 	}
 
 	cancel(): void {
-		this.pending?.resolve(false);
+		for (const pending of this.approvals.slice()) {
+			this.resolveApproval(pending, false);
+		}
 		this.agent.abort();
 	}
 
@@ -158,18 +161,36 @@ export class Bot {
 		if (!needsApproval(this, toolName, args)) {
 			return;
 		}
+		if (this.listeners.size === 0) {
+			return { block: true, reason: "Ninguém está com este bot na tela para aprovar esta ação." };
+		}
 		const approval: Approval = { id: toolCallId, toolName, input: args };
 		const approved = await new Promise<boolean>((resolve) => {
-			this.pending = { approval, resolve };
-			signal?.addEventListener("abort", () => resolve(false), { once: true });
-			this.emit({ type: "approval", approval });
+			const pending: Pending = { approval, resolve };
+			this.approvals.push(pending);
+			signal?.addEventListener("abort", () => this.resolveApproval(pending, false), { once: true });
+			if (this.approvals[0] === pending) {
+				this.emit({ type: "approval", approval });
+			}
 		});
-		this.pending = null;
-		this.emit({ type: "approval-resolved", outcome: approved ? "approved" : "denied" });
 		if (approved) {
 			return;
 		}
 		return { block: true, reason: "A pessoa não aprovou esta ação." };
+	}
+
+	private resolveApproval(pending: Pending, approved: boolean): void {
+		const index = this.approvals.indexOf(pending);
+		if (index === -1) {
+			return;
+		}
+		this.approvals.splice(index, 1);
+		pending.resolve(approved);
+		this.emit({ type: "approval-resolved", outcome: approved ? "approved" : "denied" });
+		const next = this.approvals[0];
+		if (next) {
+			this.emit({ type: "approval", approval: next.approval });
+		}
 	}
 
 	private translate(event: AgentEvent): void {
