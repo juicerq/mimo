@@ -30,6 +30,9 @@ const ATTENTION_COLOR = T1;
 const DOUBLE_ESCAPE_MS = 400;
 const APPROVAL_INPUT_CHARACTERS = 240;
 const DETAIL_CHARACTERS = 600;
+const TOOL_VIEWS = ["names", "details", "hidden"] as const;
+
+type ToolView = (typeof TOOL_VIEWS)[number];
 
 type HomeScreen =
 	| { kind: "bots"; bots: BotInfo[] }
@@ -71,7 +74,7 @@ export class MimoApp {
 	private lastFailure: string | null = null;
 	private contextUsed: number | null = null;
 	private approval: Approval | null = null;
-	private details = false;
+	private toolView: ToolView = "names";
 	private lastEscapeAt: number | null = null;
 
 	constructor(renderer: CliRenderer) {
@@ -128,7 +131,7 @@ export class MimoApp {
 			if (key.ctrl && key.name === "p" && this.screen.kind === "conversation" && this.conversation) {
 				void this.showModels(this.screen.bot);
 			} else if (key.ctrl && key.name === "o") {
-				this.toggleDetails();
+				this.cycleToolView();
 			} else if (key.name === "c" && !key.ctrl && !key.meta && this.copyAuthUrl()) {
 				key.preventDefault();
 				this.lastEscapeAt = null;
@@ -859,24 +862,27 @@ export class MimoApp {
 	}
 
 	private renderTool(toolName: string, input: unknown): void {
-		this.appendLine(`⚙ ${toolName}`, TOOL_COLOR, this.details ? 0 : 1);
+		if (this.toolView === "hidden") {
+			return;
+		}
+		this.appendLine(`⚙ ${toolName}`, TOOL_COLOR, this.toolView === "details" ? 0 : 1);
 		this.appendDetail(JSON.stringify(input), 0);
 	}
 
 	private appendDetail(text: string | undefined, marginBottom = 1): void {
 		const detail = text?.trim();
-		if (!this.details || !detail || detail === "{}") {
+		if (this.toolView !== "details" || !detail || detail === "{}") {
 			return;
 		}
 		this.appendLine(`   ${truncate(detail, DETAIL_CHARACTERS)}`, T4, marginBottom);
 	}
 
-	private toggleDetails(): void {
+	private cycleToolView(): void {
 		const screen = this.screen;
 		if (screen.kind !== "conversation" || !this.conversation) {
 			return;
 		}
-		this.details = !this.details;
+		this.toolView = TOOL_VIEWS[(TOOL_VIEWS.indexOf(this.toolView) + 1) % TOOL_VIEWS.length];
 		void this.openBot(screen.bot);
 	}
 
@@ -944,7 +950,7 @@ export class MimoApp {
 		parts.push(`context: ${used}/${capacity}`);
 		const model = modelInfo?.name ?? "—";
 		parts.push(`model: ${model} (${modelInfo?.reasoning ?? "default"})`);
-		parts.push(`mode: ${label}`, `status: ${this.picker?.state ?? state}`);
+		parts.push(`mode: ${label}`, `tools: ${this.toolView}`, `status: ${this.picker?.state ?? state}`);
 		this.status.content = parts.join(" | ");
 	}
 }

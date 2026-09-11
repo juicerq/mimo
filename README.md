@@ -8,7 +8,7 @@ Crie um bot com `/new <nome>`. Use `/bots` para ver a lista e digite o número p
 
 Use `/model` dentro da conversa para escolher o provedor, o modelo e o esforço pelo número. `Ctrl+P` abre o mesmo seletor preservando o rascunho. `/effort` pula direto para o esforço do modelo atual. A conversa continua recebendo respostas enquanto o seletor está aberto. Antes de confirmar a escolha, `/cancel` ou `Esc` volta à conversa sem alterar o modelo. A configuração pertence ao bot e permanece salva ao reiniciar.
 
-`Ctrl+O` liga e desliga os detalhes das ferramentas na conversa: com ele ligado, cada `⚙ tool` mostra a entrada e o resultado, cortados em 600 caracteres. A conversa é redesenhada inteira, então os turnos antigos também ganham os detalhes.
+`Ctrl+O` alterna como as ferramentas aparecem na conversa: `names` mostra só a linha `⚙ tool` (padrão), `details` acrescenta a entrada e o resultado cortados em 600 caracteres, e `hidden` esconde a ferramenta por completo. O rodapé mostra o modo em uso e a conversa é redesenhada inteira, então os turnos antigos acompanham. Uma ferramenta que falha aparece sempre.
 
 O rodapé mostra contexto, modelo e esforço selecionados, modo e estado. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
 
