@@ -93,6 +93,12 @@ Gmail é uma integração disponível para os bots. As contas conectadas pertenc
 
 Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dias e a conta precisa ser conectada de novo com `/login`. Para evitar, publique o app em In production; o consentimento passa a mostrar o aviso de app não verificado, e para uso pessoal não é preciso concluir a verificação.
 
+## Arquivos do computador
+
+O bot lê e grava arquivos da máquina. `list_files` mostra uma pasta, `read_file` lê até 20 mil caracteres por chamada (com `from` e `limit` para o resto), `search_files` procura um texto numa pasta e devolve arquivo, linha e trecho, e `write_file` grava o arquivo inteiro. A busca usa `rg` quando existe e cai para `grep -rn`.
+
+Caminhos absolutos valem, `~` aponta para a pasta pessoal e um caminho relativo parte dela. Não há pasta proibida: o bot alcança o que o seu usuário alcança. No modo normal, `write_file` espera aprovação no terminal; no modo autônomo, grava direto.
+
 ## Busca na web
 
 A tool `web_search` usa o MCP público da [Exa](https://exa.ai/) (`mcp.exa.ai/mcp`), o mesmo que o OpenCode usa: funciona sem conta e sem chave. Quem tiver uma `EXA_API_KEY` pode colocá-la em `.env.local` para limites maiores.

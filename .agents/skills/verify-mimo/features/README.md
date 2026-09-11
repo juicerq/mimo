@@ -34,6 +34,7 @@ Este diretório é a fonte mantida para verificar o comportamento visível do mi
 - [Modelos](./models.md) cobre escolha por bot, esforços, troca entre provedores e continuidade de respostas com aprovação.
 - [Conversa](./chat.md) cobre envio, streaming, ferramentas, contexto e erros na TUI.
 - [Buscar na web](./web-search.md) cobre a tool `web_search` sem chave e seus erros acionáveis.
+- [Arquivos do computador](./files.md) cobre listar, ler, buscar e gravar com aprovação.
 - [Gmail](./gmail.md) cobre contas, não lidos, thread, rascunho, aprovação de envio e multi-conta.
 - [Rotinas](./routines.md) cobre criar, persistir, disparar, listar e apagar com aprovação.
 - [Memória durável](./memory.md) cobre salvar, recordar entre sessões e remover.
