@@ -4,6 +4,8 @@ Bots pessoais no terminal, com a harness [Pi](https://www.npmjs.com/package/@ear
 
 A TUI e o agente rodam no mesmo processo: não há servidor nem daemon. Abrir até a lista de bots leva cerca de 200 ms.
 
+O conteúdo fica junto ao composer: mensagens, listas e opções começam embaixo e sobem enquanto crescem.
+
 A conversa não tem cabeçalho: cada mensagem traz quem falou, `you:` na sua e `<nome do bot>:` na resposta. O cabeçalho só aparece nos painéis, com o nome do passo.
 
 Crie um bot com `/new <nome>`. Use `/bots` para ver a lista e digite o número para abrir uma conversa. Não há limite de quantidade nem formulário de propósito. Ao reabrir um bot, o histórico e as aprovações pendentes voltam à tela. Trocar de bot não interrompe seu trabalho.

@@ -74,6 +74,7 @@ export class MimoApp {
 			paddingRight: 2,
 			stickyScroll: true,
 			stickyStart: "bottom",
+			contentOptions: { justifyContent: "flex-end", minHeight: "100%" },
 		});
 		this.status = new TextRenderable(renderer, {
 			id: "status",

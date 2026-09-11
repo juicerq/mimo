@@ -125,6 +125,7 @@ export class Panels {
 		this.box = new ScrollBoxRenderable(renderer, {
 			width: "100%", flexGrow: 1, minHeight: 0, paddingTop: 1,
 			paddingLeft: 2, paddingRight: 2, visible: false,
+			contentOptions: { justifyContent: "flex-end", minHeight: "100%" },
 		});
 	}
 
