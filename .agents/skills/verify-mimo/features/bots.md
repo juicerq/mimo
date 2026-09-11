@@ -4,7 +4,7 @@ Cada bot mantém seu transcript, com compactação automática, e memória isola
 
 ## Verificação
 
-1. Suba um sandbox e capture a lista vazia. Crie `/new Estudos` e envie um pedido sobre um assunto sem relação com Gmail. Confira o nome no topo, modelo e esforço no rodapé e resposta em streaming.
+1. Suba um sandbox e capture a lista vazia. Crie `/new Estudos` e envie um pedido sobre um assunto sem relação com Gmail. Confira o nome como prefixo da resposta, modelo e esforço no rodapé e resposta em streaming.
 2. Peça para salvar um fato banal com marcador único. Confira `⚙ save_memory` e o arquivo `bots/<id>/memory.md` no diretório de dados.
 3. Crie `/new Escrita`. Pergunte pelo mesmo fato sem citar seu valor: ele não deve conhecê-lo. Salve outro fato e confirme que está no `memory.md` do outro bot.
 4. Use `/bots` e abra Estudos pelo número. Confira que o transcript reaparece uma vez e só contém as mensagens desse bot.

@@ -23,7 +23,7 @@ Preconditions:
 - `$CONTROL launch` concluiu com a lista de bots na tela.
 - `$CONTROL doctor` confirma HEAD, credenciais e pane em `ready`.
 
-- **Primeira mensagem.** Envie um eco determinístico: `$CONTROL send 'responda apenas com MIMO-CHAT-OK'`. O comando retorna quando o turno termina; `$CONTROL wait 'MIMO-CHAT-OK' 180` confirma a resposta. O transcript mostra `you: responda apenas com MIMO-CHAT-OK`.
+- **Primeira mensagem.** Envie um eco determinístico: `$CONTROL send 'responda apenas com MIMO-CHAT-OK'`. O comando retorna quando o turno termina; `$CONTROL wait 'MIMO-CHAT-OK' 180` confirma a resposta. O transcript mostra `you: responda apenas com MIMO-CHAT-OK` e a resposta com o prefixo `<nome do bot>:`. Não há cabeçalho acima da conversa.
 - **Linha viva.** Logo depois de um `$CONTROL send`, capture o pane: sob a sua mensagem aparece `⠙ thinking · <n>s · esc esc to stop`; depois da primeira ferramenta o rótulo vira `working`; quando o texto começa, a linha some. O rodapé não mostra estado nenhum fora dos seletores.
 - **Detalhes.** Depois de um turno com ferramenta, envie a tecla literal `C-o` pelo tmux três vezes. A primeira mostra a entrada e o resultado recuados sob `⚙ <tool>`, cortados em 600 caracteres; a segunda esconde a linha da ferramenta; a terceira volta ao padrão. O rodapé mostra `tools: details|hidden|names` por 2 segundos e o transcript inteiro é redesenhado, inclusive turnos antigos.
 - **Ferramenta local.** `$CONTROL send 'que horas são? responda em uma linha'`; `$CONTROL wait '⚙ current_time' 180` confirma a tool. A resposta contém hora ou data.

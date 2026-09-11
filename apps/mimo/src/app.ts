@@ -62,6 +62,7 @@ export class MimoApp {
 	private readonly status: TextRenderable;
 	private readonly input: InputRenderable;
 	private readonly heading: TextRenderable;
+	private readonly headingRow: BoxRenderable;
 	private readonly pickerTranscript: ScrollBoxRenderable;
 	private picker: { view: AbortController; draft: string; state: string; back: HomeScreen } | null = null;
 	private conversation: Bot | null = null;
@@ -81,6 +82,7 @@ export class MimoApp {
 	private toolView: ToolView = "names";
 	private working: { line: TextRenderable; label: string; startedAt: number; timer: ReturnType<typeof setInterval> } | null = null;
 	private toolRan = false;
+	private botName = "";
 	private readonly flashed = new Set<string>();
 	private readonly flashTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private lastEscapeAt: number | null = null;
@@ -92,8 +94,8 @@ export class MimoApp {
 			content: "bots",
 			fg: T3,
 		});
-		const headingRow = new BoxRenderable(renderer, { width: "100%", paddingLeft: 2, flexShrink: 0 });
-		headingRow.add(this.heading);
+		this.headingRow = new BoxRenderable(renderer, { width: "100%", paddingLeft: 2, flexShrink: 0, visible: false });
+		this.headingRow.add(this.heading);
 
 		this.transcript = new ScrollBoxRenderable(renderer, {
 			id: "transcript",
@@ -174,7 +176,7 @@ export class MimoApp {
 			height: "100%",
 			flexDirection: "column",
 		});
-		container.add(headingRow);
+		container.add(this.headingRow);
 		container.add(this.transcript);
 		container.add(this.pickerTranscript);
 		container.add(composer);
@@ -608,12 +610,11 @@ export class MimoApp {
 		this.pickerTranscript.visible = false;
 		this.transcript.visible = true;
 		this.screen = screen;
+		this.headingRow.visible = false;
 		if (screen.kind === "conversation") {
 			this.modelInfo = screen.bot.model;
-			this.heading.content = `${screen.bot.name}  ·  /bots  /model  /effort`;
 			this.input.placeholder = "write your prompt";
 		} else {
-			this.heading.content = "bots";
 			this.input.placeholder = "number or /new <name>";
 		}
 		this.input.value = draft;
@@ -630,6 +631,7 @@ export class MimoApp {
 		this.pickerTranscript.visible = true;
 		this.input.value = "";
 		this.heading.content = heading;
+		this.headingRow.visible = true;
 		this.input.placeholder = "number or /cancel";
 		this.setStatus(this.lastState);
 		return this.picker.view.signal;
@@ -653,6 +655,8 @@ export class MimoApp {
 		this.pickerTranscript.visible = false;
 		this.transcript.visible = true;
 		this.screen = screen;
+		this.headingRow.visible = false;
+		this.botName = screen.kind === "bots" ? "" : screen.bot.name;
 		this.stopWorking();
 		this.view.abort();
 		this.view = new AbortController();
@@ -679,7 +683,6 @@ export class MimoApp {
 
 	private async showBots() {
 		const signal = this.resetView({ kind: "bots", bots: [] });
-		this.heading.content = "bots";
 		this.input.placeholder = "number or /new <name>";
 		try {
 			const bots = await listBots();
@@ -723,7 +726,6 @@ export class MimoApp {
 
 	private async openBot(bot: BotInfo) {
 		const signal = this.resetView({ kind: "conversation", bot });
-		this.heading.content = `${bot.name}  ·  /bots  /model  /effort`;
 		this.input.placeholder = "write your prompt";
 		try {
 			const conversation = await Bot.open(bot.id);
@@ -914,14 +916,14 @@ export class MimoApp {
 	private appendReplyDelta(delta: string): void {
 		const block = this.ensureReply();
 		this.replyText += delta;
-		block.content = this.replyText;
+		block.content = `${this.botName}: ${this.replyText}`;
 	}
 
 	private completeReply(message: string): void {
 		if (message !== "") {
 			const block = this.ensureReply();
 			this.replyText = message;
-			block.content = message;
+			block.content = `${this.botName}: ${message}`;
 		}
 		this.sealReply();
 	}
@@ -932,7 +934,7 @@ export class MimoApp {
 		}
 		this.stopWorking();
 		this.replyText = "";
-		this.reply = this.appendLine("");
+		this.reply = this.appendLine(`${this.botName}: `);
 		return this.reply;
 	}
 
