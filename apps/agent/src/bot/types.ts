@@ -25,7 +25,8 @@ export type BotEvent =
 	| { type: "user"; text: string }
 	| { type: "reply-delta"; delta: string }
 	| { type: "reply"; text: string }
-	| { type: "tool"; toolName: string }
+	| { type: "tool"; toolName: string; input: unknown }
+	| { type: "tool-result"; toolName: string; output: string }
 	| { type: "tool-failed"; message: string }
 	| { type: "approval"; approval: Approval }
 	| { type: "login"; target: LoginTarget; session: LoginSession }

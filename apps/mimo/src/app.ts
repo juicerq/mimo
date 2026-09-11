@@ -29,6 +29,7 @@ const STATUS_COLOR = T4;
 const ATTENTION_COLOR = T1;
 const DOUBLE_ESCAPE_MS = 400;
 const APPROVAL_INPUT_CHARACTERS = 240;
+const DETAIL_CHARACTERS = 600;
 
 type HomeScreen =
 	| { kind: "bots"; bots: BotInfo[] }
@@ -70,6 +71,7 @@ export class MimoApp {
 	private lastFailure: string | null = null;
 	private contextUsed: number | null = null;
 	private approval: Approval | null = null;
+	private details = false;
 	private lastEscapeAt: number | null = null;
 
 	constructor(renderer: CliRenderer) {
@@ -125,6 +127,8 @@ export class MimoApp {
 		renderer.keyInput.on("keypress", (key) => {
 			if (key.ctrl && key.name === "p" && this.screen.kind === "conversation" && this.conversation) {
 				void this.showModels(this.screen.bot);
+			} else if (key.ctrl && key.name === "o") {
+				this.toggleDetails();
 			} else if (key.name === "c" && !key.ctrl && !key.meta && this.copyAuthUrl()) {
 				key.preventDefault();
 				this.lastEscapeAt = null;
@@ -772,7 +776,10 @@ export class MimoApp {
 				this.completeReply(event.text);
 				return;
 			case "tool":
-				this.appendLine(`⚙ ${event.toolName}`, TOOL_COLOR);
+				this.renderTool(event.toolName, event.input);
+				return;
+			case "tool-result":
+				this.appendDetail(event.output);
 				return;
 			case "tool-failed":
 				this.appendLine(`✗ tool failed: ${event.message}`, ERROR_COLOR);
@@ -789,6 +796,13 @@ export class MimoApp {
 				this.busy = true;
 				this.setStatus("thinking");
 				return;
+			default:
+				this.renderTurnEvent(event);
+		}
+	}
+
+	private renderTurnEvent(event: Extract<BotEvent, { type: "usage" | "mode" | `turn-${string}` }>): void {
+		switch (event.type) {
 			case "usage":
 				this.contextUsed = event.contextTokens;
 				this.setStatus(this.lastState);
@@ -842,6 +856,28 @@ export class MimoApp {
 		} else {
 			this.setStatus("ready");
 		}
+	}
+
+	private renderTool(toolName: string, input: unknown): void {
+		this.appendLine(`⚙ ${toolName}`, TOOL_COLOR, this.details ? 0 : 1);
+		this.appendDetail(JSON.stringify(input), 0);
+	}
+
+	private appendDetail(text: string | undefined, marginBottom = 1): void {
+		const detail = text?.trim();
+		if (!this.details || !detail || detail === "{}") {
+			return;
+		}
+		this.appendLine(`   ${truncate(detail, DETAIL_CHARACTERS)}`, T4, marginBottom);
+	}
+
+	private toggleDetails(): void {
+		const screen = this.screen;
+		if (screen.kind !== "conversation" || !this.conversation) {
+			return;
+		}
+		this.details = !this.details;
+		void this.openBot(screen.bot);
 	}
 
 	private renderApproval(approval: Approval): void {

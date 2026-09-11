@@ -6,6 +6,7 @@ O usuário abre a TUI, digita no composer e vê a resposta chegar em streaming, 
 
 - `chat-send` envia uma mensagem e mostra a resposta completa.
 - `chat-tools` mostra `⚙ <tool>` quando uma ferramenta roda.
+- `chat-details` liga e desliga com `Ctrl+O` a entrada e o resultado de cada ferramenta.
 - `chat-context` mantém o contexto entre turnos.
 - `chat-status` reflete `ready` → `thinking` → `ready` durante o turno.
 - `chat-error` mostra falha de turno sem derrubar a TUI.
@@ -23,6 +24,7 @@ Preconditions:
 - `$CONTROL doctor` confirma HEAD, credenciais e pane em `ready`.
 
 - **Primeira mensagem.** Envie um eco determinístico: `$CONTROL send 'responda apenas com MIMO-CHAT-OK'`. O comando retorna quando o turno termina; `$CONTROL wait 'MIMO-CHAT-OK' 180` confirma a resposta. O transcript mostra `you: responda apenas com MIMO-CHAT-OK`.
+- **Detalhes.** Depois de um turno com ferramenta, envie a tecla literal `C-o` pelo tmux. Sob cada `⚙ <tool>` aparecem a entrada e o resultado, recuados e cortados em 600 caracteres; `Ctrl+O` de novo os esconde. O toggle redesenha o transcript inteiro, inclusive turnos antigos.
 - **Ferramenta local.** `$CONTROL send 'que horas são? responda em uma linha'`; `$CONTROL wait '⚙ current_time' 180` confirma a tool. A resposta contém hora ou data.
 - **Contexto.** `$CONTROL send 'nesta conversa, guarde o código 73'`; `$CONTROL send 'qual código eu pedi para guardar?'`. A última resposta antes do status contém `73`.
 - **Prova.** `$CONTROL capture .verify/runs/<id>/01-chat.txt`. O arquivo contém `you:`, `⚙ current_time` e a resposta com `73`.

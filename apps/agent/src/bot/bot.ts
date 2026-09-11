@@ -172,11 +172,15 @@ export class Bot {
 			return;
 		}
 		if (event.type === "tool_execution_start") {
-			this.emit({ type: "tool", toolName: event.toolName });
+			this.emit({ type: "tool", toolName: event.toolName, input: event.args });
 			return;
 		}
-		if (event.type === "tool_execution_end" && event.isError) {
-			this.emit({ type: "tool-failed", message: toolErrorText(event.result) });
+		if (event.type === "tool_execution_end") {
+			if (event.isError) {
+				this.emit({ type: "tool-failed", message: toolErrorText(event.result) });
+			} else {
+				this.emit({ type: "tool-result", toolName: event.toolName, output: toolResultText(event.result) });
+			}
 			return;
 		}
 		if (event.type === "agent_end") {
@@ -220,6 +224,14 @@ function toolErrorText(result: unknown): string {
 	return "tool failed";
 }
 
+function toolResultText(result: unknown): string {
+	const text = toolErrorText(result);
+	if (text !== "tool failed") {
+		return text;
+	}
+	return JSON.stringify(result) ?? "";
+}
+
 function usageEvent(usage: Usage): BotEvent[] {
 	const contextTokens = calculateContextTokens(usage);
 	if (contextTokens === 0) {
@@ -240,15 +252,16 @@ function replayMessage(message: AgentMessage): BotEvent[] {
 		return [{ type: "user", text }];
 	}
 	if (message.role === "toolResult") {
-		if (!message.isError) {
-			return [];
+		if (message.isError) {
+			return [{ type: "tool-failed", message: toolErrorText(message) }];
 		}
-		return [{ type: "tool-failed", message: toolErrorText(message) }];
+		return [{ type: "tool-result", toolName: message.toolName, output: contentText(message.content) }];
 	}
 	const text = contentText(message.content);
 	return [
 		...(text ? [{ type: "reply" as const, text }] : []),
-		...message.content.filter((part) => part.type === "toolCall").map((part) => ({ type: "tool" as const, toolName: part.name })),
+		...message.content.filter((part) => part.type === "toolCall")
+			.map((part) => ({ type: "tool" as const, toolName: part.name, input: part.arguments })),
 		...usageEvent(message.usage),
 	];
 }
