@@ -1,6 +1,6 @@
 # Modelos por bot
 
-`/model` abre o seletor dentro da conversa. O primeiro passo escolhe o provedor e mostra quantos modelos ele tem; o segundo lista os modelos desse provedor; o terceiro oferece os esforços compatíveis. `Ctrl+P` abre o mesmo seletor preservando o rascunho. Modelos com um único esforço salvam a escolha no primeiro passo. `/cancel` e `Esc` voltam à conversa sem escolher.
+`/model` abre o seletor dentro da conversa. O primeiro passo escolhe o provedor e mostra quantos modelos ele tem; o segundo lista os modelos desse provedor; o terceiro oferece os esforços compatíveis. `Ctrl+P` abre o mesmo seletor preservando o rascunho. Modelos com um único esforço salvam a escolha já no passo do modelo. `/cancel` e `Esc` voltam à conversa sem escolher.
 
 ## Verificação
 
