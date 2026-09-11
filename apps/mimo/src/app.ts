@@ -569,7 +569,8 @@ export class MimoApp {
 
 	private renderApproval(approval: Approval): void {
 		this.approval = approval;
-		this.appendLine(`▌ ⏸ approval: ${approval.toolName}`, T1);
+		const from = approval.bot === this.botName ? "" : ` · ${approval.bot}`;
+		this.appendLine(`▌ ⏸ approval: ${approval.toolName}${from}`, T1);
 		const input = JSON.stringify(approval.input);
 		if (input !== "{}") {
 			this.appendLine(`   ${truncate(input, APPROVAL_INPUT_CHARACTERS)}`, T4);

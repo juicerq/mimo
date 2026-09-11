@@ -43,6 +43,10 @@ export class Bot {
 	private readonly approvals: Pending[] = [];
 	private record: BotInfo;
 	private session = uuidv7();
+	private host: Bot | null = null;
+	private cancelled = false;
+	private reply = "";
+	private failure: string | null = null;
 
 	private constructor(record: BotInfo, messages: AgentMessage[]) {
 		this.record = record;
@@ -87,7 +91,11 @@ export class Bot {
 	}
 
 	get mode(): BotMode {
-		return this.record.mode;
+		return this.host?.mode ?? this.record.mode;
+	}
+
+	get busy(): boolean {
+		return this.agent.state.isStreaming;
 	}
 
 	get parentId(): string | undefined {
@@ -103,11 +111,12 @@ export class Bot {
 	}
 
 	login(target: LoginTarget): LoginSession {
-		if (this.listeners.size === 0) {
+		const screen = this.screen();
+		if (!screen) {
 			throw new Error("Este bot não está na tela. A pessoa precisa abrir o bot na TUI para autorizar.");
 		}
 		const session = new LoginSession(target);
-		this.emit({ type: "login", target, session });
+		screen.emit({ type: "login", target, session });
 		return session;
 	}
 
@@ -117,9 +126,23 @@ export class Bot {
 		void writeBot(this.record);
 	}
 
+	async delegate(botId: string, prompt: string, signal?: AbortSignal): Promise<string> {
+		await this.child(botId);
+		const child = await Bot.open(botId);
+		child.host = this;
+		signal?.addEventListener("abort", () => child.cancel(), { once: true });
+		return await child.run(prompt);
+	}
+
 	async updateChild(botId: string, patch: BotPatch): Promise<BotInfo> {
-		const updated = { ...await this.child(botId), ...patch };
+		const child = await this.child(botId);
+		const running = open.get(botId);
+		if (running?.busy) {
+			throw new Error("Este filho está trabalhando. Espere ele terminar.");
+		}
+		const updated = { ...child, ...patch };
 		await writeBot(updated);
+		running?.adopt(updated);
 		return updated;
 	}
 
@@ -163,15 +186,43 @@ export class Bot {
 			return;
 		}
 		this.emit({ type: "turn-started" });
+		this.cancelled = false;
 		this.agent.state.systemPrompt = `${this.basePrompt()}\n\n${await recallMemory(this.record.id)}`;
 		await this.agent.prompt(text);
 	}
 
 	cancel(): void {
+		this.cancelled = true;
 		for (const pending of this.approvals.slice()) {
 			this.resolveApproval(pending, false);
 		}
 		this.agent.abort();
+	}
+
+	private async run(prompt: string): Promise<string> {
+		if (this.busy) {
+			throw new Error("Este filho está trabalhando. Espere ele terminar.");
+		}
+		this.failure = null;
+		await this.send(prompt);
+		if (this.failure !== null) {
+			throw new Error(this.failure);
+		}
+		return this.reply;
+	}
+
+	private adopt(record: BotInfo): void {
+		this.record = record;
+		this.agent.state.model = resolveModel(record.model);
+		this.agent.state.thinkingLevel = record.model.reasoning;
+		this.agent.state.tools = botTools(this);
+	}
+
+	private screen(): Bot | null {
+		if (this.listeners.size > 0) {
+			return this;
+		}
+		return this.host?.screen() ?? null;
 	}
 
 	private async child(botId: string): Promise<BotInfo> {
@@ -203,11 +254,19 @@ export class Bot {
 		if (!needsApproval(this, toolName, args)) {
 			return;
 		}
-		if (this.listeners.size === 0) {
+		const screen = this.screen();
+		if (!screen) {
 			return { block: true, reason: "Ninguém está com este bot na tela para aprovar esta ação." };
 		}
-		const approval: Approval = { id: toolCallId, toolName, input: args };
-		const approved = await new Promise<boolean>((resolve) => {
+		const approved = await screen.ask({ id: toolCallId, bot: this.record.name, toolName, input: args }, signal);
+		if (approved) {
+			return;
+		}
+		return { block: true, reason: "A pessoa não aprovou esta ação." };
+	}
+
+	private ask(approval: Approval, signal?: AbortSignal): Promise<boolean> {
+		return new Promise<boolean>((resolve) => {
 			const pending: Pending = { approval, resolve };
 			this.approvals.push(pending);
 			signal?.addEventListener("abort", () => this.resolveApproval(pending, false), { once: true });
@@ -215,10 +274,6 @@ export class Bot {
 				this.emit({ type: "approval", approval });
 			}
 		});
-		if (approved) {
-			return;
-		}
-		return { block: true, reason: "A pessoa não aprovou esta ação." };
 	}
 
 	private resolveApproval(pending: Pending, approved: boolean): void {
@@ -249,6 +304,9 @@ export class Bot {
 			return;
 		}
 		if (event.type === "tool_execution_end") {
+			if (this.cancelled) {
+				return;
+			}
 			if (event.isError) {
 				this.emit({ type: "tool-failed", message: toolErrorText(event.result) });
 			} else {
@@ -266,15 +324,18 @@ export class Bot {
 		if (message.role !== "assistant") {
 			return;
 		}
-		this.emit({ type: "reply", text: contentText(message.content) });
+		this.reply = contentText(message.content);
+		this.emit({ type: "reply", text: this.reply });
 		for (const event of usageEvent(message.usage)) {
 			this.emit(event);
 		}
-		if (message.stopReason === "aborted") {
+		if (this.cancelled || message.stopReason === "aborted") {
 			this.emit({ type: "turn-cancelled" });
+			return;
 		}
 		if (message.stopReason === "error") {
-			this.emit({ type: "turn-failed", message: message.errorMessage ?? "The model request failed." });
+			this.failure = message.errorMessage ?? "The model request failed.";
+			this.emit({ type: "turn-failed", message: this.failure });
 		}
 	}
 

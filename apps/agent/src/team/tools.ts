@@ -20,18 +20,22 @@ const CreateBotInput = z.object({
 });
 
 const UpdateBotInput = z.object({
-	botId: z.uuid().describe("Id do filho."),
+	bot: NameInput,
 	name: NameInput.optional(),
 	prompt: PromptInput.optional(),
 	tools: ToolsInput.optional(),
 	model: ModelInput.optional(),
 });
 
-const DeleteBotInput = z.object({ botId: z.uuid().describe("Id do filho.") });
+const DeleteBotInput = z.object({ bot: NameInput });
+
+const DelegateInput = z.object({
+	bot: NameInput,
+	prompt: z.string().min(1).describe("O trabalho para o filho, com tudo o que ele precisa saber."),
+});
 
 function botView(bot: BotInfo) {
 	return {
-		id: bot.id,
 		name: bot.name,
 		prompt: bot.prompt ?? null,
 		tools: bot.tools,
@@ -49,6 +53,14 @@ function botPatch(input: z.output<typeof UpdateBotInput>): BotPatch {
 	};
 }
 
+async function child(context: ToolContext, name: string): Promise<BotInfo> {
+	const found = (await listChildren(context.botId)).find((bot) => bot.name === name);
+	if (!found) {
+		throw new Error(`Você não tem um filho chamado ${name}. Veja os nomes com list_bots.`);
+	}
+	return found;
+}
+
 export function teamTools(context: ToolContext): AgentTool[] {
 	return [
 		tool({
@@ -56,6 +68,10 @@ export function teamTools(context: ToolContext): AgentTool[] {
 			description: "Cria um bot filho com instrução, tools e modelo próprios. Ele pertence a você e não aparece na lista da pessoa.",
 			input: CreateBotInput,
 			async execute({ model, ...draft }) {
+				const taken = (await listChildren(context.botId)).some((bot) => bot.name === draft.name);
+				if (taken) {
+					throw new Error(`Você já tem um filho chamado ${draft.name}.`);
+				}
 				return botView(await createBot({
 					...draft,
 					parentId: context.botId,
@@ -64,11 +80,21 @@ export function teamTools(context: ToolContext): AgentTool[] {
 			},
 		}),
 		tool({
+			name: "delegate",
+			description: "Entrega um trabalho a um filho e espera a resposta dele. O filho não vê esta conversa: escreva o pedido inteiro no prompt.",
+			input: DelegateInput,
+			async execute(input, signal) {
+				const target = await child(context, input.bot);
+				return { bot: target.name, reply: await context.delegate(target.id, input.prompt, signal) };
+			},
+		}),
+		tool({
 			name: "update_bot",
 			description: "Muda o nome, a instrução, as tools ou o modelo de um filho. Só os campos enviados mudam.",
 			input: UpdateBotInput,
 			async execute(input) {
-				return botView(await context.updateChild(input.botId, botPatch(input)));
+				const target = await child(context, input.bot);
+				return botView(await context.updateChild(target.id, botPatch(input)));
 			},
 		}),
 		tool({
@@ -83,9 +109,10 @@ export function teamTools(context: ToolContext): AgentTool[] {
 			name: "delete_bot",
 			description: "Apaga um filho com a memória e as rotinas dele.",
 			input: DeleteBotInput,
-			async execute({ botId }) {
-				await context.deleteChild(botId);
-				return { deleted: botId };
+			async execute(input) {
+				const target = await child(context, input.bot);
+				await context.deleteChild(target.id);
+				return { deleted: target.name };
 			},
 		}),
 		tool({
