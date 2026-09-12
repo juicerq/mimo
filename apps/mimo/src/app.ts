@@ -1,11 +1,12 @@
-import { BoxRenderable, InputRenderable, InputRenderableEvents, RenderableEvents, TextRenderable, type CliRenderer } from "@opentui/core";
+import { BoxRenderable, InputRenderable, InputRenderableEvents, RenderableEvents, type CliRenderer } from "@opentui/core";
 import { Bot, deleteBot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
-import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode, type TeamCall, type ToolGroup } from "@agent/bot/types";
+import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type TeamCall, type ToolGroup } from "@agent/bot/types";
 import { modelOption } from "@agent/model/catalog";
-import type { ModelInfo, ModelSelection } from "@agent/model/types";
+import type { ModelSelection } from "@agent/model/types";
 import { Bar } from "./bar";
 import { describeError } from "./errors";
+import { Footer } from "./footer";
 import { Panels, type PanelResult } from "./panel";
 import { deletePanel } from "./screens/delete";
 import { accountsPanel, loginPanel, loginTargetsPanel } from "./screens/login";
@@ -17,7 +18,6 @@ import { T1, T2, T3, T4, T5 } from "./theme";
 
 const DOUBLE_ESCAPE_MS = 400;
 const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
-const FLASH_MS = 2000;
 
 type Screen =
 	| { kind: "bots"; bots: BotInfo[] }
@@ -25,7 +25,7 @@ type Screen =
 
 export class MimoApp {
 	private readonly transcript: Transcript;
-	private readonly status: TextRenderable;
+	private readonly footer: Footer;
 	private readonly input: InputRenderable;
 	private readonly panels: Panels;
 	private readonly bar: Bar;
@@ -34,29 +34,12 @@ export class MimoApp {
 	private screen: Screen = { kind: "bots", bots: [] };
 	private view = new AbortController();
 	private readonly turn = new Turn();
-	private mode: BotMode = "normal";
-	private modelInfo: ModelInfo | null = null;
 	private lastFailure: string | null = null;
-	private contextUsed: number | null = null;
-	private readonly flashed = new Set<string>();
-	private readonly flashTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private lastEscapeAt: number | null = null;
 
 	constructor(renderer: CliRenderer) {
 		this.transcript = new Transcript(renderer);
-		this.status = new TextRenderable(renderer, {
-			id: "status",
-			content: "",
-			fg: T4,
-			width: "100%",
-		});
-		const statusRow = new BoxRenderable(renderer, {
-			id: "status-row",
-			width: "100%",
-			paddingLeft: 2,
-			flexShrink: 0,
-		});
-		statusRow.add(this.status);
+		this.footer = new Footer(renderer);
 		this.input = new InputRenderable(renderer, {
 			id: "composer",
 			width: "100%",
@@ -115,7 +98,7 @@ export class MimoApp {
 		container.add(this.panels.box);
 		container.add(this.bar.box);
 		container.add(composer);
-		container.add(statusRow);
+		container.add(this.footer.box);
 		renderer.root.add(container);
 	}
 
@@ -277,7 +260,8 @@ export class MimoApp {
 
 	private readonly refreshPanels = (): void => {
 		this.transcript.box.visible = !this.panels.active;
-		this.refresh();
+		this.footer.panel(this.panels.active ? this.panels.state : undefined);
+		this.spin();
 	};
 
 	private readonly closePanel = (result: PanelResult): void => {
@@ -287,13 +271,13 @@ export class MimoApp {
 		}
 		if (result.bot && this.screen.kind === "conversation") {
 			this.screen = { kind: "conversation", bot: result.bot };
-			this.modelInfo = result.bot.model;
+			this.footer.model(result.bot.model);
 		}
 		this.input.placeholder = this.screen.kind === "bots" ? "number or /new <name>" : "write your prompt";
 		if (result.message) {
 			this.transcript.note(result.message, T3);
 		}
-		this.refresh();
+		this.refreshPanels();
 	};
 
 	private requireConversation(): Bot {
@@ -314,9 +298,7 @@ export class MimoApp {
 		this.unsubscribe = null;
 		this.conversation = null;
 		this.input.value = "";
-		this.mode = "normal";
-		this.contextUsed = null;
-		this.modelInfo = screen.kind === "bots" ? null : screen.bot.model;
+		this.footer.reset(screen.kind === "bots" ? null : screen.bot);
 		this.lastFailure = null;
 		this.lastEscapeAt = null;
 		this.bar.stop();
@@ -378,8 +360,7 @@ export class MimoApp {
 			}
 			this.conversation = conversation;
 			this.screen = { kind: "conversation", bot: conversation.info };
-			this.modelInfo = conversation.info.model;
-			this.mode = conversation.info.mode;
+			this.footer.reset(conversation.info);
 			this.enter("ready");
 			for (const event of conversation.transcript()) {
 				this.renderEvent(event);
@@ -410,7 +391,7 @@ export class MimoApp {
 		this.lastFailure = null;
 		if (this.turn.idle) {
 			this.turn.start();
-			this.refresh();
+			this.spin();
 		}
 		try {
 			await operation();
@@ -479,22 +460,20 @@ export class MimoApp {
 	private renderTurnEvent(event: Extract<BotEvent, { type: "usage" | "mode" | `turn-${string}` }>): void {
 		switch (event.type) {
 			case "usage":
-				this.contextUsed = event.contextTokens;
-				this.refresh();
+				this.footer.context(event.contextTokens);
 				return;
 			case "mode":
-				this.mode = event.mode;
-				this.flash("mode");
+				this.footer.mode(event.mode);
 				return;
 			case "turn-started":
 				this.lastEscapeAt = null;
 				this.lastFailure = null;
 				this.turn.start();
-				this.refresh();
+				this.spin();
 				return;
 			case "turn-finished":
 				this.turn.finish();
-				this.refresh();
+				this.spin();
 				return;
 			case "turn-failed":
 				this.renderFailure(event.message);
@@ -527,7 +506,7 @@ export class MimoApp {
 
 	private renderTool(toolName: string, input: unknown): void {
 		this.turn.ranTool();
-		this.refresh();
+		this.spin();
 		this.transcript.tool(toolName, input);
 	}
 
@@ -541,8 +520,7 @@ export class MimoApp {
 		if (screen.kind !== "conversation" || !this.conversation) {
 			return;
 		}
-		this.transcript.cycle();
-		this.flash("detail");
+		this.footer.detail(this.transcript.cycle());
 		void this.openBot(screen.bot);
 	}
 
@@ -559,47 +537,10 @@ export class MimoApp {
 
 	private enter(state: TurnState): void {
 		this.turn.enter(state);
-		this.refresh();
+		this.spin();
 	}
 
-	private refresh(): void {
+	private spin(): void {
 		this.transcript.working(this.panels.active ? undefined : this.turn.label);
-		const parts: string[] = [];
-		const used = this.contextUsed === null ? "0" : formatTokens(this.contextUsed);
-		const modelInfo = this.modelInfo;
-		const contextWindow = modelInfo?.contextWindowTokens;
-		const capacity = contextWindow === undefined ? "—" : formatTokens(contextWindow);
-		parts.push(`context: ${used}/${capacity}`);
-		const model = modelInfo?.name ?? "—";
-		parts.push(`model: ${model} (${modelInfo?.reasoning ?? "default"})`);
-		if (this.flashed.has("mode")) {
-			parts.push(`mode: ${this.mode === "autonomous" ? "auto" : "normal"}`);
-		}
-		if (this.flashed.has("detail")) {
-			parts.push(`detail: ${this.transcript.level}`);
-		}
-		if (this.panels.active) {
-			parts.push(`status: ${this.panels.state}`);
-		}
-		this.status.content = parts.join(" | ");
 	}
-
-	private flash(field: string): void {
-		this.flashed.add(field);
-		clearTimeout(this.flashTimers.get(field));
-		this.flashTimers.set(field, setTimeout(() => {
-			this.flashed.delete(field);
-			this.refresh();
-		}, FLASH_MS));
-		this.refresh();
-	}
-}
-
-function formatTokens(tokens: number): string {
-	if (tokens < 1_000) {
-		return String(tokens);
-	}
-	const thousands = tokens / 1_000;
-	const text = Number.isInteger(thousands) ? String(thousands) : thousands.toFixed(1);
-	return `${text}k`;
 }
