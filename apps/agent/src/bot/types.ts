@@ -32,15 +32,23 @@ export interface Approval {
 	input: unknown;
 }
 
+export interface Delegation {
+	botId: string;
+	task: string;
+	prompt: string;
+}
+
 export type TeamCallKind = "created" | "delegated" | "stopped" | "deleted";
 
 export interface TeamCall {
 	kind: TeamCallKind;
 	bot: string;
+	task?: string;
 }
 
 export interface TeamMember {
 	name: string;
+	task: string;
 	tool: string | null;
 	startedAt: number;
 }

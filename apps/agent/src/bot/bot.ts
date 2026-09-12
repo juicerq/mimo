@@ -14,12 +14,17 @@ import { toolWarning } from "../tools/tool";
 import { compactTranscript } from "./compaction";
 import { deleteBotRoutines } from "../routines/routines";
 import { listChildren, readBot, readTranscript, removeBot, writeBot, writeTranscript, type BotPatch } from "./store";
-import type { Approval, BotEvent, BotInfo, BotMode, TeamMember, ToolGroup } from "./types";
+import type { Approval, BotEvent, BotInfo, BotMode, Delegation, TeamMember, ToolGroup } from "./types";
 
 const APPROVE_WORDS = new Set(["1", "approve", "aprovar", "sim", "s"]);
 const DENY_WORDS = new Set(["2", "cancel", "cancelar", "não", "nao", "n"]);
 
 const open = new Map<string, Bot>();
+
+interface Work {
+	task: string;
+	startedAt: number;
+}
 
 interface Pending {
 	approval: Approval;
@@ -50,7 +55,7 @@ export class Bot {
 	private readonly listeners = new Set<(event: BotEvent) => void>();
 	private readonly approvals: Pending[] = [];
 	private readonly queued: Entry[] = [];
-	private readonly crew = new Map<Bot, number>();
+	private readonly crew = new Map<Bot, Work>();
 	private readonly running = new Map<string, string>();
 	private record: BotInfo;
 	private session = uuidv7();
@@ -125,8 +130,8 @@ export class Bot {
 
 	get team(): TeamMember[] {
 		const members: TeamMember[] = [];
-		for (const [bot, startedAt] of this.crew) {
-			members.push({ name: bot.record.name, tool: bot.tool, startedAt });
+		for (const [bot, work] of this.crew) {
+			members.push({ name: bot.record.name, task: work.task, tool: bot.tool, startedAt: work.startedAt });
 		}
 		return members;
 	}
@@ -165,15 +170,15 @@ export class Bot {
 		return record;
 	}
 
-	async delegate(botId: string, prompt: string): Promise<void> {
-		await this.child(botId);
-		const child = await Bot.open(botId);
+	async delegate(delegation: Delegation): Promise<void> {
+		await this.child(delegation.botId);
+		const child = await Bot.open(delegation.botId);
 		if (child.busy) {
 			throw new Error("Este filho está trabalhando. Espere ele terminar.");
 		}
 		child.host = this;
-		this.crew.set(child, Date.now());
-		void this.work(child, prompt);
+		this.crew.set(child, { task: delegation.task, startedAt: Date.now() });
+		void this.work(child, delegation);
 	}
 
 	stopChild(botId: string): string {
@@ -248,10 +253,10 @@ export class Bot {
 		this.agent.abort();
 	}
 
-	private async work(child: Bot, prompt: string): Promise<void> {
-		const note = await child.run(prompt).then(
-			(reply) => `O filho ${child.record.name} terminou e respondeu:\n\n${reply}`,
-			(error: unknown) => `O filho ${child.record.name} não terminou: ${errorText(error)}`,
+	private async work(child: Bot, delegation: Delegation): Promise<void> {
+		const note = await child.run(delegation.prompt).then(
+			(reply) => `${child.record.name} finished · ${delegation.task}\n\n${reply}`,
+			(error: unknown) => `${child.record.name} failed · ${delegation.task}\n\n${errorText(error)}`,
 		);
 		this.crew.delete(child);
 		await this.push({ text: note, kind: "note" });

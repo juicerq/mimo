@@ -153,7 +153,8 @@ export class View {
 
 	private showTeamCall(call: TeamCall): void {
 		this.transcript.seal();
-		this.transcript.detailed(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}`, T4);
+		const task = call.task === undefined ? "" : ` · ${call.task}`;
+		this.transcript.detailed(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}${task}`, T4);
 	}
 
 	private showToolGroups(tools: readonly ToolGroup[]): void {

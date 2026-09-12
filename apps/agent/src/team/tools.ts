@@ -31,6 +31,7 @@ const DeleteBotInput = z.object({ bot: NameInput });
 
 const DelegateInput = z.object({
 	bot: NameInput,
+	task: z.string().trim().min(1).max(48).describe("O trabalho em poucas palavras, para a pessoa ler na tela. Diga o que este filho carrega, não o que a equipe faz."),
 	prompt: z.string().min(1).describe("O trabalho para o filho, com tudo o que ele precisa saber."),
 });
 
@@ -41,7 +42,7 @@ const TEAM_CALLS: Record<string, TeamCallKind | undefined> = {
 	delete_bot: "deleted",
 };
 
-const TeamResult = z.object({ bot: BotNameSchema.optional(), name: BotNameSchema.optional() });
+const TeamResult = z.object({ bot: BotNameSchema.optional(), name: BotNameSchema.optional(), task: z.string().optional() });
 
 export function teamCall(toolName: string, output: string): TeamCall | null {
 	const kind = TEAM_CALLS[toolName];
@@ -49,11 +50,14 @@ export function teamCall(toolName: string, output: string): TeamCall | null {
 		return null;
 	}
 	const parsed = TeamResult.safeParse(parseJson(output));
-	const bot = parsed.success ? parsed.data.bot ?? parsed.data.name : undefined;
+	if (!parsed.success) {
+		return null;
+	}
+	const bot = parsed.data.bot ?? parsed.data.name;
 	if (bot === undefined) {
 		return null;
 	}
-	return { kind, bot };
+	return { kind, bot, ...parsed.data.task && { task: parsed.data.task } };
 }
 
 export function isTeamCall(toolName: string): boolean {
@@ -83,7 +87,7 @@ function teamView(name: string, member: TeamMember | undefined) {
 	if (!member) {
 		return { name, working: false };
 	}
-	return { name, working: true, tool: member.tool, seconds: Math.floor((Date.now() - member.startedAt) / 1_000) };
+	return { name, working: true, task: member.task, tool: member.tool, seconds: Math.floor((Date.now() - member.startedAt) / 1_000) };
 }
 
 async function child(context: ToolContext, name: string): Promise<BotInfo> {
@@ -118,8 +122,8 @@ export function teamTools(context: ToolContext): AgentTool[] {
 			input: DelegateInput,
 			async execute(input) {
 				const target = await child(context, input.bot);
-				await context.delegate(target.id, input.prompt);
-				return { bot: target.name, status: "started" };
+				await context.delegate({ botId: target.id, task: input.task, prompt: input.prompt });
+				return { bot: target.name, task: input.task, status: "started" };
 			},
 		}),
 		tool({
