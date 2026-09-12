@@ -19,7 +19,7 @@ const actionSchema = z.object({
 
 export type ActionRecord = z.infer<typeof actionSchema>;
 
-interface ActionInput {
+export interface ActionInput {
 	kind: ActionRecord["kind"];
 	mode: BotMode;
 	sessionId: string;

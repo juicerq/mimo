@@ -9,6 +9,7 @@ import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
 import { isTeamCall, teamCall } from "../team/tools";
 import { botInstructions, botTools, needsApproval } from "../tools";
+import { toolWarning } from "../tools/tool";
 import { compactTranscript } from "./compaction";
 import { deleteBotRoutines } from "../routines/routines";
 import { listChildren, readBot, readTranscript, removeBot, writeBot, writeTranscript, type BotPatch } from "./store";
@@ -439,7 +440,9 @@ export class Bot {
 				this.emit({ type: "tool-failed", message: toolErrorText(event.result) });
 				return;
 			}
-			this.emit(resultEvent(event.toolName, toolResultText(event.result)));
+			for (const result of resultEvent(event.toolName, toolResultText(event.result))) {
+				this.emit(result);
+			}
 			return;
 		}
 		if (event.type === "turn_end") {
@@ -522,12 +525,17 @@ function entryOf(text: string): Entry {
 	return { kind: "user", text };
 }
 
-function resultEvent(toolName: string, output: string): BotEvent {
+function resultEvent(toolName: string, output: string): BotEvent[] {
 	const call = teamCall(toolName, output);
 	if (call) {
-		return { type: "team-call", call };
+		return [{ type: "team-call", call }];
 	}
-	return { type: "tool-result", toolName, output };
+	const warning = toolWarning(output);
+
+	return [
+		...warning ? [{ type: "tool-warned" as const, message: warning }] : [],
+		{ type: "tool-result", toolName, output },
+	];
 }
 
 function errorText(error: unknown): string {
@@ -575,7 +583,7 @@ function replayMessage(message: AgentMessage): BotEvent[] {
 		if (message.isError) {
 			return [{ type: "tool-failed", message: toolErrorText(message) }];
 		}
-		return [resultEvent(message.toolName, contentText(message.content))];
+		return resultEvent(message.toolName, contentText(message.content));
 	}
 	const text = contentText(message.content);
 	return [

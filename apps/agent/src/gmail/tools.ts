@@ -1,9 +1,18 @@
 import { z } from "zod";
-import { recordAction, recordFailure } from "../actions/actions";
+import { recordAction, recordFailure, type ActionInput } from "../actions/actions";
 import type { ToolContext } from "../tools/context";
 import { tool } from "../tools/tool";
 import { accountField, disconnectAccount, listAccounts, resolveAccount } from "./accounts";
 import { createDraft, listUnread, readThread, sendDraft, sendEmail } from "./api";
+
+async function recordOrWarn(action: ActionInput): Promise<{ warning?: string }> {
+	return await recordAction(action).then(
+		() => ({}),
+		(error: unknown) => ({
+			warning: `O e-mail saiu, mas o envio não entrou no registro de ações: ${error instanceof Error ? error.message : String(error)}`,
+		}),
+	);
+}
 
 export function gmailTools(context: ToolContext) {
 	return [
@@ -90,18 +99,19 @@ export function gmailTools(context: ToolContext) {
 					sessionId: context.sessionId,
 					account: resolved.email,
 				};
-				try {
-					const sent = await sendDraft(resolved, draftId);
-					await recordAction({
+				const sent = await sendDraft(resolved, draftId).catch(async (error: unknown) => {
+					await recordFailure({ ...base, summary: `rascunho ${draftId}` }, error).catch(() => {});
+					throw error;
+				});
+
+				return {
+					...sent,
+					...await recordOrWarn({
 						...base,
 						summary: `rascunho ${draftId} para ${sent.to ?? "destinatário ausente"}: ${sent.subject ?? "sem assunto"}`,
 						detail: { messageId: sent.messageId, draftId },
-					});
-					return sent;
-				} catch (error) {
-					await recordFailure({ ...base, summary: `rascunho ${draftId}` }, error).catch(() => {});
-					throw error;
-				}
+					}),
+				};
 			},
 		}),
 		tool({
@@ -124,14 +134,18 @@ export function gmailTools(context: ToolContext) {
 					account: resolved.email,
 					summary: `para ${email.to}: ${email.subject}`,
 				};
-				try {
-					const sent = await sendEmail({ account: resolved, ...email });
-					await recordAction({ ...base, detail: { messageId: sent.messageId, threadId: sent.threadId } });
-					return sent;
-				} catch (error) {
+				const sent = await sendEmail({ account: resolved, ...email }).catch(async (error: unknown) => {
 					await recordFailure(base, error).catch(() => {});
 					throw error;
-				}
+				});
+
+				return {
+					...sent,
+					...await recordOrWarn({
+						...base,
+						detail: { messageId: sent.messageId, ...sent.threadId && { threadId: sent.threadId } },
+					}),
+				};
 			},
 		}),
 	];

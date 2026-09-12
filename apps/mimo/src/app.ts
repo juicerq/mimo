@@ -19,6 +19,14 @@ import { T1, T2, T3, T4, T5 } from "./theme";
 
 const DOUBLE_ESCAPE_MS = 400;
 const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
+const TOOL_EVENT_TYPES = ["tool", "team-call", "tool-result", "tool-warned", "tool-failed"] as const;
+const TOOL_EVENTS = new Set<BotEvent["type"]>(TOOL_EVENT_TYPES);
+
+type ToolEvent = Extract<BotEvent, { type: (typeof TOOL_EVENT_TYPES)[number] }>;
+
+function isToolEvent(event: BotEvent): event is ToolEvent {
+	return TOOL_EVENTS.has(event.type);
+}
 
 export class MimoApp {
 	private readonly transcript: Transcript;
@@ -381,6 +389,11 @@ export class MimoApp {
 	}
 
 	private renderEvent(event: BotEvent): void {
+		if (isToolEvent(event)) {
+			this.renderToolEvent(event);
+			return;
+		}
+
 		switch (event.type) {
 			case "user":
 				this.transcript.seal();
@@ -402,18 +415,6 @@ export class MimoApp {
 			case "reply":
 				this.transcript.reply(event.text);
 				return;
-			case "tool":
-				this.renderTool(event.toolName, event.input);
-				return;
-			case "team-call":
-				this.renderTeamCall(event.call);
-				return;
-			case "tool-result":
-				this.transcript.result(event.output);
-				return;
-			case "tool-failed":
-				this.transcript.detailed(`✗ tool failed: ${event.message}`, T1);
-				return;
 			case "approval":
 				this.renderApproval(event.approval);
 				return;
@@ -429,6 +430,26 @@ export class MimoApp {
 				return;
 			default:
 				this.renderTurnEvent(event);
+		}
+	}
+
+	private renderToolEvent(event: ToolEvent): void {
+		switch (event.type) {
+			case "tool":
+				this.renderTool(event.toolName, event.input);
+				return;
+			case "team-call":
+				this.renderTeamCall(event.call);
+				return;
+			case "tool-result":
+				this.transcript.result(event.output);
+				return;
+			case "tool-warned":
+				this.transcript.seal();
+				this.transcript.note(`⚠ ${event.message}`, T1);
+				return;
+			case "tool-failed":
+				this.transcript.detailed(`✗ tool failed: ${event.message}`, T1);
 		}
 	}
 
