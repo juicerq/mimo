@@ -7,10 +7,7 @@ import { resolveModel, selectModel } from "../model/catalog";
 import { models } from "../model/models";
 import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
-import { computerInstructions } from "../computer/tools";
-import { botTools, needsApproval } from "../tools";
-import instructions from "../instructions.md" with { type: "text" };
-import teamInstructions from "../team/instructions.md" with { type: "text" };
+import { botInstructions, botTools, needsApproval } from "../tools";
 import { compactTranscript } from "./compaction";
 import { deleteBotRoutines } from "../routines/routines";
 import { listChildren, readBot, readTranscript, removeBot, writeBot, writeTranscript, type BotPatch } from "./store";
@@ -158,6 +155,14 @@ export class Bot {
 		this.record = { ...this.record, mode };
 		this.emit({ type: "mode", mode });
 		void writeBot(this.record);
+	}
+
+	async setTools(tools: ToolGroup[]): Promise<BotInfo> {
+		this.record = { ...this.record, tools };
+		await writeBot(this.record);
+		this.agent.state.tools = botTools(this);
+		this.emit({ type: "tools", tools });
+		return this.record;
 	}
 
 	async delegate(botId: string, prompt: string): Promise<void> {
@@ -352,10 +357,7 @@ export class Bot {
 	}
 
 	private basePrompt(): string {
-		const parts = [instructions, computerInstructions()];
-		if (this.record.parentId === undefined) {
-			parts.push(teamInstructions);
-		}
+		const parts = [botInstructions(this)];
 		if (this.record.prompt) {
 			parts.push(this.record.prompt);
 		}

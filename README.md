@@ -12,6 +12,8 @@ Crie um bot com `/new <nome>`. Use `/bots` para ver a lista e digite o número p
 
 Use `/model` dentro da conversa para escolher o provedor, o modelo e o esforço pelo número. `Ctrl+P` abre o mesmo painel preservando o rascunho. `/effort` pula direto para o esforço do modelo atual. A conversa continua recebendo respostas enquanto o painel está aberto. Antes de confirmar a escolha, `/cancel` ou `Esc` volta à conversa sem alterar o modelo. A configuração pertence ao bot e permanece salva ao reiniciar.
 
+Use `/tools` para escolher os grupos de tools do bot. O painel lista `computer`, `web`, `gmail`, `routines` e `team` com `[x]` ou `[ ]`; o número liga e desliga um grupo na hora. Um grupo desligado tira as tools e também o bloco de instruções dele do contexto, então um bot de e-mail não carrega as regras do computador nem da equipe. Hora, memória, histórico e registro de ações ficam sempre disponíveis. A conversa também resolve: peça "desligue o gmail" e o bot chama `set_tools`. Ligar um grupo pede aprovação no modo normal; desligar não pede. A escolha aparece na conversa como `tools: <grupos>` e permanece salva.
+
 `Ctrl+O` alterna como as ferramentas aparecem na conversa: `names` mostra só a linha `⚙ tool` (padrão), `details` acrescenta a entrada e o resultado cortados em 600 caracteres, e `hidden` esconde a ferramenta por completo. O rodapé mostra o modo escolhido por 2 segundos e a conversa é redesenhada inteira, então os turnos antigos acompanham. Uma ferramenta que falha aparece sempre.
 
 Depois de enviar, a conversa mostra uma linha viva com o que o bot faz: `⠙ thinking · 3s · esc esc to stop` antes da primeira ferramenta e `working` depois dela. A linha some quando o texto da resposta começa a chegar e dá lugar ao streaming. Abrir um bot mostra `loading` no mesmo lugar.
@@ -86,9 +88,9 @@ O registro do bot fica em `.data/bots/<id>.json` e o transcript atual em `.data/
 
 ## Equipe
 
-Um bot pode montar uma equipe de bots filhos. As tools `create_bot`, `update_bot`, `list_bots`, `delete_bot`, `delegate`, `check_team`, `stop_bot` e `list_models` só existem em bots sem pai. Um filho é um bot comum, com memória e sessão próprias, mas não aparece em `/bots` nem em `/delete`: quem cuida dele é o pai. Apagar o pai apaga a equipe inteira, e o painel de `/delete` avisa quais bots vão junto.
+Um bot pode montar uma equipe de bots filhos. As tools `create_bot`, `update_bot`, `list_bots`, `delete_bot`, `delegate`, `check_team`, `stop_bot` e `list_models` vêm do grupo `team`, que só bots sem pai têm. Um filho é um bot comum, com memória e sessão próprias, mas não aparece em `/bots` nem em `/delete`: quem cuida dele é o pai. Apagar o pai apaga a equipe inteira, e o painel de `/delete` avisa quais bots vão junto.
 
-Ao criar um filho, o pai escolhe o nome, a instrução permanente, os grupos de tools e o modelo. Os grupos são `computer`, `web`, `gmail` e `routines`; hora, memória, histórico e registro de ações ficam sempre disponíveis. Sem modelo escolhido, o filho nasce com o padrão; `list_models` mostra os valores aceitos. As tools da equipe tratam o filho pelo nome, que é único dentro da equipe.
+Ao criar um filho, o pai escolhe o nome, a instrução permanente, os grupos de tools e o modelo. Os grupos são `computer`, `web`, `gmail` e `routines`; `team` não é oferecido a um filho, então a equipe não tem netos. Sem modelo escolhido, o filho nasce com o padrão; `list_models` mostra os valores aceitos. As tools da equipe tratam o filho pelo nome, que é único dentro da equipe.
 
 `delegate` começa o trabalho no filho e volta na hora: o turno do pai fecha e a pessoa continua conversando com ele. O filho não vê a conversa da pessoa, então o pedido precisa ser completo. Cada filho atende um trabalho por vez; vários filhos trabalham ao mesmo tempo. Um filho não delega e não cria bots, então a equipe tem um nível só.
 

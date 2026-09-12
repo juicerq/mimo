@@ -36,6 +36,7 @@ Este diretório é a fonte mantida para verificar o comportamento visível do mi
 - [Fila](./queue.md) cobre escrever durante o trabalho do bot, a ordem de entrega e o descarte ao interromper.
 - [Buscar na web](./web-search.md) cobre a tool `web_search` sem chave e seus erros acionáveis.
 - [Computador](./computer.md) cobre bash, read, write e edit com aprovação.
+- [Grupos de tools](./tools.md) cobre o painel `/tools`, a tool `set_tools` e o efeito no contexto.
 - [Equipe](./team.md) cobre criar, ajustar, apagar e delegar a bots filhos, a aprovação que sobe para o pai e a cascata do `/delete`.
 - [Gmail](./gmail.md) cobre contas, não lidos, thread, rascunho, aprovação de envio e multi-conta.
 - [Rotinas](./routines.md) cobre criar, persistir, disparar, listar e apagar com aprovação.

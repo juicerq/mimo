@@ -12,11 +12,12 @@ import {
 } from "@earendil-works/pi-agent-core";
 import { NodeExecutionEnv } from "@earendil-works/pi-agent-core/harness/env/nodejs";
 import { homedir } from "node:os";
+import instructions from "./instructions.md" with { type: "text" };
 
 const NO_UPDATE = () => {};
 
 export function computerInstructions(): string {
-	return `As tools do computador rodam a partir de ${homedir()}. Use caminhos absolutos; \`~\` só funciona dentro de um comando do \`bash\`.`;
+	return `${instructions}\nAs tools do computador rodam a partir de ${homedir()}. Use caminhos absolutos; \`~\` só funciona dentro de um comando do \`bash\`.`;
 }
 
 function toolContext(): ExecutionToolContext {

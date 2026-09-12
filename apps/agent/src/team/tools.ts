@@ -1,7 +1,7 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
 import { createBot, listChildren, type BotPatch } from "../bot/store";
-import { BotNameSchema, BotPromptSchema, ToolGroupSchema, type BotInfo, type TeamMember } from "../bot/types";
+import { BotNameSchema, BotPromptSchema, ChildGroupSchema, type BotInfo, type TeamMember } from "../bot/types";
 import { listModels, selectModel } from "../model/catalog";
 import { ModelSelectionSchema } from "../model/types";
 import type { ToolContext } from "../tools/context";
@@ -9,7 +9,7 @@ import { tool } from "../tools/tool";
 
 const NameInput = z.string().describe("Nome curto do filho.").pipe(BotNameSchema);
 const PromptInput = BotPromptSchema.describe("Instrução permanente do filho, escrita sem depender desta conversa.");
-const ToolsInput = z.array(ToolGroupSchema).min(1).describe("Grupos de tools liberados para o filho.");
+const ToolsInput = z.array(ChildGroupSchema).min(1).describe("Grupos de tools liberados para o filho.");
 const ModelInput = ModelSelectionSchema.describe("Modelo do filho. Veja os valores em list_models.");
 
 const CreateBotInput = z.object({

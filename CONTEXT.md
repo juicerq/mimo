@@ -44,6 +44,10 @@ _Evitar_: Buffer, rascunho
 Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Aparece na conversa como `routine:`, nunca como entrega da pessoa. Continua pertencendo ao mesmo Bot quando a Sessão muda.
 _Evitar_: Agendamento, cron job, automação
 
+**Grupo de tools**:
+Um conjunto de tools que um Bot tem ou não tem: `computer`, `web`, `gmail`, `routines` e `team`. O grupo carrega junto o seu bloco de instruções, então desligá-lo também o tira do contexto do Bot. A pessoa escolhe pelo Painel de tools ou pedindo ao Bot. Um Bot filho nunca recebe `team`.
+_Evitar_: Permissão, capacidade, plugin
+
 **Modo normal**:
 O Bot executa o trabalho e pede Aprovação para as ações que a exigem, como enviar e-mails, apagar Rotinas e ativar o Modo autônomo.
 _Evitar_: Padrão, cauteloso
@@ -65,7 +69,7 @@ Uma resposta escrita pelo Bot que só vira e-mail enviado por ação da pessoa o
 _Evitar_: Minuta
 
 **Painel**:
-A tela que substitui a conversa para uma escolha ou uma conexão: modelo, esforço, login e logout. Tem título, itens numerados e volta à conversa com `/cancel` ou `Esc`, preservando o rascunho.
+A tela que substitui a conversa para uma escolha ou uma conexão: modelo, esforço, tools, login e logout. Tem título, itens numerados e volta à conversa com `/cancel` ou `Esc`, preservando o rascunho.
 _Evitar_: Seletor, modal, picker
 
 **Sandbox**:
