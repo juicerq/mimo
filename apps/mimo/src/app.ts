@@ -9,7 +9,7 @@ import {
 } from "@opentui/core";
 import { Bot, deleteBot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
-import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode, type TeamMember, type ToolGroup } from "@agent/bot/types";
+import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode, type TeamCall, type TeamMember, type ToolGroup } from "@agent/bot/types";
 import { modelOption } from "@agent/model/catalog";
 import type { ModelInfo, ModelSelection } from "@agent/model/types";
 import { describeError } from "./errors";
@@ -25,6 +25,7 @@ const APPROVAL_INPUT_CHARACTERS = 240;
 const DETAIL_CHARACTERS = 600;
 const ROUTINE_CHARACTERS = 120;
 const TOOL_VIEWS = ["names", "details", "hidden"] as const;
+const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const SPINNER_MS = 100;
 const FLASH_MS = 2000;
@@ -519,6 +520,9 @@ export class MimoApp {
 			case "tool":
 				this.renderTool(event.toolName, event.input);
 				return;
+			case "team-call":
+				this.renderTeamCall(event.call);
+				return;
 			case "tool-result":
 				this.appendDetail(event.output);
 				return;
@@ -576,6 +580,11 @@ export class MimoApp {
 				this.busy = false;
 				this.setStatus("cancelled");
 		}
+	}
+
+	private renderTeamCall(call: TeamCall): void {
+		this.sealReply();
+		this.appendLine(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}`, T4);
 	}
 
 	private renderTools(tools: readonly ToolGroup[]): void {
@@ -668,7 +677,7 @@ export class MimoApp {
 			return;
 		}
 		this.toolView = TOOL_VIEWS[(TOOL_VIEWS.indexOf(this.toolView) + 1) % TOOL_VIEWS.length];
-		this.flash("tools");
+		this.flash("tool-view");
 		void this.openBot(screen.bot);
 	}
 
@@ -742,8 +751,8 @@ export class MimoApp {
 		if (this.flashed.has("mode")) {
 			parts.push(`mode: ${this.mode === "autonomous" ? "auto" : "normal"}`);
 		}
-		if (this.flashed.has("tools")) {
-			parts.push(`tools: ${this.toolView}`);
+		if (this.flashed.has("tool-view")) {
+			parts.push(`tool view: ${this.toolView}`);
 		}
 		if (this.panels.active) {
 			parts.push(`status: ${this.panels.state}`);
