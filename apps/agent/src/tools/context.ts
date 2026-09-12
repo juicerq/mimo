@@ -8,7 +8,7 @@ export interface ToolContext {
 	readonly mode: BotMode;
 	readonly parentId?: string;
 	readonly tools: ToolGroup[];
-	setMode(mode: BotMode): void;
+	setMode(mode: BotMode): Promise<void>;
 	setTools(tools: ToolGroup[]): Promise<BotInfo>;
 	login(target: LoginTarget): LoginSession;
 	delegate(botId: string, prompt: string): Promise<void>;

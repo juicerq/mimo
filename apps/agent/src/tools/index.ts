@@ -48,7 +48,7 @@ function setMode(context: ToolContext): AgentTool {
 		input: SetModeInput,
 		async execute({ mode }) {
 			const previous = context.mode;
-			context.setMode(mode);
+			await context.setMode(mode);
 			return { previous, mode };
 		},
 	});
