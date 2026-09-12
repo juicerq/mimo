@@ -5,11 +5,12 @@ import { T4 } from "./theme";
 
 const TEAM_MS = 1000;
 
-export type TeamView = "off" | "bar";
+export type TeamView = "off" | "bar" | "rail";
 
 export const NEXT_TEAM_VIEW: Record<TeamView, TeamView> = {
 	off: "bar",
-	bar: "off",
+	bar: "rail",
+	rail: "off",
 };
 
 interface Source {
@@ -84,7 +85,7 @@ export class Bar {
 
 	private teamLines(): string[] {
 		const source = this.source;
-		if (this.teamView === "off" || source === null) {
+		if (this.teamView !== "bar" || source === null) {
 			return [];
 		}
 		const bots = source.read();
@@ -103,7 +104,7 @@ function teamLine(member: TeamMember, width: number): string {
 	return `${member.name.padEnd(width)} ${elapsed(member.startedAt).padStart(4)}  ${member.task}`;
 }
 
-function elapsed(startedAt: number): string {
+export function elapsed(startedAt: number): string {
 	const seconds = Math.floor((Date.now() - startedAt) / 1000);
 	if (seconds < 60) {
 		return `${seconds}s`;

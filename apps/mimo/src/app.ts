@@ -8,6 +8,7 @@ import { Bar, NEXT_TEAM_VIEW, type TeamView } from "./bar";
 import { describeError } from "./errors";
 import { Footer } from "./footer";
 import { Panels, type PanelResult } from "./panel";
+import { Rail } from "./rail";
 import { Screen } from "./screen";
 import { deletePanel } from "./screens/delete";
 import { accountsPanel, loginTargetsPanel } from "./screens/login";
@@ -26,6 +27,7 @@ export class MimoApp {
 	private readonly input: InputRenderable;
 	private readonly panels: Panels;
 	private readonly bar: Bar;
+	private readonly rail: Rail;
 	private readonly view: View;
 	private readonly screen = new Screen();
 	private readonly turn = new Turn(() => {
@@ -85,6 +87,7 @@ export class MimoApp {
 		composer.add(this.input);
 
 		this.bar = new Bar(renderer);
+		this.rail = new Rail(renderer);
 		this.view = new View({
 			transcript: this.transcript,
 			footer: this.footer,
@@ -97,8 +100,9 @@ export class MimoApp {
 		});
 
 		const container = new BoxRenderable(renderer, {
-			id: "app",
-			width: "100%",
+			id: "app-column",
+			flexGrow: 1,
+			minWidth: 0,
 			height: "100%",
 			flexDirection: "column",
 		});
@@ -108,7 +112,15 @@ export class MimoApp {
 		container.add(this.bar.box);
 		container.add(composer);
 		container.add(this.footer.box);
-		renderer.root.add(container);
+		const row = new BoxRenderable(renderer, {
+			id: "app",
+			width: "100%",
+			height: "100%",
+			flexDirection: "row",
+		});
+		row.add(container);
+		row.add(this.rail.box);
+		renderer.root.add(row);
 	}
 
 	async start(): Promise<void> {
@@ -405,7 +417,16 @@ export class MimoApp {
 	private cycleTeamView(): void {
 		this.teamView = NEXT_TEAM_VIEW[this.teamView];
 		this.bar.view(this.teamView);
+		this.showRail();
 		this.footer.team(this.teamView);
+	}
+
+	private showRail(): void {
+		if (this.teamView === "rail") {
+			this.rail.show();
+			return;
+		}
+		this.rail.hide();
 	}
 
 	private cycleDetail(): void {
