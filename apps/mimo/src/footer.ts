@@ -1,0 +1,106 @@
+import { BoxRenderable, TextRenderable, type CliRenderer } from "@opentui/core";
+import type { BotInfo, BotMode } from "@agent/bot/types";
+import type { ModelInfo } from "@agent/model/types";
+import { T4 } from "./theme";
+import type { Detail } from "./transcript";
+
+const FLASH_MS = 2000;
+
+export class Footer {
+	readonly box: BoxRenderable;
+	private readonly line: TextRenderable;
+	private contextTokens: number | null = null;
+	private selectedModel: ModelInfo | null = null;
+	private botMode: BotMode = "normal";
+	private detailLevel: Detail = "brief";
+	private panelState: string | undefined = undefined;
+	private readonly flashed = new Set<string>();
+	private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
+
+	constructor(renderer: CliRenderer) {
+		this.line = new TextRenderable(renderer, {
+			id: "status",
+			content: "",
+			fg: T4,
+			width: "100%",
+		});
+		this.box = new BoxRenderable(renderer, {
+			id: "status-row",
+			width: "100%",
+			paddingLeft: 2,
+			flexShrink: 0,
+		});
+		this.box.add(this.line);
+	}
+
+	reset(bot: Pick<BotInfo, "model" | "mode"> | null): void {
+		this.contextTokens = null;
+		this.selectedModel = bot?.model ?? null;
+		this.botMode = bot?.mode ?? "normal";
+		this.draw();
+	}
+
+	context(tokens: number): void {
+		this.contextTokens = tokens;
+		this.draw();
+	}
+
+	model(info: ModelInfo): void {
+		this.selectedModel = info;
+		this.draw();
+	}
+
+	mode(mode: BotMode): void {
+		this.botMode = mode;
+		this.flash("mode");
+	}
+
+	detail(level: Detail): void {
+		this.detailLevel = level;
+		this.flash("detail");
+	}
+
+	panel(state: string | undefined): void {
+		this.panelState = state;
+		this.draw();
+	}
+
+	private flash(field: string): void {
+		this.flashed.add(field);
+		clearTimeout(this.timers.get(field));
+		this.timers.set(field, setTimeout(() => {
+			this.flashed.delete(field);
+			this.draw();
+		}, FLASH_MS));
+		this.draw();
+	}
+
+	private draw(): void {
+		const used = this.contextTokens === null ? "0" : formatTokens(this.contextTokens);
+		const contextWindow = this.selectedModel?.contextWindowTokens;
+		const capacity = contextWindow === undefined ? "—" : formatTokens(contextWindow);
+		const parts = [
+			`context: ${used}/${capacity}`,
+			`model: ${this.selectedModel?.name ?? "—"} (${this.selectedModel?.reasoning ?? "default"})`,
+		];
+		if (this.flashed.has("mode")) {
+			parts.push(`mode: ${this.botMode === "autonomous" ? "auto" : "normal"}`);
+		}
+		if (this.flashed.has("detail")) {
+			parts.push(`detail: ${this.detailLevel}`);
+		}
+		if (this.panelState !== undefined) {
+			parts.push(`status: ${this.panelState}`);
+		}
+		this.line.content = parts.join(" | ");
+	}
+}
+
+function formatTokens(tokens: number): string {
+	if (tokens < 1_000) {
+		return String(tokens);
+	}
+	const thousands = tokens / 1_000;
+	const text = Number.isInteger(thousands) ? String(thousands) : thousands.toFixed(1);
+	return `${text}k`;
+}
