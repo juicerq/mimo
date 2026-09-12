@@ -12,13 +12,14 @@ Um bot sem pai cria bots filhos com `create_bot`, ajusta com `update_bot`, vê c
 6. Delegue um trabalho curto e, logo depois, peça um texto longo ao dog. O aviso do filho tem que esperar o fim desse turno e só então entrar na conversa.
 7. Peça duas chamadas de `delegate` na mesma mensagem, para dois filhos, cada um escrevendo um arquivo diferente. Confira duas linhas `▌ delegated to <nome> · <task>`, uma por filho, uma aprovação por vez com o nome de cada filho e os dois arquivos no fim.
 8. Com os dois filhos num trabalho longo (`sleep`), confira acima do composer uma linha por filho, em colunas: nome, tempo e a task. O tempo tem que subir e a coluna do nome tem que alinhar pelo maior nome. A tool do momento sai só no `check_team`. As linhas somem quando os filhos entregam.
-9. Com um filho trabalhando, pare o turno do dog com dois `Esc`. A conversa mostra `Interrupted.` e o filho **continua** na barra da equipe: parar o pai não para a equipe.
-10. Troque a instrução de um filho com `update_bot` e delegue outra vez, pedindo algo que mostre a instrução nova. A resposta precisa seguir a instrução nova sem reiniciar a TUI.
-11. Delegue ao filho um pedido para criar outro bot. Ele deve responder que não tem `create_bot`: a equipe só tem um nível.
-12. Peça um filho temporário e a exclusão dele. `delete_bot` deve parar em `▌ ⏸ approval: delete_bot` **sem** nenhuma linha `▌ deleted` antes; aprove e confira a linha `▌ deleted <nome>` e que o arquivo e a pasta do filho sumiram. Repita recusando com `2`: nada é apagado e nenhuma linha aparece.
-13. Use `/delete` e escolha o dog. O painel deve avisar `Its team goes too: <nomes>`. Confirme e confira que os arquivos do pai e dos filhos sumiram.
+9. Delegue ao filho um `sleep` longo, aprove esse `bash` e peça ao dog que rode um `bash` dele quando o aviso chegar. Saia para `/bots` na hora: a lista tem que estar **sem** marca. Espere o aviso chegar longe da tela e use `/bots` outra vez: agora a linha do dog mostra `⏸ approval: bash`, e o comando **não** rodou. Abra o dog: a Aprovação está lá, com o comando certo. Aprove e confira o efeito. A Aprovação espera; ela não é recusada por falta de tela.
+10. Com um filho trabalhando, pare o turno do dog com dois `Esc`. A conversa mostra `Interrupted.` e o filho **continua** na barra da equipe: parar o pai não para a equipe.
+11. Troque a instrução de um filho com `update_bot` e delegue outra vez, pedindo algo que mostre a instrução nova. A resposta precisa seguir a instrução nova sem reiniciar a TUI.
+12. Delegue ao filho um pedido para criar outro bot. Ele deve responder que não tem `create_bot`: a equipe só tem um nível.
+13. Peça um filho temporário e a exclusão dele. `delete_bot` deve parar em `▌ ⏸ approval: delete_bot` **sem** nenhuma linha `▌ deleted` antes; aprove e confira a linha `▌ deleted <nome>` e que o arquivo e a pasta do filho sumiram. Repita recusando com `2`: nada é apagado e nenhuma linha aparece.
+14. Use `/delete` e escolha o dog. O painel deve avisar `Its team goes too: <nomes>`. Confirme e confira que os arquivos do pai e dos filhos sumiram.
 
-14. Com `▌ created` e `▌ delegated to` na tela, aperte `Ctrl+O` até `detail: off`. As linhas da equipe somem junto com as `⚙`. Passe por `full` e confira que nenhuma linha solta de resultado (`{"bot":...,"status":"started"}`) aparece embaixo delas.
-15. Volte para `/bots`, reabra o dog e confira que as linhas da equipe voltam no transcript, no lugar certo.
+15. Com `▌ created` e `▌ delegated to` na tela, aperte `Ctrl+O` até `detail: off`. As linhas da equipe somem junto com as `⚙`. Passe por `full` e confira que nenhuma linha solta de resultado (`{"bot":...,"status":"started"}`) aparece embaixo delas.
+16. Volte para `/bots`, reabra o dog e confira que as linhas da equipe voltam no transcript, no lugar certo.
 
 Capture a tela e o estado em disco a cada etapa.

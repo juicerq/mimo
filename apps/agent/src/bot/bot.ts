@@ -39,6 +39,17 @@ type Entry =
 const NOTE_MARK = "[equipe]";
 const ROUTINE_MARK = /^\[rotina(?:: (?<name>[^\]\n]+))?\]\n/u;
 
+export function waitingBots(): Map<string, string> {
+	const waiting = new Map<string, string>();
+	for (const bot of open.values()) {
+		const approval = bot.approval;
+		if (approval) {
+			waiting.set(bot.botId, approval.toolName);
+		}
+	}
+	return waiting;
+}
+
 export async function deleteBot(id: string): Promise<void> {
 	for (const child of await listChildren(id)) {
 		await deleteBot(child.id);
@@ -359,6 +370,10 @@ export class Bot {
 		return this.host?.screen() ?? null;
 	}
 
+	private commander(): Bot {
+		return this.host?.commander() ?? this;
+	}
+
 	private async child(botId: string): Promise<BotInfo> {
 		const child = await readBot(botId);
 		if (child?.parentId !== this.record.id) {
@@ -385,11 +400,7 @@ export class Bot {
 		if (!needsApproval(this, toolName, args)) {
 			return;
 		}
-		const screen = this.screen();
-		if (!screen) {
-			return { block: true, reason: "Ninguém está com este bot na tela para aprovar esta ação." };
-		}
-		const approved = await screen.ask({ id: toolCallId, bot: this.record.name, toolName, input: args }, signal);
+		const approved = await this.commander().ask({ id: toolCallId, bot: this.record.name, toolName, input: args }, signal);
 		if (approved) {
 			return;
 		}
