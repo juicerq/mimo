@@ -1,6 +1,6 @@
 # Bots
 
-Cada bot mantém seu transcript, com compactação automática, e memória isolada. Quando o contexto é compactado, as mensagens anteriores vão para `bots/<id>/sessions/` e a conversa segue com um resumo. A lista é a tela inicial; `/new <nome>` cria e abre um bot, `/bots` volta à lista, o número abre a conversa e `/delete` apaga um bot depois de confirmar.
+Cada bot mantém seu transcript, com compactação automática, e memória isolada. Quando o contexto é compactado, as mensagens anteriores vão para `bots/<id>/sessions/` e a conversa segue com um resumo. A lista é a tela inicial; `/new <nome>` cria e abre um bot, `/bots` volta à lista, o número abre a conversa e `/delete` apaga um bot depois de confirmar. Um bot que espera Aprovação aparece na lista com `⏸ approval`, porque a Aprovação espera em vez de ser recusada quando ninguém está com ele na tela.
 
 ## Verificação
 
