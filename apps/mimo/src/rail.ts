@@ -14,6 +14,7 @@ interface Line {
 export class Rail {
 	readonly box: BoxRenderable;
 	private readonly renderer: CliRenderer;
+	private readonly list: BoxRenderable;
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private lines: Line[] = [];
 
@@ -31,6 +32,22 @@ export class Rail {
 			paddingRight: 1,
 			visible: false,
 		});
+		this.list = new BoxRenderable(renderer, {
+			id: "rail-list",
+			width: "100%",
+			flexGrow: 1,
+			minHeight: 0,
+			flexDirection: "column",
+			paddingTop: 1,
+		});
+		this.box.add(this.list);
+		this.box.add(new TextRenderable(renderer, {
+			id: "rail-hint",
+			content: "Ctrl+T close",
+			fg: T4,
+			width: "100%",
+			flexShrink: 0,
+		}));
 		renderer.on(CliRenderEvents.RESIZE, () => {
 			this.resize();
 		});
@@ -65,11 +82,11 @@ export class Rail {
 			return;
 		}
 		this.lines = lines;
-		for (const child of this.box.getChildren()) {
+		for (const child of this.list.getChildren()) {
 			child.destroyRecursively();
 		}
 		for (const line of lines) {
-			this.box.add(new TextRenderable(this.renderer, {
+			this.list.add(new TextRenderable(this.renderer, {
 				content: line.text,
 				fg: line.fg,
 				width: "100%",
@@ -81,14 +98,13 @@ export class Rail {
 	private read(): Line[] {
 		const bots = activity().filter((bot) => bot.team.length > 0 || bot.waiting !== null);
 		if (bots.length === 0) {
-			return [{ text: "running", fg: T3 }, { text: "", fg: T4 }, { text: "nothing running", fg: T4 }, { text: "", fg: T4 }, { text: "Ctrl+T close", fg: T4 }];
+			return [{ text: "nothing running", fg: T4 }];
 		}
-		const lines: Line[] = [{ text: "running", fg: T3 }];
+		const lines: Line[] = [];
 		for (const bot of bots) {
-			lines.push({ text: "", fg: T4 }, { text: head(bot), fg: T1 });
+			lines.push(...lines.length > 0 ? [{ text: "", fg: T4 }] : [], { text: head(bot), fg: T1 });
 			lines.push(...body(bot));
 		}
-		lines.push({ text: "", fg: T4 }, { text: "Ctrl+T close", fg: T4 });
 		return lines;
 	}
 }
