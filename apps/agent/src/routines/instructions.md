@@ -1,0 +1,1 @@
+Rotinas pertencem a este bot e são entregues na sessão atual quando disparam, inclusive depois de uma troca de sessão. Ao criar, confirme o que o bot deve fazer e o intervalo. Se o pedido for ambíguo, liste as rotinas antes de editar ou apagar.

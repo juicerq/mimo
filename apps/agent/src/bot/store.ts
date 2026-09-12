@@ -6,8 +6,9 @@ import { initialModel, selectModel } from "../model/catalog";
 import { ModelSelectionSchema, type ModelInfo } from "../model/types";
 import { dataPath } from "../storage/data";
 import { readJsonFile, writeTextFile } from "../storage/files";
-import { BotModeSchema, BotNameSchema, BotPromptSchema, TOOL_GROUPS, ToolGroupSchema, type BotInfo } from "./types";
+import { BotModeSchema, BotNameSchema, BotPromptSchema, CHILD_GROUPS, TOOL_GROUPS, ToolGroupSchema, type BotInfo, type ToolGroup } from "./types";
 
+const VERSION = 1;
 const LEGACY_PROVIDERS: Record<string, string> = { "openai-oauth": "openai-codex" };
 const LEGACY_MODEL_IDS: Record<string, string> = { "deepseek-flash": "deepseek-v4-flash" };
 const LEGACY_REASONING: Record<string, string> = { "provider-default": "medium", none: "off" };
@@ -21,6 +22,7 @@ const StoredBotSchema = z.object({
 	tools: z.array(ToolGroupSchema).default([...TOOL_GROUPS]),
 	parentId: z.uuid().optional(),
 	prompt: BotPromptSchema.optional(),
+	version: z.number().optional(),
 });
 
 const TranscriptSchema = z.array(z.custom<AgentMessage>());
@@ -45,16 +47,31 @@ function repairModel(stored: z.infer<typeof StoredBotSchema>["model"]): ModelInf
 	}
 }
 
+function repairTools(stored: z.infer<typeof StoredBotSchema>): ToolGroup[] {
+	if (stored.parentId !== undefined) {
+		return stored.tools.filter((group) => group !== "team");
+	}
+	if (stored.version === VERSION) {
+		return stored.tools;
+	}
+	return TOOL_GROUPS.filter((group) => group === "team" || stored.tools.includes(group));
+}
+
 export async function readBot(id: string): Promise<BotInfo | null> {
 	const stored = await readJsonFile(botPath(id), StoredBotSchema);
 	if (!stored) {
 		return null;
 	}
-	return { ...stored, model: repairModel(stored.model) };
+	const { version, ...rest } = stored;
+	const bot: BotInfo = { ...rest, model: repairModel(stored.model), tools: repairTools(stored) };
+	if (version !== VERSION) {
+		await writeBot(bot);
+	}
+	return bot;
 }
 
 export async function writeBot(bot: BotInfo): Promise<void> {
-	await writeTextFile(botPath(bot.id), `${JSON.stringify(bot, null, "\t")}\n`, 0o600);
+	await writeTextFile(botPath(bot.id), `${JSON.stringify({ ...bot, version: VERSION }, null, "\t")}\n`, 0o600);
 }
 
 async function readAll(): Promise<BotInfo[]> {
@@ -78,6 +95,13 @@ export async function listChildren(parentId: string): Promise<BotInfo[]> {
 export type BotPatch = Partial<Pick<BotInfo, "name" | "prompt" | "tools" | "model">>;
 export type BotDraft = Pick<BotInfo, "name"> & Partial<Pick<BotInfo, "model" | "tools" | "parentId" | "prompt">>;
 
+function defaultTools(parentId: string | undefined): ToolGroup[] {
+	if (parentId === undefined) {
+		return [...TOOL_GROUPS];
+	}
+	return [...CHILD_GROUPS];
+}
+
 export async function createBot(draft: BotDraft): Promise<BotInfo> {
 	const bot: BotInfo = {
 		...draft,
@@ -85,7 +109,7 @@ export async function createBot(draft: BotDraft): Promise<BotInfo> {
 		createdAt: new Date().toISOString(),
 		mode: "normal",
 		model: draft.model ?? initialModel(),
-		tools: draft.tools ?? [...TOOL_GROUPS],
+		tools: draft.tools ?? defaultTools(draft.parentId),
 	};
 	await writeBot(bot);
 	return bot;

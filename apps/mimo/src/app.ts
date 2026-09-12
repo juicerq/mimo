@@ -9,7 +9,7 @@ import {
 } from "@opentui/core";
 import { Bot, deleteBot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
-import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode, type TeamMember } from "@agent/bot/types";
+import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode, type TeamMember, type ToolGroup } from "@agent/bot/types";
 import { modelOption } from "@agent/model/catalog";
 import type { ModelInfo, ModelSelection } from "@agent/model/types";
 import { describeError } from "./errors";
@@ -17,6 +17,7 @@ import { Panels, type PanelResult } from "./panel";
 import { deletePanel } from "./screens/delete";
 import { accountsPanel, loginPanel, loginTargetsPanel } from "./screens/login";
 import { effortPanel, modelPanel } from "./screens/model";
+import { toolsPanel } from "./screens/tools";
 import { T1, T2, T3, T4, T5 } from "./theme";
 
 const DOUBLE_ESCAPE_MS = 400;
@@ -257,6 +258,11 @@ export class MimoApp {
 			this.showModels(this.screen.kind === "bots" ? null : this.screen.bot);
 			return true;
 		}
+		if (text === "/tools") {
+			this.input.value = "";
+			this.showTools();
+			return true;
+		}
 		if (text === "/effort") {
 			this.input.value = "";
 			this.showEfforts();
@@ -300,6 +306,21 @@ export class MimoApp {
 			this.appendLine(describeError(error), T1);
 		}
 	}
+
+	private showTools(): void {
+		const screen = this.screen;
+		if (screen.kind === "bots") {
+			this.appendLine("Open a bot to choose its tools.", T3);
+			return;
+		}
+		this.panels.show(toolsPanel(screen.bot, this.saveTools));
+	}
+
+	private readonly saveTools = async (tools: ToolGroup[]): Promise<BotInfo> => {
+		const bot = await this.requireConversation().setTools(tools);
+		this.screen = { kind: "conversation", bot };
+		return bot;
+	};
 
 	private readonly saveModel = async (selection: ModelSelection): Promise<BotInfo> => {
 		return await this.requireConversation().selectModel(selection);
@@ -510,6 +531,9 @@ export class MimoApp {
 			case "login":
 				this.panels.show(loginPanel(event.target, event.session));
 				return;
+			case "tools":
+				this.renderTools(event.tools);
+				return;
 			case "approval-resolved":
 				this.approval = null;
 				this.appendLine(`⏸ ${event.outcome}`, T4);
@@ -552,6 +576,11 @@ export class MimoApp {
 				this.busy = false;
 				this.setStatus("cancelled");
 		}
+	}
+
+	private renderTools(tools: readonly ToolGroup[]): void {
+		this.sealReply();
+		this.appendLine(`tools: ${tools.length === 0 ? "none" : tools.join(", ")}`, T3);
 	}
 
 	private renderQueue(items: readonly string[]): void {
