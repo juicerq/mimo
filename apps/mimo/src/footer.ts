@@ -2,6 +2,7 @@ import { BoxRenderable, TextRenderable, type CliRenderer } from "@opentui/core";
 import type { BotInfo, BotMode } from "@agent/bot/types";
 import type { ModelInfo } from "@agent/model/types";
 import { T4 } from "./theme";
+import type { TeamView } from "./bar";
 import type { PanelState } from "./panel";
 import type { Detail } from "./transcript";
 
@@ -14,6 +15,7 @@ export class Footer {
 	private selectedModel: ModelInfo | null = null;
 	private botMode: BotMode = "normal";
 	private detailLevel: Detail = "brief";
+	private teamView: TeamView = "bar";
 	private panelState: PanelState | undefined = undefined;
 	private readonly flashed = new Set<string>();
 	private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -61,6 +63,11 @@ export class Footer {
 		this.flash("detail");
 	}
 
+	team(view: TeamView): void {
+		this.teamView = view;
+		this.flash("team");
+	}
+
 	panel(state: PanelState | undefined): void {
 		this.panelState = state;
 		this.draw();
@@ -89,6 +96,9 @@ export class Footer {
 		}
 		if (this.flashed.has("detail")) {
 			parts.push(`detail: ${this.detailLevel}`);
+		}
+		if (this.flashed.has("team")) {
+			parts.push(`team: ${this.teamView}`);
 		}
 		if (this.panelState !== undefined) {
 			parts.push(`status: ${this.panelState}`);

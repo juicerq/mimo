@@ -1,10 +1,10 @@
 import { BoxRenderable, InputRenderable, InputRenderableEvents, RenderableEvents, type CliRenderer } from "@opentui/core";
-import { Bot, deleteBot, waitingBots } from "@agent/bot/bot";
+import { activity, Bot, deleteBot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type BotEvent, type BotInfo, type ToolGroup } from "@agent/bot/types";
 import { modelOption } from "@agent/model/catalog";
 import type { ModelSelection } from "@agent/model/types";
-import { Bar } from "./bar";
+import { Bar, NEXT_TEAM_VIEW, type TeamView } from "./bar";
 import { describeError } from "./errors";
 import { Footer } from "./footer";
 import { Panels, type PanelResult } from "./panel";
@@ -32,6 +32,7 @@ export class MimoApp {
 		this.spin();
 	});
 	private lastEscapeAt: number | null = null;
+	private teamView: TeamView = "bar";
 
 	constructor(renderer: CliRenderer) {
 		this.transcript = new Transcript(renderer);
@@ -51,6 +52,8 @@ export class MimoApp {
 		renderer.keyInput.on("keypress", (key) => {
 			if (key.ctrl && key.name === "p" && this.screen.conversation) {
 				this.showModels();
+			} else if (key.ctrl && key.name === "t") {
+				this.cycleTeamView();
 			} else if (key.ctrl && key.name === "o") {
 				this.cycleDetail();
 			} else if (key.name === "c" && !key.ctrl && !key.meta && this.input.value.length === 0 && this.panels.copyLink()) {
@@ -307,10 +310,10 @@ export class MimoApp {
 				return;
 			}
 			this.screen.list(bots);
-			const waiting = waitingBots();
+			const waiting = new Map(activity().map((entry) => [entry.id, entry.waiting]));
 			for (const [index, bot] of bots.entries()) {
 				const toolName = waiting.get(bot.id);
-				const mark = toolName === undefined ? "" : ` ⏸ approval: ${toolName}`;
+				const mark = toolName ? ` ⏸ approval: ${toolName}` : "";
 				this.transcript.note(`${index + 1}. ${bot.name}${mark}`, T2);
 			}
 			this.transcript.note(bots.length ? "/new <name> to create a bot, /delete to remove one" : "Create your first bot with /new <name>.", T4);
@@ -358,7 +361,7 @@ export class MimoApp {
 				this.showEvent(event);
 			}
 			this.bar.queue(conversation.queue);
-			this.bar.watch(() => conversation.team);
+			this.bar.watch({ read: activity, botId: conversation.info.id });
 			this.transcript.toBottom();
 			this.screen.connect(conversation, this.showEvent);
 			const approval = conversation.approval;
@@ -398,6 +401,12 @@ export class MimoApp {
 		}
 		this.view.show(event);
 	};
+
+	private cycleTeamView(): void {
+		this.teamView = NEXT_TEAM_VIEW[this.teamView];
+		this.bar.view(this.teamView);
+		this.footer.team(this.teamView);
+	}
 
 	private cycleDetail(): void {
 		const conversation = this.screen.conversation;
