@@ -14,19 +14,21 @@ WAIT_DEFAULT_SECONDS=180
 SEND_BUSY_GRACE_SECONDS=6
 SEND_ACCEPT_SECONDS=10
 SEND_DEFAULT_SECONDS=300
+AUTH_PATHS=(".codex/auth.json" ".local/share/opencode/auth.json")
 
 usage() {
 	cat <<'EOF'
 uso: control-mimo <comando> [argumentos]
 
 comandos:
-  launch [--data <dir>]  sobe a TUI em tmux; dados em sandbox por padrão
+  launch [--data <dir>]  sobe a TUI em tmux; dados e HOME em sandbox por padrão
   doctor                 checagem somente leitura da instância
   data                   imprime o diretório de dados da execução atual
   send <texto>           digita, envia e espera o turno terminar (recusa se ocupado)
   wait <regex> [seg]     espera o padrão aparecer no pane (padrão 180 s)
   capture <arquivo>      salva o pane atual no arquivo
   stop [--keep-state]    encerra e restaura o estado (ou mantém com --keep-state)
+  home                   imprime o HOME de sandbox da execução atual
   restore [run-dir]      restaura o snapshot de um run (padrão: o atual)
 EOF
 }
@@ -93,6 +95,41 @@ data_dir_of() {
 		return
 	fi
 	printf '%s' "$REAL_DATA_DIR"
+}
+
+home_dir_of() {
+	local run_dir="$1"
+	if [ -n "$run_dir" ] && [ -d "$run_dir/home" ]; then
+		printf '%s' "$run_dir/home"
+	fi
+}
+
+prepare_home() {
+	local run_dir="$1"
+	local home_dir="$run_dir/home"
+	local relative
+	for relative in "${AUTH_PATHS[@]}"; do
+		mkdir -p "$home_dir/$(dirname "$relative")"
+		if [ -f "$HOME/$relative" ] && [ ! -e "$home_dir/$relative" ]; then
+			ln -s "$HOME/$relative" "$home_dir/$relative"
+		fi
+	done
+	printf '%s' "$home_dir"
+}
+
+report_auth_writes() {
+	local home_dir="$1"
+	[ -n "$home_dir" ] || return 0
+	local relative wrote=0
+	for relative in "${AUTH_PATHS[@]}"; do
+		if [ -f "$home_dir/$relative" ] && [ ! -L "$home_dir/$relative" ]; then
+			echo "atenção: esta execução escreveu credencial em $relative; ficou só na sandbox"
+			wrote=1
+		fi
+	done
+	if [ "$wrote" -eq 0 ]; then
+		echo "credenciais reais intactas (só leitura por symlink)"
+	fi
 }
 
 data_dir_or_die() {
@@ -185,7 +222,9 @@ launch() {
 	git -C "$REPO_DIR" rev-parse HEAD >"$run_dir/head.txt"
 	date -u +"%Y-%m-%dT%H:%M:%SZ" >"$run_dir/started.txt"
 	printf '%s' "$run_dir" >"$CURRENT_RUN_FILE"
-	local -a runtime_env=("MIMO_DATA_DIR=$data_dir")
+	local home_dir
+	home_dir="$(prepare_home "$run_dir")"
+	local -a runtime_env=("MIMO_DATA_DIR=$data_dir" "HOME=$home_dir")
 	local setting
 	for setting in MIMO_MODEL MIMO_REASONING; do
 		if [ -n "${!setting:-}" ]; then
@@ -201,6 +240,7 @@ launch() {
 	pane_text >"$run_dir/00-launch.txt"
 	echo "run dir: $run_dir"
 	echo "dados: $data_dir"
+	echo "home: $home_dir"
 	echo "pronto."
 }
 
@@ -245,6 +285,14 @@ doctor() {
 		echo "openai-codex: credencial em ~/.codex/auth.json"
 	else
 		echo "openai-codex: credencial ausente"
+	fi
+	local home_dir
+	home_dir="$(home_dir_of "$run_dir")"
+	if [ -n "$home_dir" ]; then
+		echo "home: $home_dir (sandbox)"
+		report_auth_writes "$home_dir"
+	else
+		echo "home: $HOME (real)"
 	fi
 	local env_file="$REPO_DIR/.env.local"
 	if [ -f "$env_file" ] && grep -q '^GMAIL_CLIENT_ID=..' "$env_file"; then
@@ -359,6 +407,7 @@ stop_instance() {
 			tmux kill-session -t "$SESSION"
 		fi
 	fi
+	report_auth_writes "$(home_dir_of "$run_dir")"
 	if [ "$keep_state" -eq 0 ] && [ -n "$run_dir" ]; then
 		restore_state "$run_dir" "$data_dir"
 		echo "estado restaurado do snapshot: $run_dir/state-before"
@@ -412,6 +461,10 @@ doctor)
 	;;
 data)
 	data_dir_or_die
+	echo
+	;;
+home)
+	home_dir_of "$(run_dir_or_die)"
 	echo
 	;;
 send)
