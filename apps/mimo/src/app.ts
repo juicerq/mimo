@@ -1,9 +1,10 @@
 import { BoxRenderable, InputRenderable, InputRenderableEvents, RenderableEvents, TextRenderable, type CliRenderer } from "@opentui/core";
 import { Bot, deleteBot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
-import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode, type TeamCall, type TeamMember, type ToolGroup } from "@agent/bot/types";
+import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode, type TeamCall, type ToolGroup } from "@agent/bot/types";
 import { modelOption } from "@agent/model/catalog";
 import type { ModelInfo, ModelSelection } from "@agent/model/types";
+import { Bar } from "./bar";
 import { describeError } from "./errors";
 import { Panels, type PanelResult } from "./panel";
 import { deletePanel } from "./screens/delete";
@@ -17,22 +18,17 @@ import { T1, T2, T3, T4, T5 } from "./theme";
 const DOUBLE_ESCAPE_MS = 400;
 const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
 const FLASH_MS = 2000;
-const TEAM_MS = 1000;
 
 type Screen =
 	| { kind: "bots"; bots: BotInfo[] }
 	| { kind: "conversation"; bot: BotInfo };
 
 export class MimoApp {
-	private readonly renderer: CliRenderer;
 	private readonly transcript: Transcript;
 	private readonly status: TextRenderable;
 	private readonly input: InputRenderable;
 	private readonly panels: Panels;
-	private readonly queue: BoxRenderable;
-	private readonly team: BoxRenderable;
-	private teamLines: string[] = [];
-	private teamTimer: ReturnType<typeof setInterval> | null = null;
+	private readonly bar: Bar;
 	private conversation: Bot | null = null;
 	private unsubscribe: (() => void) | null = null;
 	private screen: Screen = { kind: "bots", bots: [] };
@@ -47,7 +43,6 @@ export class MimoApp {
 	private lastEscapeAt: number | null = null;
 
 	constructor(renderer: CliRenderer) {
-		this.renderer = renderer;
 		this.transcript = new Transcript(renderer);
 		this.status = new TextRenderable(renderer, {
 			id: "status",
@@ -107,20 +102,7 @@ export class MimoApp {
 		});
 		composer.add(this.input);
 
-		this.team = new BoxRenderable(renderer, {
-			id: "team",
-			width: "100%",
-			flexDirection: "column",
-			flexShrink: 0,
-			paddingLeft: 2,
-		});
-		this.queue = new BoxRenderable(renderer, {
-			id: "queue",
-			width: "100%",
-			flexDirection: "column",
-			flexShrink: 0,
-			paddingLeft: 2,
-		});
+		this.bar = new Bar(renderer);
 
 		const container = new BoxRenderable(renderer, {
 			id: "app",
@@ -131,8 +113,7 @@ export class MimoApp {
 		container.add(this.panels.row);
 		container.add(this.transcript.box);
 		container.add(this.panels.box);
-		container.add(this.team);
-		container.add(this.queue);
+		container.add(this.bar.box);
 		container.add(composer);
 		container.add(statusRow);
 		renderer.root.add(container);
@@ -338,8 +319,7 @@ export class MimoApp {
 		this.modelInfo = screen.kind === "bots" ? null : screen.bot.model;
 		this.lastFailure = null;
 		this.lastEscapeAt = null;
-		this.renderQueue([]);
-		this.stopTeam();
+		this.bar.stop();
 		this.enter("loading");
 		return this.view.signal;
 	}
@@ -404,8 +384,8 @@ export class MimoApp {
 			for (const event of conversation.transcript()) {
 				this.renderEvent(event);
 			}
-			this.renderQueue(conversation.queue);
-			this.teamTimer = setInterval(() => this.renderTeam(), TEAM_MS);
+			this.bar.queue(conversation.queue);
+			this.bar.watch(() => conversation.team);
 			this.transcript.toBottom();
 			this.unsubscribe = conversation.subscribe((event) => {
 				if (!signal.aborted) {
@@ -451,7 +431,7 @@ export class MimoApp {
 				this.transcript.note(`you: ${event.text}`, T3);
 				return;
 			case "queue":
-				this.renderQueue(event.items);
+				this.bar.queue(event.items);
 				return;
 			case "note":
 				this.transcript.seal();
@@ -534,42 +514,6 @@ export class MimoApp {
 	private renderTools(tools: readonly ToolGroup[]): void {
 		this.transcript.seal();
 		this.transcript.detailed(`tools: ${tools.length === 0 ? "none" : tools.join(", ")}`, T3);
-	}
-
-	private renderQueue(items: readonly string[]): void {
-		this.fill(this.queue, items.map((item) => `queue: ${item}`));
-	}
-
-	private fill(box: BoxRenderable, lines: string[]): void {
-		for (const child of box.getChildren()) {
-			child.destroyRecursively();
-		}
-		for (const line of lines) {
-			box.add(new TextRenderable(this.renderer, {
-				content: line,
-				fg: T4,
-				width: "100%",
-				wrapMode: "word",
-			}));
-		}
-	}
-
-	private stopTeam(): void {
-		if (this.teamTimer !== null) {
-			clearInterval(this.teamTimer);
-			this.teamTimer = null;
-		}
-		this.teamLines = [];
-		this.fill(this.team, []);
-	}
-
-	private renderTeam(): void {
-		const lines = (this.conversation?.team ?? []).map(teamLine);
-		if (lines.length === this.teamLines.length && lines.every((line, index) => line === this.teamLines[index])) {
-			return;
-		}
-		this.teamLines = lines;
-		this.fill(this.team, lines);
 	}
 
 	private renderFailure(message: string): void {
@@ -659,10 +603,3 @@ function formatTokens(tokens: number): string {
 	const text = Number.isInteger(thousands) ? String(thousands) : thousands.toFixed(1);
 	return `${text}k`;
 }
-
-function teamLine(member: TeamMember): string {
-	const seconds = Math.floor((Date.now() - member.startedAt) / 1000);
-	const elapsed = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m`;
-	return `team: ${member.name} · ${elapsed} · ${member.tool ?? "thinking"}`;
-}
-
