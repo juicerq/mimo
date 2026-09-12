@@ -24,14 +24,13 @@ interface Pending {
 	resolve: (approved: boolean) => void;
 }
 
-interface Entry {
-	text: string;
-	kind: EntryKind;
-}
+type Entry =
+	| { kind: "user"; text: string }
+	| { kind: "note"; text: string }
+	| { kind: "routine"; name: string; text: string };
 
-type EntryKind = "user" | "routine" | "note";
-
-const ORIGIN = { routine: "[rotina]", note: "[equipe]" } as const;
+const NOTE_MARK = "[equipe]";
+const ROUTINE_MARK = /^\[rotina(?:: (?<name>[^\]\n]+))?\]\n/u;
 
 export async function deleteBot(id: string): Promise<void> {
 	for (const child of await listChildren(id)) {
@@ -236,8 +235,8 @@ export class Bot {
 		await this.push({ text, kind: "user" });
 	}
 
-	async runRoutine(prompt: string): Promise<void> {
-		await this.push({ text: prompt, kind: "routine" });
+	async runRoutine(routine: { name: string; prompt: string }): Promise<void> {
+		await this.push({ kind: "routine", name: routine.name, text: routine.prompt });
 	}
 
 	cancel(): void {
@@ -481,15 +480,22 @@ export class Bot {
 }
 
 function entryMessage(entry: Entry): AgentMessage {
-	if (entry.kind === "user") {
-		return { role: "user", content: entry.text, timestamp: Date.now() };
+	return { role: "user", content: entryContent(entry), timestamp: Date.now() };
+}
+
+function entryContent(entry: Entry): string {
+	if (entry.kind === "routine") {
+		return `[rotina: ${entry.name}]\n${entry.text}`;
 	}
-	return { role: "user", content: `${ORIGIN[entry.kind]}\n${entry.text}`, timestamp: Date.now() };
+	if (entry.kind === "note") {
+		return `${NOTE_MARK}\n${entry.text}`;
+	}
+	return entry.text;
 }
 
 function entryEvent(entry: Entry): BotEvent {
 	if (entry.kind === "routine") {
-		return { type: "routine", text: entry.text };
+		return { type: "routine", name: entry.name, prompt: entry.text };
 	}
 	if (entry.kind === "note") {
 		return { type: "note", text: entry.text };
@@ -498,11 +504,12 @@ function entryEvent(entry: Entry): BotEvent {
 }
 
 function entryOf(text: string): Entry {
-	if (text.startsWith(`${ORIGIN.routine}\n`)) {
-		return { kind: "routine", text: text.slice(ORIGIN.routine.length + 1) };
+	const routine = ROUTINE_MARK.exec(text);
+	if (routine) {
+		return { kind: "routine", name: routine.groups?.name ?? "rotina", text: text.slice(routine[0].length) };
 	}
-	if (text.startsWith(`${ORIGIN.note}\n`)) {
-		return { kind: "note", text: text.slice(ORIGIN.note.length + 1) };
+	if (text.startsWith(`${NOTE_MARK}\n`)) {
+		return { kind: "note", text: text.slice(NOTE_MARK.length + 1) };
 	}
 	return { kind: "user", text };
 }

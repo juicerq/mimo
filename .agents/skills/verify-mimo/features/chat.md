@@ -6,7 +6,7 @@ O usuário abre a TUI, digita no composer e vê a resposta chegar em streaming, 
 
 - `chat-send` envia uma mensagem e mostra a resposta completa.
 - `chat-tools` mostra `⚙ <tool>` quando uma ferramenta roda.
-- `chat-details` alterna com `Ctrl+O` entre `names`, `details` e `hidden` para as ferramentas.
+- `chat-details` alterna com `Ctrl+O` entre `brief`, `full` e `off` para os detalhes da conversa: ferramentas, rotinas, ações de equipe e troca de grupos de tools.
 - `chat-context` mantém o contexto entre turnos.
 - `chat-status` mostra a linha viva `⠙ thinking|working · <n>s · esc esc to stop` durante o turno.
 - `chat-error` mostra falha de turno sem derrubar a TUI.
@@ -25,7 +25,7 @@ Preconditions:
 
 - **Primeira mensagem.** Envie um eco determinístico: `$CONTROL send 'responda apenas com MIMO-CHAT-OK'`. O comando retorna quando o turno termina; `$CONTROL wait 'MIMO-CHAT-OK' 180` confirma a resposta. O transcript mostra `you: responda apenas com MIMO-CHAT-OK` e a resposta com o prefixo `<nome do bot>:`. Não há cabeçalho acima da conversa.
 - **Linha viva.** Logo depois de um `$CONTROL send`, capture o pane: sob a sua mensagem aparece `⠙ thinking · <n>s · esc esc to stop`; depois da primeira ferramenta o rótulo vira `working`; quando o texto começa, a linha some. O rodapé não mostra estado nenhum fora dos painéis.
-- **Detalhes.** Depois de um turno com ferramenta, envie a tecla literal `C-o` pelo tmux três vezes. A primeira mostra a entrada e o resultado recuados sob `⚙ <tool>`, cortados em 600 caracteres; a segunda esconde a linha da ferramenta; a terceira volta ao padrão. O rodapé mostra `tools: details|hidden|names` por 2 segundos e o transcript inteiro é redesenhado, inclusive turnos antigos.
+- **Detalhes.** Depois de um turno com ferramenta, envie a tecla literal `C-o` pelo tmux três vezes. A primeira mostra a entrada e o resultado recuados sob `⚙ <tool>`, cortados em 600 caracteres; a segunda esconde a linha da ferramenta; a terceira volta ao padrão. O rodapé mostra `detail: full|off|brief` por 2 segundos e o transcript inteiro é redesenhado, inclusive turnos antigos.
 - **Ferramenta local.** `$CONTROL send 'que horas são? responda em uma linha'`; `$CONTROL wait '⚙ current_time' 180` confirma a tool. A resposta contém hora ou data.
 - **Contexto.** `$CONTROL send 'nesta conversa, guarde o código 73'`; `$CONTROL send 'qual código eu pedi para guardar?'`. A última resposta antes do status contém `73`.
 - **Prova.** `$CONTROL capture .verify/runs/<id>/01-chat.txt`. O arquivo contém `you:`, `⚙ current_time` e a resposta com `73`.
