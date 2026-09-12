@@ -104,6 +104,9 @@ function body(bot: BotActivity): Line[] {
 	for (const member of bot.team) {
 		lines.push({ text: `  ${member.name.padEnd(width)} ${elapsed(member.startedAt).padStart(4)}  ${member.tool ?? ""}`.trimEnd(), fg: T2 });
 		lines.push({ text: `  ${member.task}`, fg: T3 });
+		if (member.worktree !== null) {
+			lines.push({ text: `  ${member.worktree}`, fg: T4 });
+		}
 	}
 	if (bot.waiting !== null) {
 		lines.push({ text: `  ⏸ approval: ${bot.waiting}`, fg: T2 });

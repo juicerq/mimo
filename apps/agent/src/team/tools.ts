@@ -33,6 +33,7 @@ const DelegateInput = z.object({
 	bot: NameInput,
 	task: z.string().trim().min(1).max(48).describe("O trabalho em poucas palavras, para a pessoa ler na tela. Diga o que este filho carrega, não o que a equipe faz."),
 	prompt: z.string().min(1).describe("O trabalho para o filho, com tudo o que ele precisa saber."),
+	worktree: z.string().trim().min(1).optional().describe("O git worktree onde este filho trabalha. É só o rótulo que a pessoa lê na tela: quem manda o filho ir para lá é o prompt."),
 });
 
 const TEAM_CALLS: Record<string, TeamCallKind | undefined> = {
@@ -87,7 +88,7 @@ function teamView(name: string, member: TeamMember | undefined) {
 	if (!member) {
 		return { name, working: false };
 	}
-	return { name, working: true, task: member.task, tool: member.tool, seconds: Math.floor((Date.now() - member.startedAt) / 1_000) };
+	return { name, working: true, task: member.task, worktree: member.worktree, tool: member.tool, seconds: Math.floor((Date.now() - member.startedAt) / 1_000) };
 }
 
 async function child(context: ToolContext, name: string): Promise<BotInfo> {
@@ -122,7 +123,7 @@ export function teamTools(context: ToolContext): AgentTool[] {
 			input: DelegateInput,
 			async execute(input) {
 				const target = await child(context, input.bot);
-				await context.delegate({ botId: target.id, task: input.task, prompt: input.prompt });
+				await context.delegate({ botId: target.id, task: input.task, prompt: input.prompt, ...input.worktree && { worktree: input.worktree } });
 				return { bot: target.name, task: input.task, status: "started" };
 			},
 		}),

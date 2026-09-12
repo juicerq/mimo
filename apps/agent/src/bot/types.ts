@@ -36,6 +36,7 @@ export interface Delegation {
 	botId: string;
 	task: string;
 	prompt: string;
+	worktree?: string;
 }
 
 export type TeamCallKind = "created" | "delegated" | "stopped" | "deleted";
@@ -49,6 +50,7 @@ export interface TeamCall {
 export interface TeamMember {
 	name: string;
 	task: string;
+	worktree: string | null;
 	tool: string | null;
 	startedAt: number;
 }
