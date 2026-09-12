@@ -1,6 +1,5 @@
 import { TOOL_GROUPS, type BotInfo, type ToolGroup } from "@agent/bot/types";
-import { describeError } from "../errors";
-import { choicePanel, type Panel, type PanelView } from "../panel";
+import { choicePanel, type Panel } from "../panel";
 
 export type SaveTools = (tools: ToolGroup[]) => Promise<BotInfo>;
 
@@ -12,21 +11,13 @@ export function toolsPanel(bot: BotInfo, save: SaveTools): Panel {
 			notes: ["Choose a number to turn a group on or off. A group that is off also leaves the prompt."],
 		}),
 		pick: (group, view) => {
-			void store(toggle(bot.tools, group), save, view);
+			view.saving(async () => {
+				view.show(toolsPanel(await save(toggle(bot.tools, group)), save));
+			});
 		},
 	});
 }
 
 function toggle(tools: ToolGroup[], group: ToolGroup): ToolGroup[] {
 	return TOOL_GROUPS.filter((item) => (item === group) !== tools.includes(item));
-}
-
-async function store(tools: ToolGroup[], save: SaveTools, view: PanelView): Promise<void> {
-	view.state("saving");
-	try {
-		view.show(toolsPanel(await save(tools), save));
-	} catch (error) {
-		view.line(describeError(error), "error");
-		view.state("ready");
-	}
 }

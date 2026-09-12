@@ -2,6 +2,7 @@ import { BoxRenderable, TextRenderable, type CliRenderer } from "@opentui/core";
 import type { BotInfo, BotMode } from "@agent/bot/types";
 import type { ModelInfo } from "@agent/model/types";
 import { T4 } from "./theme";
+import type { PanelState } from "./panel";
 import type { Detail } from "./transcript";
 
 const FLASH_MS = 2000;
@@ -13,7 +14,7 @@ export class Footer {
 	private selectedModel: ModelInfo | null = null;
 	private botMode: BotMode = "normal";
 	private detailLevel: Detail = "brief";
-	private panelState: string | undefined = undefined;
+	private panelState: PanelState | undefined = undefined;
 	private readonly flashed = new Set<string>();
 	private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -60,7 +61,7 @@ export class Footer {
 		this.flash("detail");
 	}
 
-	panel(state: string | undefined): void {
+	panel(state: PanelState | undefined): void {
 		this.panelState = state;
 		this.draw();
 	}

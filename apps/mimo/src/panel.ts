@@ -5,6 +5,8 @@ import { T3, TONES, type Tone } from "./theme";
 export const CANCEL_HINT = "/cancel to return or press Esc";
 const NUMBER_PLACEHOLDER = "number or /cancel";
 
+export type PanelState = "loading" | "ready" | "saving";
+
 export interface PanelResult {
 	message?: string;
 	bot?: BotInfo;
@@ -13,7 +15,8 @@ export interface PanelResult {
 
 export interface PanelView {
 	line(content: string, tone?: Tone, tight?: boolean): void;
-	state(state: string): void;
+	state(state: PanelState): void;
+	saving(action: () => Promise<void>): void;
 	placeholder(text: string): void;
 	show(panel: Panel): void;
 	close(result?: PanelResult): void;
@@ -113,7 +116,7 @@ export class Panels {
 	private view: PanelView | null = null;
 	private token = {};
 	private draft = "";
-	private current = "ready";
+	private current: PanelState = "ready";
 
 	constructor(renderer: CliRenderer, options: { input: InputRenderable; refresh: () => void; finish: (result: PanelResult) => void }) {
 		this.renderer = renderer;
@@ -134,7 +137,7 @@ export class Panels {
 		return this.panel !== null;
 	}
 
-	get state(): string {
+	get state(): PanelState {
 		return this.current;
 	}
 
@@ -220,7 +223,7 @@ export class Panels {
 	private makeView(token: object): PanelView {
 		const alive = (): boolean => this.token === token;
 
-		return {
+		const view: PanelView = {
 			line: (content, tone = "item", tight = false) => {
 				if (alive()) {
 					this.line(content, tone, tight);
@@ -231,6 +234,13 @@ export class Panels {
 					this.current = state;
 					this.refresh();
 				}
+			},
+			saving: (action) => {
+				view.state("saving");
+				void action().catch((error: unknown) => {
+					view.line(describeError(error), "error");
+					view.state("ready");
+				});
 			},
 			placeholder: (text) => {
 				if (alive()) {
@@ -248,5 +258,7 @@ export class Panels {
 				}
 			},
 		};
+
+		return view;
 	}
 }

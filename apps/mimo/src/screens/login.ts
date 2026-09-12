@@ -1,7 +1,6 @@
 import { disconnectAccount, listAccounts } from "@agent/gmail/accounts";
 import { LOGIN_GROUP_NAMES, LOGIN_TARGETS, LoginSession, type LoginEvent, type LoginPrompt, type LoginTarget } from "@agent/login/login";
 import { copyToClipboard } from "../clipboard";
-import { describeError } from "../errors";
 import { CANCEL_HINT, choicePanel, type Panel, type PanelView } from "../panel";
 
 export function loginTargetsPanel(): Panel {
@@ -68,7 +67,11 @@ export function accountsPanel(): Panel {
 		empty: "No Gmail account is connected.",
 		load: async () => ({ choices: (await listAccounts()).map((account) => ({ id: account.email, label: account.email })) }),
 		pick: (email, view) => {
-			void disconnect(email, view);
+			view.saving(async () => {
+				const result = await disconnectAccount(email);
+				const revoke = result.revoked ? "" : " Google did not confirm the revoke.";
+				view.close({ message: `Disconnected ${result.email}.${revoke}` });
+			});
 		},
 	});
 }
@@ -103,16 +106,4 @@ function showLoginEvent(event: LoginEvent, target: LoginTarget, view: PanelView)
 	}
 	const next = target === "gmail" ? "The bots can use this account now." : "Use /model to pick a model.";
 	view.close({ message: `Connected. ${next}` });
-}
-
-async function disconnect(email: string, view: PanelView): Promise<void> {
-	view.state("saving");
-	try {
-		const result = await disconnectAccount(email);
-		const revoke = result.revoked ? "" : " Google did not confirm the revoke.";
-		view.close({ message: `Disconnected ${result.email}.${revoke}` });
-	} catch (error) {
-		view.line(describeError(error), "error");
-		view.state("ready");
-	}
 }

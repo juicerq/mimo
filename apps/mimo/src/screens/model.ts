@@ -1,7 +1,6 @@
 import type { BotInfo } from "@agent/bot/types";
 import { listModels } from "@agent/model/catalog";
 import { PROVIDER_NAMES, ProviderSchema, type ModelCatalog, type ModelOption, type ModelSelection, type Provider } from "@agent/model/types";
-import { describeError } from "../errors";
 import { choicePanel, type Panel, type PanelView } from "../panel";
 
 type Reasoning = ModelOption["reasoningOptions"][number];
@@ -34,7 +33,7 @@ export function effortPanel(option: ModelOption, save: SaveModel): Panel {
 		return {
 			heading,
 			start: (view) => {
-				void store(option, only, save, view);
+				store(option, only, save, view);
 			},
 		};
 	}
@@ -43,7 +42,7 @@ export function effortPanel(option: ModelOption, save: SaveModel): Panel {
 		heading,
 		load: () => ({ choices: option.reasoningOptions.map((effort) => ({ id: effort, label: effort })) }),
 		pick: (reasoning, view) => {
-			void store(option, reasoning, save, view);
+			store(option, reasoning, save, view);
 		},
 	});
 }
@@ -65,13 +64,9 @@ function providerPanel(provider: Provider, catalog: ModelCatalog, save: SaveMode
 	});
 }
 
-async function store(option: ModelOption, reasoning: Reasoning, save: SaveModel, view: PanelView): Promise<void> {
-	view.state("saving");
-	try {
+function store(option: ModelOption, reasoning: Reasoning, save: SaveModel, view: PanelView): void {
+	view.saving(async () => {
 		const bot = await save({ provider: option.provider, id: option.id, reasoning });
 		view.close({ message: "Model saved for the next response.", bot });
-	} catch (error) {
-		view.line(describeError(error), "error");
-		view.state("ready");
-	}
+	});
 }
