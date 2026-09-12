@@ -11,13 +11,13 @@ import { accountsPanel, loginPanel, loginTargetsPanel } from "./screens/login";
 import { effortPanel, modelPanel } from "./screens/model";
 import { toolsPanel } from "./screens/tools";
 import { Transcript } from "./transcript";
+import { Turn, type TurnState } from "./turn";
 import { T1, T2, T3, T4, T5 } from "./theme";
 
 const DOUBLE_ESCAPE_MS = 400;
 const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
 const FLASH_MS = 2000;
 const TEAM_MS = 1000;
-const WORKING_LABELS: Record<string, string> = { loading: "loading", thinking: "thinking", cancelling: "stopping" };
 
 type Screen =
 	| { kind: "bots"; bots: BotInfo[] }
@@ -37,15 +37,11 @@ export class MimoApp {
 	private unsubscribe: (() => void) | null = null;
 	private screen: Screen = { kind: "bots", bots: [] };
 	private view = new AbortController();
-	private busy = false;
-	private failed = false;
+	private readonly turn = new Turn();
 	private mode: BotMode = "normal";
-	private lastState = "";
 	private modelInfo: ModelInfo | null = null;
 	private lastFailure: string | null = null;
 	private contextUsed: number | null = null;
-	private approval: Approval | null = null;
-	private toolRan = false;
 	private readonly flashed = new Set<string>();
 	private readonly flashTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private lastEscapeAt: number | null = null;
@@ -162,7 +158,7 @@ export class MimoApp {
 			this.panels.submit(text);
 			return;
 		}
-		if (this.busy && this.screen.kind === "bots") {
+		if (this.turn.busy && this.screen.kind === "bots") {
 			return;
 		}
 		if (/^\/new(?: |$)/.test(text)) {
@@ -191,8 +187,7 @@ export class MimoApp {
 			this.panels.cancel();
 			return;
 		}
-		if (this.screen.kind !== "conversation" || (!this.busy && this.approval === null)
-			|| this.lastState === "cancelling") {
+		if (this.screen.kind !== "conversation" || this.turn.idle || this.turn.state === "cancelling") {
 			this.lastEscapeAt = null;
 			return;
 		}
@@ -206,7 +201,7 @@ export class MimoApp {
 	}
 
 	private cancelTurn() {
-		this.setStatus("cancelling");
+		this.enter("cancelling");
 		this.conversation?.cancel();
 	}
 
@@ -301,7 +296,7 @@ export class MimoApp {
 
 	private readonly refreshPanels = (): void => {
 		this.transcript.box.visible = !this.panels.active;
-		this.setStatus(this.lastState);
+		this.refresh();
 	};
 
 	private readonly closePanel = (result: PanelResult): void => {
@@ -317,7 +312,7 @@ export class MimoApp {
 		if (result.message) {
 			this.transcript.note(result.message, T3);
 		}
-		this.setStatus(this.lastState);
+		this.refresh();
 	};
 
 	private requireConversation(): Bot {
@@ -338,17 +333,14 @@ export class MimoApp {
 		this.unsubscribe = null;
 		this.conversation = null;
 		this.input.value = "";
-		this.busy = true;
-		this.failed = false;
 		this.mode = "normal";
 		this.contextUsed = null;
 		this.modelInfo = screen.kind === "bots" ? null : screen.bot.model;
 		this.lastFailure = null;
-		this.approval = null;
 		this.lastEscapeAt = null;
 		this.renderQueue([]);
 		this.stopTeam();
-		this.setStatus("loading");
+		this.enter("loading");
 		return this.view.signal;
 	}
 
@@ -368,8 +360,7 @@ export class MimoApp {
 			if (note) {
 				this.transcript.note(note, T3);
 			}
-			this.busy = false;
-			this.setStatus("ready");
+			this.enter("ready");
 		} catch (error) {
 			if (!signal.aborted) {
 				this.renderFailure(describeError(error));
@@ -384,8 +375,7 @@ export class MimoApp {
 			return;
 		}
 		const signal = this.view.signal;
-		this.busy = true;
-		this.setStatus("loading");
+		this.enter("loading");
 		try {
 			const bot = await createBot({ name: parsed.data });
 			if (!signal.aborted) {
@@ -410,8 +400,7 @@ export class MimoApp {
 			this.screen = { kind: "conversation", bot: conversation.info };
 			this.modelInfo = conversation.info.model;
 			this.mode = conversation.info.mode;
-			this.busy = false;
-			this.setStatus("ready");
+			this.enter("ready");
 			for (const event of conversation.transcript()) {
 				this.renderEvent(event);
 			}
@@ -438,11 +427,10 @@ export class MimoApp {
 		const signal = this.view.signal;
 		const input = this.input.value;
 		this.input.value = "";
-		this.failed = false;
 		this.lastFailure = null;
-		if (!this.busy && this.approval === null) {
-			this.busy = true;
-			this.setStatus("thinking");
+		if (this.turn.idle) {
+			this.turn.start();
+			this.refresh();
 		}
 		try {
 			await operation();
@@ -500,10 +488,8 @@ export class MimoApp {
 				this.renderTools(event.tools);
 				return;
 			case "approval-resolved":
-				this.approval = null;
 				this.transcript.note(`⏸ ${event.outcome}`, T4);
-				this.busy = true;
-				this.setStatus("thinking");
+				this.enter("thinking");
 				return;
 			default:
 				this.renderTurnEvent(event);
@@ -514,7 +500,7 @@ export class MimoApp {
 		switch (event.type) {
 			case "usage":
 				this.contextUsed = event.contextTokens;
-				this.setStatus(this.lastState);
+				this.refresh();
 				return;
 			case "mode":
 				this.mode = event.mode;
@@ -522,24 +508,21 @@ export class MimoApp {
 				return;
 			case "turn-started":
 				this.lastEscapeAt = null;
-				this.toolRan = false;
-				this.failed = false;
 				this.lastFailure = null;
-				this.busy = true;
-				this.setStatus("thinking");
+				this.turn.start();
+				this.refresh();
 				return;
 			case "turn-finished":
-				this.renderWaiting();
+				this.turn.finish();
+				this.refresh();
 				return;
 			case "turn-failed":
 				this.renderFailure(event.message);
 				return;
 			case "turn-cancelled":
-				this.approval = null;
 				this.transcript.seal();
 				this.transcript.note("Interrupted.", T3);
-				this.busy = false;
-				this.setStatus("cancelled");
+				this.enter("cancelled");
 		}
 	}
 
@@ -590,33 +573,17 @@ export class MimoApp {
 	}
 
 	private renderFailure(message: string): void {
-		this.busy = false;
-		this.failed = true;
 		if (this.lastFailure !== message) {
 			this.lastFailure = message;
 			const hint = message.startsWith("Insufficient balance") ? " Use /model to choose another provider, then continue the conversation." : "";
 			this.transcript.note(`✗ error: ${message}${hint}`, T1);
 		}
-		this.setStatus("error");
-	}
-
-	private renderWaiting(): void {
-		this.busy = false;
-		if (this.lastState === "cancelled") {
-			return;
-		}
-		if (this.failed) {
-			this.setStatus("error");
-		} else if (this.approval !== null) {
-			this.setStatus("waiting");
-		} else {
-			this.setStatus("ready");
-		}
+		this.enter("error");
 	}
 
 	private renderTool(toolName: string, input: unknown): void {
-		this.toolRan = true;
-		this.setStatus(this.lastState);
+		this.turn.ranTool();
+		this.refresh();
 		this.transcript.tool(toolName, input);
 	}
 
@@ -636,7 +603,6 @@ export class MimoApp {
 	}
 
 	private renderApproval(approval: Approval): void {
-		this.approval = approval;
 		const from = this.screen.kind === "conversation" && approval.bot === this.screen.bot.name ? "" : ` · ${approval.bot}`;
 		this.transcript.note(`▌ ⏸ approval: ${approval.toolName}${from}`, T1);
 		const input = JSON.stringify(approval.input);
@@ -644,13 +610,16 @@ export class MimoApp {
 			this.transcript.indented(input);
 		}
 		this.transcript.note("   1. Approve   2. Cancel", T1);
-		this.busy = false;
-		this.setStatus("waiting");
+		this.enter("waiting");
 	}
 
-	private setStatus(state: string): void {
-		this.lastState = state;
-		this.renderWorking(state);
+	private enter(state: TurnState): void {
+		this.turn.enter(state);
+		this.refresh();
+	}
+
+	private refresh(): void {
+		this.transcript.working(this.panels.active ? undefined : this.turn.label);
 		const parts: string[] = [];
 		const used = this.contextUsed === null ? "0" : formatTokens(this.contextUsed);
 		const modelInfo = this.modelInfo;
@@ -676,21 +645,9 @@ export class MimoApp {
 		clearTimeout(this.flashTimers.get(field));
 		this.flashTimers.set(field, setTimeout(() => {
 			this.flashed.delete(field);
-			this.setStatus(this.lastState);
+			this.refresh();
 		}, FLASH_MS));
-		this.setStatus(this.lastState);
-	}
-
-	private renderWorking(state: string): void {
-		const label = this.panels.active ? undefined : WORKING_LABELS[state];
-		this.transcript.working(label === undefined ? undefined : this.workingLabel(label));
-	}
-
-	private workingLabel(label: string): string {
-		if (label === "thinking" && this.toolRan) {
-			return "working";
-		}
-		return label;
+		this.refresh();
 	}
 }
 
