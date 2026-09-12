@@ -448,7 +448,9 @@ export class Bot {
 		}
 		if (event.type === "agent_end") {
 			this.emit({ type: "turn-finished" });
-			void this.finish();
+			void this.finish().catch((error: unknown) => {
+				this.emit({ type: "turn-failed", message: errorText(error) });
+			});
 		}
 	}
 
@@ -479,7 +481,9 @@ export class Bot {
 			this.agent.state.messages = compacted;
 			this.session = uuidv7();
 		}
-		await writeTranscript(this.record.id, this.agent.state.messages);
+		await writeTranscript(this.record.id, this.agent.state.messages).catch((error: unknown) => {
+			throw new Error(`A conversa não foi gravada: ${errorText(error)}`);
+		});
 	}
 }
 
