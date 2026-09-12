@@ -33,7 +33,7 @@ export class Footer {
 		this.box.add(this.line);
 	}
 
-	reset(bot: BotInfo | null): void {
+	reset(bot: Pick<BotInfo, "model" | "mode"> | null): void {
 		this.contextTokens = null;
 		this.selectedModel = bot?.model ?? null;
 		this.botMode = bot?.mode ?? "normal";
