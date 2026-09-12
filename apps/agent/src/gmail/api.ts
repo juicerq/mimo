@@ -34,6 +34,11 @@ const messageSchema = z.object({
 	payload: partSchema.optional(),
 });
 
+const receiptSchema = z.object({
+	id: z.string(),
+	threadId: z.string().optional(),
+});
+
 const messageListSchema = z.object({
 	messages: z.array(z.object({ id: z.string(), threadId: z.string() })).optional(),
 	resultSizeEstimate: z.number().optional(),
@@ -267,7 +272,7 @@ export interface EmailRequest {
 export interface SentEmail {
 	account: string;
 	messageId: string;
-	threadId: string;
+	threadId: string | null;
 	to: string;
 	subject: string;
 }
@@ -357,7 +362,7 @@ export async function createDraft(request: DraftRequest): Promise<CreatedDraft> 
 }
 
 export async function sendDraft(account: GmailAccount, draftId: string): Promise<SentDraft> {
-	const sent = await gmailRequest(account, "/drafts/send", messageSchema, {
+	const sent = await gmailRequest(account, "/drafts/send", receiptSchema, {
 		method: "POST",
 		body: JSON.stringify({ id: draftId }),
 	});
@@ -365,25 +370,26 @@ export async function sendDraft(account: GmailAccount, draftId: string): Promise
 		account,
 		`/messages/${encodeURIComponent(sent.id)}?format=metadata&metadataHeaders=To&metadataHeaders=Subject`,
 		messageSchema,
-	);
+	).catch(() => null);
+
 	return {
 		account: account.email,
 		messageId: sent.id,
-		to: headerValue(delivered.payload?.headers, "To"),
-		subject: headerValue(delivered.payload?.headers, "Subject"),
+		to: headerValue(delivered?.payload?.headers, "To"),
+		subject: headerValue(delivered?.payload?.headers, "Subject"),
 	};
 }
 
 export async function sendEmail(request: EmailRequest): Promise<SentEmail> {
 	const raw = mime({ to: request.to, cc: request.cc, subject: request.subject, body: request.body });
-	const sent = await gmailRequest(request.account, "/messages/send", messageSchema, {
+	const sent = await gmailRequest(request.account, "/messages/send", receiptSchema, {
 		method: "POST",
 		body: JSON.stringify({ raw }),
 	});
 	return {
 		account: request.account.email,
 		messageId: sent.id,
-		threadId: sent.threadId,
+		threadId: sent.threadId ?? null,
 		to: request.to,
 		subject: request.subject,
 	};

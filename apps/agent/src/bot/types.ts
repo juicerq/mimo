@@ -55,6 +55,7 @@ export type BotEvent =
 	| { type: "tool"; toolName: string; input: unknown }
 	| { type: "team-call"; call: TeamCall }
 	| { type: "tool-result"; toolName: string; output: string }
+	| { type: "tool-warned"; message: string }
 	| { type: "tool-failed"; message: string }
 	| { type: "approval"; approval: Approval }
 	| { type: "login"; target: LoginTarget; session: LoginSession }

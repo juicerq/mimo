@@ -5,7 +5,7 @@ import { BotNameSchema, BotPromptSchema, ChildGroupSchema, type BotInfo, type Te
 import { listModels, selectModel } from "../model/catalog";
 import { ModelSelectionSchema } from "../model/types";
 import type { ToolContext } from "../tools/context";
-import { tool } from "../tools/tool";
+import { parseJson, tool } from "../tools/tool";
 
 const NameInput = z.string().describe("Nome curto do filho.").pipe(BotNameSchema);
 const PromptInput = BotPromptSchema.describe("Instrução permanente do filho, escrita sem depender desta conversa.");
@@ -54,14 +54,6 @@ export function teamCall(toolName: string, output: string): TeamCall | null {
 		return null;
 	}
 	return { kind, bot };
-}
-
-function parseJson(text: string): unknown {
-	try {
-		return JSON.parse(text);
-	} catch {
-		return null;
-	}
 }
 
 export function isTeamCall(toolName: string): boolean {
