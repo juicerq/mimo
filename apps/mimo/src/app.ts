@@ -309,7 +309,8 @@ export class MimoApp {
 			this.screen.list(bots);
 			const waiting = waitingBots();
 			for (const [index, bot] of bots.entries()) {
-				const mark = waiting.has(bot.id) ? " ⏸ approval" : "";
+				const toolName = waiting.get(bot.id);
+				const mark = toolName === undefined ? "" : ` ⏸ approval: ${toolName}`;
 				this.transcript.note(`${index + 1}. ${bot.name}${mark}`, T2);
 			}
 			this.transcript.note(bots.length ? "/new <name> to create a bot, /delete to remove one" : "Create your first bot with /new <name>.", T4);

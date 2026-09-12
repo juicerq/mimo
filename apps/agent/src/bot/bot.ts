@@ -39,11 +39,12 @@ type Entry =
 const NOTE_MARK = "[equipe]";
 const ROUTINE_MARK = /^\[rotina(?:: (?<name>[^\]\n]+))?\]\n/u;
 
-export function waitingBots(): Set<string> {
-	const waiting = new Set<string>();
+export function waitingBots(): Map<string, string> {
+	const waiting = new Map<string, string>();
 	for (const bot of open.values()) {
-		if (bot.approval) {
-			waiting.add(bot.botId);
+		const approval = bot.approval;
+		if (approval) {
+			waiting.set(bot.botId, approval.toolName);
 		}
 	}
 	return waiting;
