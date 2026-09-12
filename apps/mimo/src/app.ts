@@ -23,8 +23,7 @@ import { T1, T2, T3, T4, T5 } from "./theme";
 const DOUBLE_ESCAPE_MS = 400;
 const APPROVAL_INPUT_CHARACTERS = 240;
 const DETAIL_CHARACTERS = 600;
-const ROUTINE_CHARACTERS = 120;
-const TOOL_VIEWS = ["names", "details", "hidden"] as const;
+const DETAIL_LEVELS = ["off", "brief", "full"] as const;
 const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const SPINNER_MS = 100;
@@ -32,7 +31,7 @@ const FLASH_MS = 2000;
 const TEAM_MS = 1000;
 const WORKING_LABELS: Record<string, string> = { loading: "loading", thinking: "thinking", cancelling: "stopping" };
 
-type ToolView = (typeof TOOL_VIEWS)[number];
+type Detail = (typeof DETAIL_LEVELS)[number];
 
 type Screen =
 	| { kind: "bots"; bots: BotInfo[] }
@@ -62,7 +61,7 @@ export class MimoApp {
 	private lastFailure: string | null = null;
 	private contextUsed: number | null = null;
 	private approval: Approval | null = null;
-	private toolView: ToolView = "names";
+	private detail: Detail = "brief";
 	private working: { line: TextRenderable; label: string; startedAt: number; timer: ReturnType<typeof setInterval> } | null = null;
 	private toolRan = false;
 	private botName = "";
@@ -114,7 +113,7 @@ export class MimoApp {
 			if (key.ctrl && key.name === "p" && this.screen.kind === "conversation" && this.conversation) {
 				this.showModels(this.screen.bot);
 			} else if (key.ctrl && key.name === "o") {
-				this.cycleToolView();
+				this.cycleDetail();
 			} else if (key.name === "c" && !key.ctrl && !key.meta && this.input.value.length === 0 && this.panels.copyLink()) {
 				key.preventDefault();
 				this.lastEscapeAt = null;
@@ -508,8 +507,7 @@ export class MimoApp {
 				this.appendLine(`▌ ${event.text}`, T4);
 				return;
 			case "routine":
-				this.sealReply();
-				this.appendLine(`routine: ${truncate(event.text.replaceAll("\n", " "), ROUTINE_CHARACTERS)}`, T3);
+				this.renderRoutine(event.name, event.prompt);
 				return;
 			case "reply-delta":
 				this.appendReplyDelta(event.delta);
@@ -527,7 +525,7 @@ export class MimoApp {
 				this.appendDetail(event.output);
 				return;
 			case "tool-failed":
-				this.appendLine(`✗ tool failed: ${event.message}`, T1);
+				this.appendBrief(`✗ tool failed: ${event.message}`, T1);
 				return;
 			case "approval":
 				this.renderApproval(event.approval);
@@ -584,12 +582,12 @@ export class MimoApp {
 
 	private renderTeamCall(call: TeamCall): void {
 		this.sealReply();
-		this.appendLine(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}`, T4);
+		this.appendBrief(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}`, T4);
 	}
 
 	private renderTools(tools: readonly ToolGroup[]): void {
 		this.sealReply();
-		this.appendLine(`tools: ${tools.length === 0 ? "none" : tools.join(", ")}`, T3);
+		this.appendBrief(`tools: ${tools.length === 0 ? "none" : tools.join(", ")}`, T3);
 	}
 
 	private renderQueue(items: readonly string[]): void {
@@ -656,28 +654,42 @@ export class MimoApp {
 	private renderTool(toolName: string, input: unknown): void {
 		this.toolRan = true;
 		this.setStatus(this.lastState);
-		if (this.toolView === "hidden") {
+		this.appendBrief(`⚙ ${toolName}`, T4, JSON.stringify(input), 0);
+	}
+
+	private renderRoutine(name: string, prompt: string): void {
+		this.sealReply();
+		this.appendBrief(`routine: ${name} started`, T3, prompt.replaceAll("\n", " "));
+	}
+
+	private shows(need: Detail): boolean {
+		return DETAIL_LEVELS.indexOf(this.detail) >= DETAIL_LEVELS.indexOf(need);
+	}
+
+	private appendBrief(content: string, tone: string, detail?: string, detailMargin = 1): void {
+		if (!this.shows("brief")) {
 			return;
 		}
-		this.appendLine(`⚙ ${toolName}`, T4, this.toolView === "details" ? 0 : 1);
-		this.appendDetail(JSON.stringify(input), 0);
+		const extra = detailText(detail);
+		this.appendLine(content, tone, this.shows("full") && extra ? 0 : 1);
+		this.appendDetail(extra, detailMargin);
 	}
 
 	private appendDetail(text: string | undefined, marginBottom = 1): void {
-		const detail = text?.trim();
-		if (this.toolView !== "details" || !detail || detail === "{}") {
+		const detail = detailText(text);
+		if (!this.shows("full") || detail === undefined) {
 			return;
 		}
 		this.appendLine(`   ${truncate(detail, DETAIL_CHARACTERS)}`, T4, marginBottom);
 	}
 
-	private cycleToolView(): void {
+	private cycleDetail(): void {
 		const screen = this.screen;
 		if (screen.kind !== "conversation" || !this.conversation) {
 			return;
 		}
-		this.toolView = TOOL_VIEWS[(TOOL_VIEWS.indexOf(this.toolView) + 1) % TOOL_VIEWS.length];
-		this.flash("tool-view");
+		this.detail = DETAIL_LEVELS[(DETAIL_LEVELS.indexOf(this.detail) + 1) % DETAIL_LEVELS.length];
+		this.flash("detail");
 		void this.openBot(screen.bot);
 	}
 
@@ -751,8 +763,8 @@ export class MimoApp {
 		if (this.flashed.has("mode")) {
 			parts.push(`mode: ${this.mode === "autonomous" ? "auto" : "normal"}`);
 		}
-		if (this.flashed.has("tool-view")) {
-			parts.push(`tool view: ${this.toolView}`);
+		if (this.flashed.has("detail")) {
+			parts.push(`detail: ${this.detail}`);
 		}
 		if (this.panels.active) {
 			parts.push(`status: ${this.panels.state}`);
@@ -838,6 +850,14 @@ function formatTokens(tokens: number): string {
 	const thousands = tokens / 1_000;
 	const text = Number.isInteger(thousands) ? String(thousands) : thousands.toFixed(1);
 	return `${text}k`;
+}
+
+function detailText(text: string | undefined): string | undefined {
+	const detail = text?.trim();
+	if (!detail || detail === "{}") {
+		return undefined;
+	}
+	return detail;
 }
 
 function teamLine(member: TeamMember): string {

@@ -18,7 +18,7 @@ Um bot sem pai cria bots filhos com `create_bot`, ajusta com `update_bot`, vê c
 12. Peça um filho temporário e a exclusão dele. `delete_bot` deve parar em `▌ ⏸ approval: delete_bot` **sem** nenhuma linha `▌ deleted` antes; aprove e confira a linha `▌ deleted <nome>` e que o arquivo e a pasta do filho sumiram. Repita recusando com `2`: nada é apagado e nenhuma linha aparece.
 13. Use `/delete` e escolha o dog. O painel deve avisar `Its team goes too: <nomes>`. Confirme e confira que os arquivos do pai e dos filhos sumiram.
 
-14. Com `▌ created` e `▌ delegated to` na tela, aperte `Ctrl+O` até `tool view: hidden`. As linhas da equipe **continuam** visíveis, e as `⚙` somem. Passe por `details` e confira que nenhuma linha solta de resultado (`{"bot":...,"status":"started"}`) aparece embaixo delas.
+14. Com `▌ created` e `▌ delegated to` na tela, aperte `Ctrl+O` até `detail: off`. As linhas da equipe somem junto com as `⚙`. Passe por `full` e confira que nenhuma linha solta de resultado (`{"bot":...,"status":"started"}`) aparece embaixo delas.
 15. Volte para `/bots`, reabra o dog e confira que as linhas da equipe voltam no transcript, no lugar certo.
 
 Capture a tela e o estado em disco a cada etapa.

@@ -41,8 +41,12 @@ As entregas que a pessoa escreve enquanto o Bot trabalha. Esperam acima do compo
 _Evitar_: Buffer, rascunho
 
 **Rotina**:
-Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Aparece na conversa como `routine:`, nunca como entrega da pessoa. Continua pertencendo ao mesmo Bot quando a Sessão muda.
+Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Tem um nome curto e único dentro do Bot, que as tools usam para tratá-la. Aparece na conversa como `routine: <nome> started`, nunca como entrega da pessoa. Continua pertencendo ao mesmo Bot quando a Sessão muda.
 _Evitar_: Agendamento, cron job, automação
+
+**Detalhe**:
+Tudo que aparece na conversa e não é a entrega da pessoa nem a resposta do Bot: a tool, o disparo de uma Rotina, a ação de equipe e a troca de Grupo de tools. A pessoa escolhe quanto ver com `Ctrl+O`: `off` esconde, `brief` mostra uma linha por item e `full` acrescenta o conteúdo.
+_Evitar_: Tool view, log, verbosidade
 
 **Grupo de tools**:
 Um conjunto de tools que um Bot tem ou não tem: `computer`, `web`, `gmail`, `routines` e `team`. O grupo carrega junto o seu bloco de instruções, então desligá-lo também o tira do contexto do Bot. A pessoa escolhe pelo Painel de tools ou pedindo ao Bot. Um Bot filho nunca recebe `team`.

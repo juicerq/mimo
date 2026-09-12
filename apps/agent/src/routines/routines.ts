@@ -6,8 +6,11 @@ import { readJsonFile, writeTextFile } from "../storage/files";
 const STORE_PATH = dataPath("routines.json");
 const LEASE_MINUTES = 5;
 
-const routineSchema = z.object({
+export const RoutineNameSchema = z.string().trim().min(1).max(40).regex(/^[a-zA-Z0-9_-]+$/);
+
+const storedSchema = z.object({
 	id: z.string().min(1),
+	name: RoutineNameSchema.optional(),
 	prompt: z.string().min(1),
 	everyMinutes: z.number().int().min(1),
 	botId: z.uuid(),
@@ -21,13 +24,15 @@ const routineSchema = z.object({
 });
 
 const storeSchema = z.object({
-	routines: z.array(routineSchema),
+	routines: z.array(storedSchema),
 });
 
-export type Routine = z.infer<typeof routineSchema>;
+type StoredRoutine = z.infer<typeof storedSchema>;
+
+export type Routine = Omit<StoredRoutine, "name"> & { name: string };
 
 export interface RoutineView {
-	id: string;
+	name: string;
 	prompt: string;
 	everyMinutes: number;
 	nextRunAt: string;
@@ -38,7 +43,7 @@ export interface RoutineView {
 
 export function routineView(routine: Routine): RoutineView {
 	return {
-		id: routine.id,
+		name: routine.name,
 		prompt: routine.prompt,
 		everyMinutes: routine.everyMinutes,
 		nextRunAt: routine.nextRunAt,
@@ -49,6 +54,7 @@ export function routineView(routine: Routine): RoutineView {
 }
 
 export interface RoutineInput {
+	name: string;
 	prompt: string;
 	everyMinutes: number;
 	startInMinutes: number;
@@ -57,6 +63,7 @@ export interface RoutineInput {
 }
 
 export interface RoutinePatch {
+	name?: string;
 	prompt?: string;
 	everyMinutes?: number;
 	enabled?: boolean;
@@ -77,9 +84,13 @@ function minutesFrom(now: Date, minutes: number): string {
 	return new Date(now.getTime() + minutes * 60_000).toISOString();
 }
 
+function named(routine: StoredRoutine, index: number): Routine {
+	return { ...routine, name: routine.name ?? `rotina-${index + 1}` };
+}
+
 async function readRoutines(): Promise<Routine[]> {
 	const store = await readJsonFile(STORE_PATH, storeSchema);
-	return store?.routines ?? [];
+	return (store?.routines ?? []).map(named);
 }
 
 export async function listRoutines(botId: string) {
@@ -98,11 +109,28 @@ function requireRoutine(routines: Routine[], id: string): Routine {
 	return routine;
 }
 
+function requireNamed(routines: Routine[], name: string): Routine {
+	const routine = routines.find((candidate) => candidate.name === name);
+	if (!routine) {
+		throw new Error(`Você não tem uma rotina chamada ${name}. Veja os nomes com list_routines.`);
+	}
+	return routine;
+}
+
+function requireFreeName(routines: Routine[], botId: string, name: string): void {
+	if (routines.some((routine) => routine.botId === botId && routine.name === name)) {
+		throw new Error(`Você já tem uma rotina chamada ${name}.`);
+	}
+}
+
 export async function createRoutine(input: RoutineInput): Promise<Routine> {
 	return serialize(async () => {
 		const now = new Date();
+		const routines = await readRoutines();
+		requireFreeName(routines, input.botId, input.name);
 		const routine: Routine = {
 			id: randomUUID(),
+			name: input.name,
 			prompt: input.prompt,
 			everyMinutes: input.everyMinutes,
 			botId: input.botId,
@@ -111,16 +139,20 @@ export async function createRoutine(input: RoutineInput): Promise<Routine> {
 			nextRunAt: minutesFrom(now, input.startInMinutes),
 			enabled: true,
 		};
-		await writeStore([...(await readRoutines()), routine]);
+		await writeStore([...routines, routine]);
 		return routine;
 	});
 }
 
-export async function updateRoutine(target: Pick<Routine, "id" | "botId">, patch: RoutinePatch): Promise<Routine> {
+export async function updateRoutine(target: Pick<Routine, "name" | "botId">, patch: RoutinePatch): Promise<Routine> {
 	return serialize(async () => {
 		const routines = await readRoutines();
-		const current = requireRoutine(routines.filter((routine) => routine.botId === target.botId), target.id);
+		const current = requireNamed(routines.filter((routine) => routine.botId === target.botId), target.name);
 		const updated: Routine = { ...current };
+		if (patch.name !== undefined && patch.name !== current.name) {
+			requireFreeName(routines, target.botId, patch.name);
+			updated.name = patch.name;
+		}
 		if (patch.prompt !== undefined) {
 			updated.prompt = patch.prompt;
 		}
@@ -137,10 +169,10 @@ export async function updateRoutine(target: Pick<Routine, "id" | "botId">, patch
 	});
 }
 
-export async function deleteRoutine(target: Pick<Routine, "id" | "botId">): Promise<boolean> {
+export async function deleteRoutine(target: Pick<Routine, "name" | "botId">): Promise<boolean> {
 	return serialize(async () => {
 		const routines = await readRoutines();
-		const remaining = routines.filter((routine) => routine.id !== target.id || routine.botId !== target.botId);
+		const remaining = routines.filter((routine) => routine.name !== target.name || routine.botId !== target.botId);
 		if (remaining.length === routines.length) {
 			return false;
 		}
