@@ -23,6 +23,7 @@ Preconditions:
 
 - **Criar.** `$CONTROL send 'crie uma rotina para responder apenas "MIMO-ROTINA-<run-id>" a cada 5 minutos, começando agora'` (o `send` retorna quando o turno termina); `$CONTROL wait '⚙ create_routine' 180` confirma a tool. Anote o id que a resposta mostrar.
 - **Persistiu.** `grep -c 'MIMO-ROTINA' "$DATA/routines.json"` maior que `0`. O estado pós-execução vira prova em `.verify/runs/<id>/state-after/routines.json` no `stop`.
+- **Etiqueta.** O disparo entra na conversa como `routine: <prompt>`, numa linha só e cortada em 120 caracteres, nunca como `you:`. Reabra o bot por `/bots` e confira que a linha continua `routine:` depois do replay.
 - **Disparar.** `$CONTROL wait 'MIMO-ROTINA-<run-id>' 240` (tick ≤ 60 s mais o turno do modelo). O prompt chega como novo turno na conversa, com o status passando por `thinking`.
 - **Listar.** `$CONTROL send 'liste minhas rotinas'`; `$CONTROL wait '⚙ list_routines' 180` confirma a tool. A resposta contém o id e o próximo disparo.
 - **Apagar.** `$CONTROL send 'apague a rotina <id>'` → `$CONTROL wait '⏸ approval: delete_routine' 180`; `$CONTROL send '1'` (Aprovar) → `$CONTROL wait '⏸ approved' 180`. Confirme que `grep <id> "$DATA/routines.json"` não acha mais nada.

@@ -22,6 +22,7 @@ import { T1, T2, T3, T4, T5 } from "./theme";
 const DOUBLE_ESCAPE_MS = 400;
 const APPROVAL_INPUT_CHARACTERS = 240;
 const DETAIL_CHARACTERS = 600;
+const ROUTINE_CHARACTERS = 120;
 const TOOL_VIEWS = ["names", "details", "hidden"] as const;
 const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const SPINNER_MS = 100;
@@ -483,6 +484,10 @@ export class MimoApp {
 			case "note":
 				this.sealReply();
 				this.appendLine(`▌ ${event.text}`, T4);
+				return;
+			case "routine":
+				this.sealReply();
+				this.appendLine(`routine: ${truncate(event.text.replaceAll("\n", " "), ROUTINE_CHARACTERS)}`, T3);
 				return;
 			case "reply-delta":
 				this.appendReplyDelta(event.delta);

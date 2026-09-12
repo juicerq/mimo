@@ -41,7 +41,7 @@ As entregas que a pessoa escreve enquanto o Bot trabalha. Esperam acima do compo
 _Evitar_: Buffer, rascunho
 
 **Rotina**:
-Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Continua pertencendo ao mesmo Bot quando a Sessão muda.
+Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Aparece na conversa como `routine:`, nunca como entrega da pessoa. Continua pertencendo ao mesmo Bot quando a Sessão muda.
 _Evitar_: Agendamento, cron job, automação
 
 **Modo normal**:
