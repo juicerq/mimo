@@ -1,13 +1,27 @@
 import { BoxRenderable, TextRenderable, type CliRenderer } from "@opentui/core";
+import type { BotActivity } from "@agent/bot/bot";
 import type { TeamMember } from "@agent/bot/types";
 import { T4 } from "./theme";
 
 const TEAM_MS = 1000;
 
+export type TeamView = "off" | "bar";
+
+export const NEXT_TEAM_VIEW: Record<TeamView, TeamView> = {
+	off: "bar",
+	bar: "off",
+};
+
+interface Source {
+	read: () => readonly BotActivity[];
+	botId: string;
+}
+
 export class Bar {
 	readonly box: BoxRenderable;
 	private readonly renderer: CliRenderer;
-	private members: (() => readonly TeamMember[]) | null = null;
+	private source: Source | null = null;
+	private teamView: TeamView = "bar";
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private items: readonly string[] = [];
 	private lines: string[] = [];
@@ -28,9 +42,14 @@ export class Bar {
 		this.draw();
 	}
 
-	watch(members: () => readonly TeamMember[]): void {
-		this.members = members;
+	watch(source: Source): void {
+		this.source = source;
 		this.timer = setInterval(() => this.draw(), TEAM_MS);
+		this.draw();
+	}
+
+	view(teamView: TeamView): void {
+		this.teamView = teamView;
 		this.draw();
 	}
 
@@ -39,15 +58,13 @@ export class Bar {
 			clearInterval(this.timer);
 			this.timer = null;
 		}
-		this.members = null;
+		this.source = null;
 		this.items = [];
 		this.draw();
 	}
 
 	private draw(): void {
-		const team = this.members?.() ?? [];
-		const width = Math.max(0, ...team.map((member) => member.name.length));
-		const lines = [...team.map((member) => teamLine(member, width)), ...this.items.map((item) => `queue: ${item}`)];
+		const lines = [...this.teamLines(), ...this.items.map((item) => `queue: ${item}`)];
 		if (lines.length === this.lines.length && lines.every((line, index) => line === this.lines[index])) {
 			return;
 		}
@@ -63,6 +80,22 @@ export class Bar {
 				wrapMode: "word",
 			}));
 		}
+	}
+
+	private teamLines(): string[] {
+		const source = this.source;
+		if (this.teamView === "off" || source === null) {
+			return [];
+		}
+		const bots = source.read();
+		const team = bots.find((bot) => bot.id === source.botId)?.team ?? [];
+		const width = Math.max(0, ...team.map((member) => member.name.length));
+		const lines = team.map((member) => teamLine(member, width));
+		const elsewhere = bots.filter((bot) => bot.id !== source.botId && bot.waiting !== null).map((bot) => `${bot.name} ⏸ ${bot.waiting}`);
+		if (elsewhere.length === 0) {
+			return lines;
+		}
+		return [...lines, `elsewhere: ${elsewhere.join(", ")}`];
 	}
 }
 

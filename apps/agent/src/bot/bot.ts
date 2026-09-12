@@ -39,15 +39,22 @@ type Entry =
 const NOTE_MARK = "[equipe]";
 const ROUTINE_MARK = /^\[rotina(?:: (?<name>[^\]\n]+))?\]\n/u;
 
-export function waitingBots(): Map<string, string> {
-	const waiting = new Map<string, string>();
+export interface BotActivity {
+	id: string;
+	name: string;
+	team: TeamMember[];
+	waiting: string | null;
+}
+
+export function activity(): BotActivity[] {
+	const bots: BotActivity[] = [];
 	for (const bot of open.values()) {
-		const approval = bot.approval;
-		if (approval) {
-			waiting.set(bot.botId, approval.toolName);
+		if (bot.parentId !== undefined) {
+			continue;
 		}
+		bots.push({ id: bot.botId, name: bot.info.name, team: bot.team, waiting: bot.approval?.toolName ?? null });
 	}
-	return waiting;
+	return bots;
 }
 
 export async function deleteBot(id: string): Promise<void> {
