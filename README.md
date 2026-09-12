@@ -14,11 +14,11 @@ Use `/model` dentro da conversa para escolher o provedor, o modelo e o esforço 
 
 Use `/tools` para escolher os grupos de tools do bot. O painel lista `computer`, `web`, `gmail`, `routines` e `team` com `[x]` ou `[ ]`; o número liga e desliga um grupo na hora. Um grupo desligado tira as tools e também o bloco de instruções dele do contexto, então um bot de e-mail não carrega as regras do computador nem da equipe. Hora, memória, histórico e registro de ações ficam sempre disponíveis. A conversa também resolve: peça "desligue o gmail" e o bot chama `set_tools`. Ligar um grupo pede aprovação no modo normal; desligar não pede. A escolha aparece na conversa como `tools: <grupos>` e permanece salva.
 
-`Ctrl+O` alterna como as ferramentas aparecem na conversa: `names` mostra só a linha `⚙ tool` (padrão), `details` acrescenta a entrada e o resultado cortados em 600 caracteres, e `hidden` esconde a ferramenta por completo. O rodapé mostra o modo escolhido por 2 segundos e a conversa é redesenhada inteira, então os turnos antigos acompanham. Uma ferramenta que falha aparece sempre.
+`Ctrl+O` alterna como as ferramentas aparecem na conversa: `names` mostra só a linha `⚙ tool` (padrão), `details` acrescenta a entrada e o resultado cortados em 600 caracteres, e `hidden` esconde a ferramenta por completo. O rodapé mostra `tool view:` com a escolha por 2 segundos e a conversa é redesenhada inteira, então os turnos antigos acompanham. Uma ferramenta que falha aparece sempre.
 
 Depois de enviar, a conversa mostra uma linha viva com o que o bot faz: `⠙ thinking · 3s · esc esc to stop` antes da primeira ferramenta e `working` depois dela. A linha some quando o texto da resposta começa a chegar e dá lugar ao streaming. Abrir um bot mostra `loading` no mesmo lugar.
 
-O rodapé mostra contexto e o modelo com o esforço. Modo e ferramentas aparecem por 2 segundos quando você os muda, e depois somem. O estado do turno não fica no rodapé: fica na conversa. Dentro dos painéis, o rodapé mostra `status:` enquanto carrega ou grava. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
+O rodapé mostra contexto e o modelo com o esforço. Modo e `tool view` aparecem por 2 segundos quando você os muda, e depois somem. O estado do turno não fica no rodapé: fica na conversa. Dentro dos painéis, o rodapé mostra `status:` enquanto carrega ou grava. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
 
 Enquanto os filhos trabalham, cada um aparece acima do composer como `team: <nome> · <tempo> · <tool>`, com a ferramenta do momento. A linha some quando o filho entrega o trabalho.
 
@@ -95,6 +95,8 @@ Ao criar um filho, o pai escolhe o nome, a instrução permanente, os grupos de 
 As instruções do grupo `team` mandam o pai orquestrar, não executar: um trabalho que se divide em frentes independentes vira um filho por frente, cada um com um problema inteiro do começo ao fim. O desdobramento segue a mesma regra, então conferir ou aprofundar o que um filho trouxe também é trabalho de filho. Quem verifica nunca é quem achou o problema.
 
 `delegate` começa o trabalho no filho e volta na hora: o turno do pai fecha e a pessoa continua conversando com ele. O filho não vê a conversa da pessoa, então o pedido precisa ser completo. Cada filho atende um trabalho por vez; vários filhos trabalham ao mesmo tempo. Um filho não delega e não cria bots, então a equipe tem um nível só.
+
+As tools que mexem na equipe não aparecem como `⚙ delegate`: viram uma linha de conversa com o nome do filho, `▌ created ana`, `▌ delegated to ana`, `▌ stopped ana` e `▌ deleted ana`. A linha sai quando a ação termina, então uma tool recusada na aprovação ou que falhou não deixa linha nenhuma. Elas não são ruído de ferramenta, então `Ctrl+O hidden` não as esconde e o trabalho fica no transcript ao reabrir o bot.
 
 Quando o filho termina, a resposta dele chega sozinha como um aviso na conversa, `▌ O filho <nome> terminou e respondeu:`, e o pai fala em seguida. Se o pai estiver no meio de um turno, o aviso espera o fim dele. `check_team` diz o que cada filho faz agora e `stop_bot` para um filho que saiu do rumo.
 

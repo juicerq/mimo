@@ -7,6 +7,7 @@ import { resolveModel, selectModel } from "../model/catalog";
 import { models } from "../model/models";
 import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
+import { isTeamCall, teamCall } from "../team/tools";
 import { botInstructions, botTools, needsApproval } from "../tools";
 import { compactTranscript } from "./compaction";
 import { deleteBotRoutines } from "../routines/routines";
@@ -421,7 +422,9 @@ export class Bot {
 		}
 		if (event.type === "tool_execution_start") {
 			this.running.set(event.toolCallId, event.toolName);
-			this.emit({ type: "tool", toolName: event.toolName, input: event.args });
+			if (!isTeamCall(event.toolName)) {
+				this.emit({ type: "tool", toolName: event.toolName, input: event.args });
+			}
 			return;
 		}
 		if (event.type === "tool_execution_end") {
@@ -431,9 +434,9 @@ export class Bot {
 			}
 			if (event.isError) {
 				this.emit({ type: "tool-failed", message: toolErrorText(event.result) });
-			} else {
-				this.emit({ type: "tool-result", toolName: event.toolName, output: toolResultText(event.result) });
+				return;
 			}
+			this.emit(resultEvent(event.toolName, toolResultText(event.result)));
 			return;
 		}
 		if (event.type === "turn_end") {
@@ -504,6 +507,14 @@ function entryOf(text: string): Entry {
 	return { kind: "user", text };
 }
 
+function resultEvent(toolName: string, output: string): BotEvent {
+	const call = teamCall(toolName, output);
+	if (call) {
+		return { type: "team-call", call };
+	}
+	return { type: "tool-result", toolName, output };
+}
+
 function errorText(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
@@ -549,12 +560,13 @@ function replayMessage(message: AgentMessage): BotEvent[] {
 		if (message.isError) {
 			return [{ type: "tool-failed", message: toolErrorText(message) }];
 		}
-		return [{ type: "tool-result", toolName: message.toolName, output: contentText(message.content) }];
+		return [resultEvent(message.toolName, contentText(message.content))];
 	}
 	const text = contentText(message.content);
 	return [
 		...(text ? [{ type: "reply" as const, text }] : []),
 		...message.content.filter((part) => part.type === "toolCall")
+			.filter((part) => !isTeamCall(part.name))
 			.map((part) => ({ type: "tool" as const, toolName: part.name, input: part.arguments })),
 		...usageEvent(message.usage),
 	];

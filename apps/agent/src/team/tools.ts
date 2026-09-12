@@ -1,7 +1,7 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
 import { createBot, listChildren, type BotPatch } from "../bot/store";
-import { BotNameSchema, BotPromptSchema, ChildGroupSchema, type BotInfo, type TeamMember } from "../bot/types";
+import { BotNameSchema, BotPromptSchema, ChildGroupSchema, type BotInfo, type TeamCall, type TeamCallKind, type TeamMember } from "../bot/types";
 import { listModels, selectModel } from "../model/catalog";
 import { ModelSelectionSchema } from "../model/types";
 import type { ToolContext } from "../tools/context";
@@ -33,6 +33,40 @@ const DelegateInput = z.object({
 	bot: NameInput,
 	prompt: z.string().min(1).describe("O trabalho para o filho, com tudo o que ele precisa saber."),
 });
+
+const TEAM_CALLS: Record<string, TeamCallKind | undefined> = {
+	create_bot: "created",
+	delegate: "delegated",
+	stop_bot: "stopped",
+	delete_bot: "deleted",
+};
+
+const TeamResult = z.object({ bot: BotNameSchema.optional(), name: BotNameSchema.optional() });
+
+export function teamCall(toolName: string, output: string): TeamCall | null {
+	const kind = TEAM_CALLS[toolName];
+	if (kind === undefined) {
+		return null;
+	}
+	const parsed = TeamResult.safeParse(parseJson(output));
+	const bot = parsed.success ? parsed.data.bot ?? parsed.data.name : undefined;
+	if (bot === undefined) {
+		return null;
+	}
+	return { kind, bot };
+}
+
+function parseJson(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return null;
+	}
+}
+
+export function isTeamCall(toolName: string): boolean {
+	return TEAM_CALLS[toolName] !== undefined;
+}
 
 function botView(bot: BotInfo) {
 	return {
@@ -111,7 +145,7 @@ export function teamTools(context: ToolContext): AgentTool[] {
 			input: DeleteBotInput,
 			async execute(input) {
 				const target = await child(context, input.bot);
-				return { stopped: context.stopChild(target.id) };
+				return { bot: context.stopChild(target.id), status: "stopped" };
 			},
 		}),
 		tool({
@@ -138,7 +172,7 @@ export function teamTools(context: ToolContext): AgentTool[] {
 			async execute(input) {
 				const target = await child(context, input.bot);
 				await context.deleteChild(target.id);
-				return { deleted: target.name };
+				return { bot: target.name, status: "deleted" };
 			},
 		}),
 		tool({

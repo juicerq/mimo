@@ -29,7 +29,7 @@ Os Bots filhos de um Bot. O pai cria, ajusta e apaga os membros, e escolhe a ins
 _Evitar_: Time, squad, pool
 
 **Delegação**:
-Um trabalho que um Bot entrega a um Bot filho e que segue sozinho. O Turno de quem delega fecha na hora, então a pessoa continua conversando enquanto a Equipe trabalha. Só um Bot sem pai delega, então a equipe não tem laços nem netos. As Aprovações do filho aparecem na tela de quem o comanda.
+Um trabalho que um Bot entrega a um Bot filho e que segue sozinho. O Turno de quem delega fecha na hora, então a pessoa continua conversando enquanto a Equipe trabalha. Começar, parar, criar e apagar um filho aparecem na conversa como uma linha com o nome dele, não como tool. Só um Bot sem pai delega, então a equipe não tem laços nem netos. As Aprovações do filho aparecem na tela de quem o comanda.
 _Evitar_: Chamada, mensagem entre bots
 
 **Aviso**:

@@ -32,6 +32,13 @@ export interface Approval {
 	input: unknown;
 }
 
+export type TeamCallKind = "created" | "delegated" | "stopped" | "deleted";
+
+export interface TeamCall {
+	kind: TeamCallKind;
+	bot: string;
+}
+
 export interface TeamMember {
 	name: string;
 	tool: string | null;
@@ -46,6 +53,7 @@ export type BotEvent =
 	| { type: "reply-delta"; delta: string }
 	| { type: "reply"; text: string }
 	| { type: "tool"; toolName: string; input: unknown }
+	| { type: "team-call"; call: TeamCall }
 	| { type: "tool-result"; toolName: string; output: string }
 	| { type: "tool-failed"; message: string }
 	| { type: "approval"; approval: Approval }
