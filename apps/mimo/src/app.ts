@@ -8,6 +8,7 @@ import { Bar } from "./bar";
 import { describeError } from "./errors";
 import { Footer } from "./footer";
 import { Panels, type PanelResult } from "./panel";
+import { Screen } from "./screen";
 import { deletePanel } from "./screens/delete";
 import { accountsPanel, loginPanel, loginTargetsPanel } from "./screens/login";
 import { effortPanel, modelPanel } from "./screens/model";
@@ -19,20 +20,13 @@ import { T1, T2, T3, T4, T5 } from "./theme";
 const DOUBLE_ESCAPE_MS = 400;
 const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
 
-type Screen =
-	| { kind: "bots"; bots: BotInfo[] }
-	| { kind: "conversation"; bot: BotInfo };
-
 export class MimoApp {
 	private readonly transcript: Transcript;
 	private readonly footer: Footer;
 	private readonly input: InputRenderable;
 	private readonly panels: Panels;
 	private readonly bar: Bar;
-	private conversation: Bot | null = null;
-	private unsubscribe: (() => void) | null = null;
-	private screen: Screen = { kind: "bots", bots: [] };
-	private view = new AbortController();
+	private readonly screen = new Screen();
 	private readonly turn = new Turn();
 	private lastFailure: string | null = null;
 	private lastEscapeAt: number | null = null;
@@ -53,8 +47,8 @@ export class MimoApp {
 		});
 		this.panels = new Panels(renderer, { input: this.input, refresh: this.refreshPanels, finish: this.closePanel });
 		renderer.keyInput.on("keypress", (key) => {
-			if (key.ctrl && key.name === "p" && this.screen.kind === "conversation" && this.conversation) {
-				this.showModels(this.screen.bot);
+			if (key.ctrl && key.name === "p" && this.screen.conversation) {
+				this.showModels();
 			} else if (key.ctrl && key.name === "o") {
 				this.cycleDetail();
 			} else if (key.name === "c" && !key.ctrl && !key.meta && this.input.value.length === 0 && this.panels.copyLink()) {
@@ -122,14 +116,14 @@ export class MimoApp {
 			this.panels.submit(text);
 			return;
 		}
-		if (this.turn.busy && this.screen.kind === "bots") {
+		if (this.turn.busy && this.screen.listing) {
 			return;
 		}
 		if (/^\/new(?: |$)/.test(text)) {
 			void this.createBot(text.slice(4).trim());
 			return;
 		}
-		if (this.screen.kind === "bots") {
+		if (this.screen.listing) {
 			const bot = this.screen.bots[Number(text) - 1];
 			if (bot && /^[1-9]\d*$/.test(text)) {
 				void this.openBot(bot);
@@ -138,7 +132,7 @@ export class MimoApp {
 			}
 			return;
 		}
-		const conversation = this.conversation;
+		const conversation = this.screen.conversation;
 		if (!conversation) {
 			return;
 		}
@@ -151,7 +145,7 @@ export class MimoApp {
 			this.panels.cancel();
 			return;
 		}
-		if (this.screen.kind !== "conversation" || this.turn.idle || this.turn.state === "cancelling") {
+		if (this.screen.listing || this.turn.idle || this.turn.state === "cancelling") {
 			this.lastEscapeAt = null;
 			return;
 		}
@@ -166,7 +160,7 @@ export class MimoApp {
 
 	private cancelTurn() {
 		this.enter("cancelling");
-		this.conversation?.cancel();
+		this.screen.conversation?.cancel();
 	}
 
 	private navigate(text: string) {
@@ -183,7 +177,7 @@ export class MimoApp {
 		}
 		if (text === "/model") {
 			this.input.value = "";
-			this.showModels(this.screen.kind === "bots" ? null : this.screen.bot);
+			this.showModels();
 			return true;
 		}
 		if (text === "/tools") {
@@ -214,44 +208,43 @@ export class MimoApp {
 		return false;
 	}
 
-	private showModels(bot: BotInfo | null): void {
-		if (!bot || !this.conversation) {
+	private showModels(): void {
+		const conversation = this.screen.conversation;
+		if (!conversation) {
 			this.transcript.note("Open a bot to choose its model.", T3);
 			return;
 		}
-		this.panels.show(modelPanel(bot, this.saveModel));
+		this.panels.show(modelPanel(conversation.info, this.saveModel));
 	}
 
 	private showEfforts(): void {
-		const screen = this.screen;
-		if (screen.kind === "bots") {
+		const conversation = this.screen.conversation;
+		if (!conversation) {
 			this.transcript.note("Open a bot to choose its effort.", T3);
 			return;
 		}
 		try {
-			this.panels.show(effortPanel(modelOption(screen.bot.model), this.saveModel));
+			this.panels.show(effortPanel(modelOption(conversation.info.model), this.saveModel));
 		} catch (error) {
 			this.transcript.note(describeError(error), T1);
 		}
 	}
 
 	private showTools(): void {
-		const screen = this.screen;
-		if (screen.kind === "bots") {
+		const conversation = this.screen.conversation;
+		if (!conversation) {
 			this.transcript.note("Open a bot to choose its tools.", T3);
 			return;
 		}
-		this.panels.show(toolsPanel(screen.bot, this.saveTools));
+		this.panels.show(toolsPanel(conversation.info, this.saveTools));
 	}
 
 	private readonly saveTools = async (tools: ToolGroup[]): Promise<BotInfo> => {
-		const bot = await this.requireConversation().setTools(tools);
-		this.screen = { kind: "conversation", bot };
-		return bot;
+		return await this.screen.require().setTools(tools);
 	};
 
 	private readonly saveModel = async (selection: ModelSelection): Promise<BotInfo> => {
-		return await this.requireConversation().selectModel(selection);
+		return await this.screen.require().selectModel(selection);
 	};
 
 	private readonly removeBot = async (bot: BotInfo): Promise<void> => {
@@ -269,52 +262,39 @@ export class MimoApp {
 			void this.showBots(result.message);
 			return;
 		}
-		if (result.bot && this.screen.kind === "conversation") {
-			this.screen = { kind: "conversation", bot: result.bot };
+		if (result.bot) {
 			this.footer.model(result.bot.model);
 		}
-		this.input.placeholder = this.screen.kind === "bots" ? "number or /new <name>" : "write your prompt";
+		this.input.placeholder = this.screen.placeholder;
 		if (result.message) {
 			this.transcript.note(result.message, T3);
 		}
 		this.refreshPanels();
 	};
 
-	private requireConversation(): Bot {
-		if (!this.conversation) {
-			throw new Error("Open a bot first.");
-		}
-		return this.conversation;
-	}
-
-	private resetView(screen: Screen) {
+	private resetView(bot: BotInfo | null) {
 		this.panels.dismiss();
 		this.transcript.box.visible = true;
-		this.screen = screen;
-		this.transcript.clear(screen.kind === "bots" ? "" : screen.bot.name);
-		this.view.abort();
-		this.view = new AbortController();
-		this.unsubscribe?.();
-		this.unsubscribe = null;
-		this.conversation = null;
+		const signal = this.screen.show(bot);
+		this.transcript.clear(bot?.name ?? "");
 		this.input.value = "";
-		this.footer.reset(screen.kind === "bots" ? null : screen.bot);
+		this.input.placeholder = this.screen.placeholder;
+		this.footer.reset(bot);
 		this.lastFailure = null;
 		this.lastEscapeAt = null;
 		this.bar.stop();
 		this.enter("loading");
-		return this.view.signal;
+		return signal;
 	}
 
 	private async showBots(note?: string) {
-		const signal = this.resetView({ kind: "bots", bots: [] });
-		this.input.placeholder = "number or /new <name>";
+		const signal = this.resetView(null);
 		try {
 			const bots = await listBots();
 			if (signal.aborted) {
 				return;
 			}
-			this.screen = { kind: "bots", bots };
+			this.screen.list(bots);
 			for (const [index, bot] of bots.entries()) {
 				this.transcript.note(`${index + 1}. ${bot.name}`, T2);
 			}
@@ -336,7 +316,7 @@ export class MimoApp {
 			this.transcript.note("Use /new <name> with 1–80 visible characters.", T3);
 			return;
 		}
-		const signal = this.view.signal;
+		const signal = this.screen.signal;
 		this.enter("loading");
 		try {
 			const bot = await createBot({ name: parsed.data });
@@ -351,15 +331,12 @@ export class MimoApp {
 	}
 
 	private async openBot(bot: BotInfo) {
-		const signal = this.resetView({ kind: "conversation", bot });
-		this.input.placeholder = "write your prompt";
+		const signal = this.resetView(bot);
 		try {
 			const conversation = await Bot.open(bot.id);
 			if (signal.aborted) {
 				return;
 			}
-			this.conversation = conversation;
-			this.screen = { kind: "conversation", bot: conversation.info };
 			this.footer.reset(conversation.info);
 			this.enter("ready");
 			for (const event of conversation.transcript()) {
@@ -368,10 +345,8 @@ export class MimoApp {
 			this.bar.queue(conversation.queue);
 			this.bar.watch(() => conversation.team);
 			this.transcript.toBottom();
-			this.unsubscribe = conversation.subscribe((event) => {
-				if (!signal.aborted) {
-					this.renderEvent(event);
-				}
+			this.screen.connect(conversation, (event) => {
+				this.renderEvent(event);
 			});
 			const approval = conversation.approval;
 			if (approval) {
@@ -385,7 +360,7 @@ export class MimoApp {
 	}
 
 	private async dispatch(operation: () => Promise<void>): Promise<void> {
-		const signal = this.view.signal;
+		const signal = this.screen.signal;
 		const input = this.input.value;
 		this.input.value = "";
 		this.lastFailure = null;
@@ -516,16 +491,16 @@ export class MimoApp {
 	}
 
 	private cycleDetail(): void {
-		const screen = this.screen;
-		if (screen.kind !== "conversation" || !this.conversation) {
+		const conversation = this.screen.conversation;
+		if (!conversation) {
 			return;
 		}
 		this.footer.detail(this.transcript.cycle());
-		void this.openBot(screen.bot);
+		void this.openBot(conversation.info);
 	}
 
 	private renderApproval(approval: Approval): void {
-		const from = this.screen.kind === "conversation" && approval.bot === this.screen.bot.name ? "" : ` · ${approval.bot}`;
+		const from = approval.bot === this.screen.bot?.name ? "" : ` · ${approval.bot}`;
 		this.transcript.note(`▌ ⏸ approval: ${approval.toolName}${from}`, T1);
 		const input = JSON.stringify(approval.input);
 		if (input !== "{}") {
