@@ -152,19 +152,15 @@ export class Bot {
 	}
 
 	async setMode(mode: BotMode): Promise<void> {
-		const record = { ...this.record, mode };
-		await writeBot(record);
-		this.record = record;
+		await this.save({ mode });
 		this.emit({ type: "mode", mode });
 	}
 
 	async setTools(tools: ToolGroup[]): Promise<BotInfo> {
-		const record = { ...this.record, tools };
-		await writeBot(record);
-		this.record = record;
+		const record = await this.save({ tools });
 		this.agent.state.tools = botTools(this);
 		this.emit({ type: "tools", tools });
-		return this.record;
+		return record;
 	}
 
 	async delegate(botId: string, prompt: string): Promise<void> {
@@ -216,12 +212,10 @@ export class Bot {
 
 	async selectModel(selection: ModelSelection): Promise<BotInfo> {
 		const model = selectModel(selection);
-		const record = { ...this.record, model };
-		await writeBot(record);
-		this.record = record;
+		const record = await this.save({ model });
 		this.agent.state.model = resolveModel(model);
 		this.agent.state.thinkingLevel = model.reasoning;
-		return this.record;
+		return record;
 	}
 
 	async deliver(text: string): Promise<void> {
@@ -335,6 +329,13 @@ export class Bot {
 			throw new Error("O trabalho foi parado.");
 		}
 		return this.reply;
+	}
+
+	private async save(change: Partial<BotInfo>): Promise<BotInfo> {
+		const record = { ...this.record, ...change };
+		await writeBot(record);
+		this.record = record;
+		return record;
 	}
 
 	private adopt(record: BotInfo): void {
