@@ -1,7 +1,7 @@
 import { BoxRenderable, InputRenderable, InputRenderableEvents, RenderableEvents, type CliRenderer } from "@opentui/core";
 import { Bot, deleteBot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
-import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type TeamCall, type ToolGroup } from "@agent/bot/types";
+import { BotNameSchema, type BotEvent, type BotInfo, type ToolGroup } from "@agent/bot/types";
 import { modelOption } from "@agent/model/catalog";
 import type { ModelSelection } from "@agent/model/types";
 import { Bar } from "./bar";
@@ -10,23 +10,15 @@ import { Footer } from "./footer";
 import { Panels, type PanelResult } from "./panel";
 import { Screen } from "./screen";
 import { deletePanel } from "./screens/delete";
-import { accountsPanel, loginPanel, loginTargetsPanel } from "./screens/login";
+import { accountsPanel, loginTargetsPanel } from "./screens/login";
 import { effortPanel, modelPanel } from "./screens/model";
 import { toolsPanel } from "./screens/tools";
 import { Transcript } from "./transcript";
-import { Turn, type TurnState } from "./turn";
+import { Turn } from "./turn";
+import { View } from "./view";
 import { T1, T2, T3, T4, T5 } from "./theme";
 
 const DOUBLE_ESCAPE_MS = 400;
-const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
-const TOOL_EVENT_TYPES = ["tool", "team-call", "tool-result", "tool-warned", "tool-failed"] as const;
-const TOOL_EVENTS = new Set<BotEvent["type"]>(TOOL_EVENT_TYPES);
-
-type ToolEvent = Extract<BotEvent, { type: (typeof TOOL_EVENT_TYPES)[number] }>;
-
-function isToolEvent(event: BotEvent): event is ToolEvent {
-	return TOOL_EVENTS.has(event.type);
-}
 
 export class MimoApp {
 	private readonly transcript: Transcript;
@@ -34,9 +26,11 @@ export class MimoApp {
 	private readonly input: InputRenderable;
 	private readonly panels: Panels;
 	private readonly bar: Bar;
+	private readonly view: View;
 	private readonly screen = new Screen();
-	private readonly turn = new Turn();
-	private lastFailure: string | null = null;
+	private readonly turn = new Turn(() => {
+		this.spin();
+	});
 	private lastEscapeAt: number | null = null;
 
 	constructor(renderer: CliRenderer) {
@@ -88,6 +82,16 @@ export class MimoApp {
 		composer.add(this.input);
 
 		this.bar = new Bar(renderer);
+		this.view = new View({
+			transcript: this.transcript,
+			footer: this.footer,
+			bar: this.bar,
+			turn: this.turn,
+			showPanel: (panel) => {
+				this.panels.show(panel);
+			},
+			botName: () => this.screen.bot?.name,
+		});
 
 		const container = new BoxRenderable(renderer, {
 			id: "app",
@@ -167,7 +171,7 @@ export class MimoApp {
 	}
 
 	private cancelTurn() {
-		this.enter("cancelling");
+		this.turn.enter("cancelling");
 		this.screen.conversation?.cancel();
 	}
 
@@ -288,10 +292,10 @@ export class MimoApp {
 		this.input.value = "";
 		this.input.placeholder = this.screen.placeholder;
 		this.footer.reset(bot);
-		this.lastFailure = null;
+		this.view.forget();
 		this.lastEscapeAt = null;
 		this.bar.stop();
-		this.enter("loading");
+		this.turn.enter("loading");
 		return signal;
 	}
 
@@ -310,10 +314,10 @@ export class MimoApp {
 			if (note) {
 				this.transcript.note(note, T3);
 			}
-			this.enter("ready");
+			this.turn.enter("ready");
 		} catch (error) {
 			if (!signal.aborted) {
-				this.renderFailure(describeError(error));
+				this.view.failure(describeError(error));
 			}
 		}
 	}
@@ -325,7 +329,7 @@ export class MimoApp {
 			return;
 		}
 		const signal = this.screen.signal;
-		this.enter("loading");
+		this.turn.enter("loading");
 		try {
 			const bot = await createBot({ name: parsed.data });
 			if (!signal.aborted) {
@@ -333,7 +337,7 @@ export class MimoApp {
 			}
 		} catch (error) {
 			if (!signal.aborted) {
-				this.renderFailure(describeError(error));
+				this.view.failure(describeError(error));
 			}
 		}
 	}
@@ -346,23 +350,21 @@ export class MimoApp {
 				return;
 			}
 			this.footer.reset(conversation.info);
-			this.enter("ready");
+			this.turn.enter("ready");
 			for (const event of conversation.transcript()) {
-				this.renderEvent(event);
+				this.showEvent(event);
 			}
 			this.bar.queue(conversation.queue);
 			this.bar.watch(() => conversation.team);
 			this.transcript.toBottom();
-			this.screen.connect(conversation, (event) => {
-				this.renderEvent(event);
-			});
+			this.screen.connect(conversation, this.showEvent);
 			const approval = conversation.approval;
 			if (approval) {
-				this.renderEvent({ type: "approval", approval });
+				this.showEvent({ type: "approval", approval });
 			}
 		} catch (error) {
 			if (!signal.aborted) {
-				this.renderFailure(describeError(error));
+				this.view.failure(describeError(error));
 			}
 		}
 	}
@@ -371,10 +373,9 @@ export class MimoApp {
 		const signal = this.screen.signal;
 		const input = this.input.value;
 		this.input.value = "";
-		this.lastFailure = null;
+		this.view.forget();
 		if (this.turn.idle) {
 			this.turn.start();
-			this.spin();
 		}
 		try {
 			await operation();
@@ -383,133 +384,17 @@ export class MimoApp {
 				if (!this.input.value) {
 					this.input.value = input;
 				}
-				this.renderFailure(describeError(error));
+				this.view.failure(describeError(error));
 			}
 		}
 	}
 
-	private renderEvent(event: BotEvent): void {
-		if (isToolEvent(event)) {
-			this.renderToolEvent(event);
-			return;
+	private readonly showEvent = (event: BotEvent): void => {
+		if (event.type === "turn-started") {
+			this.lastEscapeAt = null;
 		}
-
-		switch (event.type) {
-			case "user":
-				this.transcript.seal();
-				this.transcript.note(`you: ${event.text}`, T3);
-				return;
-			case "queue":
-				this.bar.queue(event.items);
-				return;
-			case "note":
-				this.transcript.seal();
-				this.transcript.note(`▌ ${event.text}`, T4);
-				return;
-			case "routine":
-				this.renderRoutine(event.name, event.prompt);
-				return;
-			case "reply-delta":
-				this.transcript.replyDelta(event.delta);
-				return;
-			case "reply":
-				this.transcript.reply(event.text);
-				return;
-			case "approval":
-				this.renderApproval(event.approval);
-				return;
-			case "login":
-				this.panels.show(loginPanel(event.target, event.session));
-				return;
-			case "tools":
-				this.renderTools(event.tools);
-				return;
-			case "approval-resolved":
-				this.transcript.note(`⏸ ${event.outcome}`, T4);
-				this.enter("thinking");
-				return;
-			default:
-				this.renderTurnEvent(event);
-		}
-	}
-
-	private renderToolEvent(event: ToolEvent): void {
-		switch (event.type) {
-			case "tool":
-				this.renderTool(event.toolName, event.input);
-				return;
-			case "team-call":
-				this.renderTeamCall(event.call);
-				return;
-			case "tool-result":
-				this.transcript.result(event.output);
-				return;
-			case "tool-warned":
-				this.transcript.seal();
-				this.transcript.note(`⚠ ${event.message}`, T1);
-				return;
-			case "tool-failed":
-				this.transcript.detailed(`✗ tool failed: ${event.message}`, T1);
-		}
-	}
-
-	private renderTurnEvent(event: Extract<BotEvent, { type: "usage" | "mode" | `turn-${string}` }>): void {
-		switch (event.type) {
-			case "usage":
-				this.footer.context(event.contextTokens);
-				return;
-			case "mode":
-				this.footer.mode(event.mode);
-				return;
-			case "turn-started":
-				this.lastEscapeAt = null;
-				this.lastFailure = null;
-				this.turn.start();
-				this.spin();
-				return;
-			case "turn-finished":
-				this.turn.finish();
-				this.spin();
-				return;
-			case "turn-failed":
-				this.renderFailure(event.message);
-				return;
-			case "turn-cancelled":
-				this.transcript.seal();
-				this.transcript.note("Interrupted.", T3);
-				this.enter("cancelled");
-		}
-	}
-
-	private renderTeamCall(call: TeamCall): void {
-		this.transcript.seal();
-		this.transcript.detailed(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}`, T4);
-	}
-
-	private renderTools(tools: readonly ToolGroup[]): void {
-		this.transcript.seal();
-		this.transcript.detailed(`tools: ${tools.length === 0 ? "none" : tools.join(", ")}`, T3);
-	}
-
-	private renderFailure(message: string): void {
-		if (this.lastFailure !== message) {
-			this.lastFailure = message;
-			const hint = message.startsWith("Insufficient balance") ? " Use /model to choose another provider, then continue the conversation." : "";
-			this.transcript.note(`✗ error: ${message}${hint}`, T1);
-		}
-		this.enter("error");
-	}
-
-	private renderTool(toolName: string, input: unknown): void {
-		this.turn.ranTool();
-		this.spin();
-		this.transcript.tool(toolName, input);
-	}
-
-	private renderRoutine(name: string, prompt: string): void {
-		this.transcript.seal();
-		this.transcript.detailed(`routine: ${name} started`, T3, prompt.replaceAll("\n", " "));
-	}
+		this.view.show(event);
+	};
 
 	private cycleDetail(): void {
 		const conversation = this.screen.conversation;
@@ -518,22 +403,6 @@ export class MimoApp {
 		}
 		this.footer.detail(this.transcript.cycle());
 		void this.openBot(conversation.info);
-	}
-
-	private renderApproval(approval: Approval): void {
-		const from = approval.bot === this.screen.bot?.name ? "" : ` · ${approval.bot}`;
-		this.transcript.note(`▌ ⏸ approval: ${approval.toolName}${from}`, T1);
-		const input = JSON.stringify(approval.input);
-		if (input !== "{}") {
-			this.transcript.indented(input);
-		}
-		this.transcript.note("   1. Approve   2. Cancel", T1);
-		this.enter("waiting");
-	}
-
-	private enter(state: TurnState): void {
-		this.turn.enter(state);
-		this.spin();
 	}
 
 	private spin(): void {

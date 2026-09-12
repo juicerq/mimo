@@ -3,8 +3,13 @@ export type TurnState = "loading" | "ready" | "thinking" | "cancelling" | "cance
 const BUSY_LABELS: Partial<Record<TurnState, string>> = { loading: "loading", thinking: "thinking", cancelling: "stopping" };
 
 export class Turn {
+	private readonly redraw: () => void;
 	private current: TurnState = "loading";
 	private tooled = false;
+
+	constructor(redraw: () => void) {
+		this.redraw = redraw;
+	}
 
 	get state(): TurnState {
 		return this.current;
@@ -28,15 +33,18 @@ export class Turn {
 
 	enter(state: TurnState): void {
 		this.current = state;
+		this.redraw();
 	}
 
 	start(): void {
 		this.tooled = false;
 		this.current = "thinking";
+		this.redraw();
 	}
 
 	ranTool(): void {
 		this.tooled = true;
+		this.redraw();
 	}
 
 	finish(): void {
@@ -44,5 +52,6 @@ export class Turn {
 			return;
 		}
 		this.current = "ready";
+		this.redraw();
 	}
 }
