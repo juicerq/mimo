@@ -1,7 +1,6 @@
 import { listBots, listChildren } from "@agent/bot/store";
 import type { BotInfo } from "@agent/bot/types";
-import { describeError } from "../errors";
-import { choicePanel, type Panel, type PanelView } from "../panel";
+import { choicePanel, type Panel } from "../panel";
 
 export type RemoveBot = (bot: BotInfo) => Promise<void>;
 
@@ -39,7 +38,10 @@ function confirmPanel(bot: BotInfo, remove: RemoveBot): Panel {
 				view.close();
 				return;
 			}
-			void erase(bot, remove, view);
+			view.saving(async () => {
+				await remove(bot);
+				view.close({ message: `Deleted "${bot.name}".`, list: true });
+			});
 		},
 	});
 }
@@ -49,15 +51,4 @@ function teamNote(children: BotInfo[]): string[] {
 		return [];
 	}
 	return [`Its team goes too: ${children.map((child) => child.name).join(", ")}.`];
-}
-
-async function erase(bot: BotInfo, remove: RemoveBot, view: PanelView): Promise<void> {
-	view.state("saving");
-	try {
-		await remove(bot);
-		view.close({ message: `Deleted "${bot.name}".`, list: true });
-	} catch (error) {
-		view.line(describeError(error), "error");
-		view.state("ready");
-	}
 }
