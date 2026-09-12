@@ -224,7 +224,7 @@ launch() {
 	printf '%s' "$run_dir" >"$CURRENT_RUN_FILE"
 	local home_dir
 	home_dir="$(prepare_home "$run_dir")"
-	local -a runtime_env=("MIMO_DATA_DIR=$data_dir" "HOME=$home_dir")
+	local -a runtime_env=("MIMO_DATA_DIR=$data_dir" "HOME=$home_dir" "BUN_RUNTIME_TRANSPILER_CACHE_PATH=$HOME/.bun/install/cache/@t@")
 	local setting
 	for setting in MIMO_MODEL MIMO_REASONING; do
 		if [ -n "${!setting:-}" ]; then
