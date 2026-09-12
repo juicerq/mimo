@@ -4,6 +4,7 @@ import { archiveSession } from "../history/history";
 import { LoginSession, type LoginTarget } from "../login/login";
 import { contentText, isLlmMessage } from "../messages";
 import { resolveModel, selectModel } from "../model/catalog";
+import { modelFailure } from "../model/failure";
 import { models } from "../model/models";
 import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
@@ -471,7 +472,7 @@ export class Bot {
 			return;
 		}
 		if (message.stopReason === "error") {
-			this.failure = message.errorMessage ?? "The model request failed.";
+			this.failure = modelFailure(message.errorMessage ?? "The model request failed.", this.record.model.provider);
 			this.emit({ type: "turn-failed", message: this.failure });
 		}
 	}
