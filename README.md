@@ -92,6 +92,8 @@ Um bot pode montar uma equipe de bots filhos. As tools `create_bot`, `update_bot
 
 Ao criar um filho, o pai escolhe o nome, a instrução permanente, os grupos de tools e o modelo. Os grupos são `computer`, `web`, `gmail` e `routines`; `team` não é oferecido a um filho, então a equipe não tem netos. Sem modelo escolhido, o filho nasce com o padrão; `list_models` mostra os valores aceitos. As tools da equipe tratam o filho pelo nome, que é único dentro da equipe.
 
+As instruções do grupo `team` mandam o pai orquestrar, não executar: um trabalho que se divide em frentes independentes vira um filho por frente, cada um com um problema inteiro do começo ao fim. O desdobramento segue a mesma regra, então conferir ou aprofundar o que um filho trouxe também é trabalho de filho. Quem verifica nunca é quem achou o problema.
+
 `delegate` começa o trabalho no filho e volta na hora: o turno do pai fecha e a pessoa continua conversando com ele. O filho não vê a conversa da pessoa, então o pedido precisa ser completo. Cada filho atende um trabalho por vez; vários filhos trabalham ao mesmo tempo. Um filho não delega e não cria bots, então a equipe tem um nível só.
 
 Quando o filho termina, a resposta dele chega sozinha como um aviso na conversa, `▌ O filho <nome> terminou e respondeu:`, e o pai fala em seguida. Se o pai estiver no meio de um turno, o aviso espera o fim dele. `check_team` diz o que cada filho faz agora e `stop_bot` para um filho que saiu do rumo.
