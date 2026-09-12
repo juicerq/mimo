@@ -1,22 +1,17 @@
 import { BoxRenderable, CliRenderEvents, TextRenderable, type CliRenderer } from "@opentui/core";
 import { activity, type BotActivity } from "@agent/bot/bot";
 import { elapsed } from "./bar";
+import { Lines, type Line } from "./lines";
 import { T1, T2, T3, T4, T5 } from "./theme";
 
 const RAIL_MS = 1000;
 const RAIL_COLS = 44;
 
-interface Line {
-	text: string;
-	fg: string;
-}
-
 export class Rail {
 	readonly box: BoxRenderable;
 	private readonly renderer: CliRenderer;
-	private readonly list: BoxRenderable;
+	private readonly lines: Lines;
 	private timer: ReturnType<typeof setInterval> | null = null;
-	private lines: Line[] = [];
 
 	constructor(renderer: CliRenderer) {
 		this.renderer = renderer;
@@ -32,7 +27,7 @@ export class Rail {
 			paddingRight: 1,
 			visible: false,
 		});
-		this.list = new BoxRenderable(renderer, {
+		const list = new BoxRenderable(renderer, {
 			id: "rail-list",
 			width: "100%",
 			flexGrow: 1,
@@ -40,7 +35,8 @@ export class Rail {
 			flexDirection: "column",
 			paddingTop: 1,
 		});
-		this.box.add(this.list);
+		this.box.add(list);
+		this.lines = new Lines(renderer, list);
 		this.box.add(new TextRenderable(renderer, {
 			id: "rail-hint",
 			content: "Ctrl+T close",
@@ -77,22 +73,7 @@ export class Rail {
 	}
 
 	private draw(): void {
-		const lines = this.read();
-		if (lines.length === this.lines.length && lines.every((line, index) => line.text === this.lines[index]?.text && line.fg === this.lines[index]?.fg)) {
-			return;
-		}
-		this.lines = lines;
-		for (const child of this.list.getChildren()) {
-			child.destroyRecursively();
-		}
-		for (const line of lines) {
-			this.list.add(new TextRenderable(this.renderer, {
-				content: line.text,
-				fg: line.fg,
-				width: "100%",
-				wrapMode: "word",
-			}));
-		}
+		this.lines.set(this.read());
 	}
 
 	private read(): Line[] {
