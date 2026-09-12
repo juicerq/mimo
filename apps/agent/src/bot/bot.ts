@@ -23,6 +23,7 @@ const open = new Map<string, Bot>();
 
 interface Work {
 	task: string;
+	worktree: string | null;
 	startedAt: number;
 }
 
@@ -149,7 +150,7 @@ export class Bot {
 	get team(): TeamMember[] {
 		const members: TeamMember[] = [];
 		for (const [bot, work] of this.crew) {
-			members.push({ name: bot.record.name, task: work.task, tool: bot.tool, startedAt: work.startedAt });
+			members.push({ name: bot.record.name, task: work.task, worktree: work.worktree, tool: bot.tool, startedAt: work.startedAt });
 		}
 		return members;
 	}
@@ -195,7 +196,7 @@ export class Bot {
 			throw new Error("Este filho está trabalhando. Espere ele terminar.");
 		}
 		child.host = this;
-		this.crew.set(child, { task: delegation.task, startedAt: Date.now() });
+		this.crew.set(child, { task: delegation.task, worktree: delegation.worktree ?? null, startedAt: Date.now() });
 		void this.work(child, delegation);
 	}
 
