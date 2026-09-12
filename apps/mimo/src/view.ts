@@ -92,8 +92,7 @@ export class View {
 	failure(message: string): void {
 		if (this.lastFailure !== message) {
 			this.lastFailure = message;
-			const hint = message.startsWith("Insufficient balance") ? " Use /model to choose another provider, then continue the conversation." : "";
-			this.transcript.note(`✗ error: ${message}${hint}`, T1);
+			this.transcript.note(`✗ error: ${message}`, T1);
 		}
 		this.turn.enter("error");
 	}
