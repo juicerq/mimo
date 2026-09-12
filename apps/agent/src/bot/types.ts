@@ -40,6 +40,7 @@ export type BotEvent =
 	| { type: "user"; text: string }
 	| { type: "queue"; items: readonly string[] }
 	| { type: "note"; text: string }
+	| { type: "routine"; text: string }
 	| { type: "reply-delta"; delta: string }
 	| { type: "reply"; text: string }
 	| { type: "tool"; toolName: string; input: unknown }

@@ -28,8 +28,12 @@ interface Pending {
 
 interface Entry {
 	text: string;
-	kind: "user" | "note";
+	kind: EntryKind;
 }
+
+type EntryKind = "user" | "routine" | "note";
+
+const ORIGIN = { routine: "[rotina]", note: "[equipe]" } as const;
 
 export async function deleteBot(id: string): Promise<void> {
 	for (const child of await listChildren(id)) {
@@ -226,6 +230,10 @@ export class Bot {
 		await this.push({ text, kind: "user" });
 	}
 
+	async runRoutine(prompt: string): Promise<void> {
+		await this.push({ text: prompt, kind: "routine" });
+	}
+
 	cancel(): void {
 		this.cancelled = true;
 		this.running.clear();
@@ -254,7 +262,7 @@ export class Bot {
 	private steerQueue(): void {
 		for (const entry of this.take()) {
 			this.announce(entry);
-			this.agent.steer({ role: "user", content: entry.text, timestamp: Date.now() });
+			this.agent.steer(entryMessage(entry));
 		}
 	}
 
@@ -274,11 +282,7 @@ export class Bot {
 	}
 
 	private announce(entry: Entry): void {
-		if (entry.kind === "note") {
-			this.emit({ type: "note", text: entry.text });
-			return;
-		}
-		this.emit({ type: "user", text: entry.text });
+		this.emit(entryEvent(entry));
 	}
 
 	private async drain(): Promise<void> {
@@ -297,7 +301,7 @@ export class Bot {
 			}
 			this.emit({ type: "turn-started" });
 			this.agent.state.systemPrompt = `${this.basePrompt()}\n\n${await recallMemory(this.record.id)}`;
-			const run = this.agent.prompt(batch.map((entry) => ({ role: "user", content: entry.text, timestamp: Date.now() })));
+			const run = this.agent.prompt(batch.map(entryMessage));
 			this.draining = false;
 			await run;
 		} finally {
@@ -471,6 +475,33 @@ export class Bot {
 	}
 }
 
+function entryMessage(entry: Entry): AgentMessage {
+	if (entry.kind === "user") {
+		return { role: "user", content: entry.text, timestamp: Date.now() };
+	}
+	return { role: "user", content: `${ORIGIN[entry.kind]}\n${entry.text}`, timestamp: Date.now() };
+}
+
+function entryEvent(entry: Entry): BotEvent {
+	if (entry.kind === "routine") {
+		return { type: "routine", text: entry.text };
+	}
+	if (entry.kind === "note") {
+		return { type: "note", text: entry.text };
+	}
+	return { type: "user", text: entry.text };
+}
+
+function entryOf(text: string): Entry {
+	if (text.startsWith(`${ORIGIN.routine}\n`)) {
+		return { kind: "routine", text: text.slice(ORIGIN.routine.length + 1) };
+	}
+	if (text.startsWith(`${ORIGIN.note}\n`)) {
+		return { kind: "note", text: text.slice(ORIGIN.note.length + 1) };
+	}
+	return { kind: "user", text };
+}
+
 function errorText(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
@@ -510,7 +541,7 @@ function replayMessage(message: AgentMessage): BotEvent[] {
 		if (!text) {
 			return [];
 		}
-		return [{ type: "user", text }];
+		return [entryEvent(entryOf(text))];
 	}
 	if (message.role === "toolResult") {
 		if (message.isError) {

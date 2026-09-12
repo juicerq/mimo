@@ -8,7 +8,7 @@ async function dispatchDue(): Promise<void> {
 	for (const routine of await claimDue(new Date(), DISPATCH_LIMIT)) {
 		try {
 			const bot = await Bot.open(routine.botId);
-			await bot.send(routine.prompt);
+			await bot.runRoutine(routine.prompt);
 			await completeRoutine(routine.id, new Date());
 		} catch (error) {
 			await failRoutine(routine.id, error);

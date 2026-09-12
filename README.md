@@ -126,3 +126,5 @@ EXA_API_KEY=
 ## Rotinas
 
 As rotinas ficam em `.data/routines.json` e pertencem ao bot que as criou. Um dispatcher de um minuto roda dentro da TUI e entrega o prompt ao bot pelo mesmo caminho usado pela conversa. Com a TUI fechada, nenhuma rotina dispara.
+
+O disparo aparece na conversa como `routine: <prompt>`, numa linha só, cortada em 120 caracteres. Não é `you:`: você não escreveu aquilo. O bot recebe o prompt inteiro com a marca `[rotina]`, então ele sabe de onde veio, e a marca sobrevive ao reabrir o bot. O aviso de um filho carrega a marca `[equipe]` do mesmo jeito.
