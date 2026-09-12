@@ -33,7 +33,7 @@ const DelegateInput = z.object({
 	bot: NameInput,
 	task: z.string().trim().min(1).max(48).describe("O trabalho em poucas palavras, para a pessoa ler na tela. Diga o que este filho carrega, não o que a equipe faz."),
 	prompt: z.string().min(1).describe("O trabalho para o filho, com tudo o que ele precisa saber."),
-	worktree: z.string().trim().min(1).optional().describe("O git worktree onde este filho trabalha, se você deu um a ele. A pessoa lê isto na tela para saber onde cada frente mexe."),
+	worktree: z.string().trim().min(1).optional().describe("O git worktree onde este filho trabalha. É só o rótulo que a pessoa lê na tela: quem manda o filho ir para lá é o prompt."),
 });
 
 const TEAM_CALLS: Record<string, TeamCallKind | undefined> = {
