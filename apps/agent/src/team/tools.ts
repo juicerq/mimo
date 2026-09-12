@@ -31,7 +31,7 @@ const DeleteBotInput = z.object({ bot: NameInput });
 
 const DelegateInput = z.object({
 	bot: NameInput,
-	task: z.string().trim().min(1).max(48).describe("O trabalho em poucas palavras, para a pessoa ler na tela."),
+	task: z.string().trim().min(1).max(48).describe("O trabalho em poucas palavras, para a pessoa ler na tela. Diga o que este filho carrega, não o que a equipe faz."),
 	prompt: z.string().min(1).describe("O trabalho para o filho, com tudo o que ele precisa saber."),
 });
 
