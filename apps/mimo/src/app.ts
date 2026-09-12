@@ -1,12 +1,4 @@
-import {
-	BoxRenderable,
-	InputRenderable,
-	InputRenderableEvents,
-	RenderableEvents,
-	ScrollBoxRenderable,
-	TextRenderable,
-	type CliRenderer,
-} from "@opentui/core";
+import { BoxRenderable, InputRenderable, InputRenderableEvents, RenderableEvents, TextRenderable, type CliRenderer } from "@opentui/core";
 import { Bot, deleteBot } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type Approval, type BotEvent, type BotInfo, type BotMode, type TeamCall, type TeamMember, type ToolGroup } from "@agent/bot/types";
@@ -18,20 +10,14 @@ import { deletePanel } from "./screens/delete";
 import { accountsPanel, loginPanel, loginTargetsPanel } from "./screens/login";
 import { effortPanel, modelPanel } from "./screens/model";
 import { toolsPanel } from "./screens/tools";
+import { Transcript } from "./transcript";
 import { T1, T2, T3, T4, T5 } from "./theme";
 
 const DOUBLE_ESCAPE_MS = 400;
-const APPROVAL_INPUT_CHARACTERS = 240;
-const DETAIL_CHARACTERS = 600;
-const DETAIL_LEVELS = ["off", "brief", "full"] as const;
 const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
-const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const SPINNER_MS = 100;
 const FLASH_MS = 2000;
 const TEAM_MS = 1000;
 const WORKING_LABELS: Record<string, string> = { loading: "loading", thinking: "thinking", cancelling: "stopping" };
-
-type Detail = (typeof DETAIL_LEVELS)[number];
 
 type Screen =
 	| { kind: "bots"; bots: BotInfo[] }
@@ -39,7 +25,7 @@ type Screen =
 
 export class MimoApp {
 	private readonly renderer: CliRenderer;
-	private readonly transcript: ScrollBoxRenderable;
+	private readonly transcript: Transcript;
 	private readonly status: TextRenderable;
 	private readonly input: InputRenderable;
 	private readonly panels: Panels;
@@ -51,8 +37,6 @@ export class MimoApp {
 	private unsubscribe: (() => void) | null = null;
 	private screen: Screen = { kind: "bots", bots: [] };
 	private view = new AbortController();
-	private reply: TextRenderable | null = null;
-	private replyText = "";
 	private busy = false;
 	private failed = false;
 	private mode: BotMode = "normal";
@@ -61,29 +45,14 @@ export class MimoApp {
 	private lastFailure: string | null = null;
 	private contextUsed: number | null = null;
 	private approval: Approval | null = null;
-	private detail: Detail = "brief";
-	private working: { line: TextRenderable; label: string; startedAt: number; timer: ReturnType<typeof setInterval> } | null = null;
 	private toolRan = false;
-	private botName = "";
 	private readonly flashed = new Set<string>();
 	private readonly flashTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private lastEscapeAt: number | null = null;
 
 	constructor(renderer: CliRenderer) {
 		this.renderer = renderer;
-		this.transcript = new ScrollBoxRenderable(renderer, {
-			id: "transcript",
-			width: "100%",
-			flexGrow: 1,
-			minHeight: 0,
-			paddingTop: 1,
-			paddingBottom: 1,
-			paddingLeft: 2,
-			paddingRight: 2,
-			stickyScroll: true,
-			stickyStart: "bottom",
-			contentOptions: { justifyContent: "flex-end", minHeight: "100%" },
-		});
+		this.transcript = new Transcript(renderer);
 		this.status = new TextRenderable(renderer, {
 			id: "status",
 			content: "",
@@ -164,7 +133,7 @@ export class MimoApp {
 			flexDirection: "column",
 		});
 		container.add(this.panels.row);
-		container.add(this.transcript);
+		container.add(this.transcript.box);
 		container.add(this.panels.box);
 		container.add(this.team);
 		container.add(this.queue);
@@ -205,7 +174,7 @@ export class MimoApp {
 			if (bot && /^[1-9]\d*$/.test(text)) {
 				void this.openBot(bot);
 			} else {
-				this.appendLine("Choose a bot by number, or type /new <name>.", T3);
+				this.transcript.note("Choose a bot by number, or type /new <name>.", T3);
 			}
 			return;
 		}
@@ -288,7 +257,7 @@ export class MimoApp {
 
 	private showModels(bot: BotInfo | null): void {
 		if (!bot || !this.conversation) {
-			this.appendLine("Open a bot to choose its model.", T3);
+			this.transcript.note("Open a bot to choose its model.", T3);
 			return;
 		}
 		this.panels.show(modelPanel(bot, this.saveModel));
@@ -297,20 +266,20 @@ export class MimoApp {
 	private showEfforts(): void {
 		const screen = this.screen;
 		if (screen.kind === "bots") {
-			this.appendLine("Open a bot to choose its effort.", T3);
+			this.transcript.note("Open a bot to choose its effort.", T3);
 			return;
 		}
 		try {
 			this.panels.show(effortPanel(modelOption(screen.bot.model), this.saveModel));
 		} catch (error) {
-			this.appendLine(describeError(error), T1);
+			this.transcript.note(describeError(error), T1);
 		}
 	}
 
 	private showTools(): void {
 		const screen = this.screen;
 		if (screen.kind === "bots") {
-			this.appendLine("Open a bot to choose its tools.", T3);
+			this.transcript.note("Open a bot to choose its tools.", T3);
 			return;
 		}
 		this.panels.show(toolsPanel(screen.bot, this.saveTools));
@@ -331,7 +300,7 @@ export class MimoApp {
 	};
 
 	private readonly refreshPanels = (): void => {
-		this.transcript.visible = !this.panels.active;
+		this.transcript.box.visible = !this.panels.active;
 		this.setStatus(this.lastState);
 	};
 
@@ -346,7 +315,7 @@ export class MimoApp {
 		}
 		this.input.placeholder = this.screen.kind === "bots" ? "number or /new <name>" : "write your prompt";
 		if (result.message) {
-			this.appendLine(result.message, T3);
+			this.transcript.note(result.message, T3);
 		}
 		this.setStatus(this.lastState);
 	};
@@ -360,20 +329,14 @@ export class MimoApp {
 
 	private resetView(screen: Screen) {
 		this.panels.dismiss();
-		this.transcript.visible = true;
+		this.transcript.box.visible = true;
 		this.screen = screen;
-		this.botName = screen.kind === "bots" ? "" : screen.bot.name;
-		this.stopWorking();
+		this.transcript.clear(screen.kind === "bots" ? "" : screen.bot.name);
 		this.view.abort();
 		this.view = new AbortController();
 		this.unsubscribe?.();
 		this.unsubscribe = null;
 		this.conversation = null;
-		this.sealReply();
-		for (const child of this.transcript.getChildren()) {
-			child.destroyRecursively();
-		}
-		this.transcript.scrollTo(0);
 		this.input.value = "";
 		this.busy = true;
 		this.failed = false;
@@ -399,11 +362,11 @@ export class MimoApp {
 			}
 			this.screen = { kind: "bots", bots };
 			for (const [index, bot] of bots.entries()) {
-				this.appendLine(`${index + 1}. ${bot.name}`, T2);
+				this.transcript.note(`${index + 1}. ${bot.name}`, T2);
 			}
-			this.appendLine(bots.length ? "/new <name> to create a bot, /delete to remove one" : "Create your first bot with /new <name>.", T4);
+			this.transcript.note(bots.length ? "/new <name> to create a bot, /delete to remove one" : "Create your first bot with /new <name>.", T4);
 			if (note) {
-				this.appendLine(note, T3);
+				this.transcript.note(note, T3);
 			}
 			this.busy = false;
 			this.setStatus("ready");
@@ -417,7 +380,7 @@ export class MimoApp {
 	private async createBot(name: string) {
 		const parsed = BotNameSchema.safeParse(name);
 		if (!parsed.success) {
-			this.appendLine("Use /new <name> with 1–80 visible characters.", T3);
+			this.transcript.note("Use /new <name> with 1–80 visible characters.", T3);
 			return;
 		}
 		const signal = this.view.signal;
@@ -454,7 +417,7 @@ export class MimoApp {
 			}
 			this.renderQueue(conversation.queue);
 			this.teamTimer = setInterval(() => this.renderTeam(), TEAM_MS);
-			this.transcript.scrollTo(this.transcript.scrollHeight);
+			this.transcript.toBottom();
 			this.unsubscribe = conversation.subscribe((event) => {
 				if (!signal.aborted) {
 					this.renderEvent(event);
@@ -496,24 +459,24 @@ export class MimoApp {
 	private renderEvent(event: BotEvent): void {
 		switch (event.type) {
 			case "user":
-				this.sealReply();
-				this.appendLine(`you: ${event.text}`, T3);
+				this.transcript.seal();
+				this.transcript.note(`you: ${event.text}`, T3);
 				return;
 			case "queue":
 				this.renderQueue(event.items);
 				return;
 			case "note":
-				this.sealReply();
-				this.appendLine(`▌ ${event.text}`, T4);
+				this.transcript.seal();
+				this.transcript.note(`▌ ${event.text}`, T4);
 				return;
 			case "routine":
 				this.renderRoutine(event.name, event.prompt);
 				return;
 			case "reply-delta":
-				this.appendReplyDelta(event.delta);
+				this.transcript.replyDelta(event.delta);
 				return;
 			case "reply":
-				this.completeReply(event.text);
+				this.transcript.reply(event.text);
 				return;
 			case "tool":
 				this.renderTool(event.toolName, event.input);
@@ -522,10 +485,10 @@ export class MimoApp {
 				this.renderTeamCall(event.call);
 				return;
 			case "tool-result":
-				this.appendDetail(event.output);
+				this.transcript.result(event.output);
 				return;
 			case "tool-failed":
-				this.appendBrief(`✗ tool failed: ${event.message}`, T1);
+				this.transcript.detailed(`✗ tool failed: ${event.message}`, T1);
 				return;
 			case "approval":
 				this.renderApproval(event.approval);
@@ -538,7 +501,7 @@ export class MimoApp {
 				return;
 			case "approval-resolved":
 				this.approval = null;
-				this.appendLine(`⏸ ${event.outcome}`, T4);
+				this.transcript.note(`⏸ ${event.outcome}`, T4);
 				this.busy = true;
 				this.setStatus("thinking");
 				return;
@@ -573,21 +536,21 @@ export class MimoApp {
 				return;
 			case "turn-cancelled":
 				this.approval = null;
-				this.sealReply();
-				this.appendLine("Interrupted.", T3);
+				this.transcript.seal();
+				this.transcript.note("Interrupted.", T3);
 				this.busy = false;
 				this.setStatus("cancelled");
 		}
 	}
 
 	private renderTeamCall(call: TeamCall): void {
-		this.sealReply();
-		this.appendBrief(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}`, T4);
+		this.transcript.seal();
+		this.transcript.detailed(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}`, T4);
 	}
 
 	private renderTools(tools: readonly ToolGroup[]): void {
-		this.sealReply();
-		this.appendBrief(`tools: ${tools.length === 0 ? "none" : tools.join(", ")}`, T3);
+		this.transcript.seal();
+		this.transcript.detailed(`tools: ${tools.length === 0 ? "none" : tools.join(", ")}`, T3);
 	}
 
 	private renderQueue(items: readonly string[]): void {
@@ -632,7 +595,7 @@ export class MimoApp {
 		if (this.lastFailure !== message) {
 			this.lastFailure = message;
 			const hint = message.startsWith("Insufficient balance") ? " Use /model to choose another provider, then continue the conversation." : "";
-			this.appendLine(`✗ error: ${message}${hint}`, T1);
+			this.transcript.note(`✗ error: ${message}${hint}`, T1);
 		}
 		this.setStatus("error");
 	}
@@ -654,33 +617,12 @@ export class MimoApp {
 	private renderTool(toolName: string, input: unknown): void {
 		this.toolRan = true;
 		this.setStatus(this.lastState);
-		this.appendBrief(`⚙ ${toolName}`, T4, JSON.stringify(input), 0);
+		this.transcript.tool(toolName, input);
 	}
 
 	private renderRoutine(name: string, prompt: string): void {
-		this.sealReply();
-		this.appendBrief(`routine: ${name} started`, T3, prompt.replaceAll("\n", " "));
-	}
-
-	private shows(need: Detail): boolean {
-		return DETAIL_LEVELS.indexOf(this.detail) >= DETAIL_LEVELS.indexOf(need);
-	}
-
-	private appendBrief(content: string, tone: string, detail?: string, detailMargin = 1): void {
-		if (!this.shows("brief")) {
-			return;
-		}
-		const extra = detailText(detail);
-		this.appendLine(content, tone, this.shows("full") && extra ? 0 : 1);
-		this.appendDetail(extra, detailMargin);
-	}
-
-	private appendDetail(text: string | undefined, marginBottom = 1): void {
-		const detail = detailText(text);
-		if (!this.shows("full") || detail === undefined) {
-			return;
-		}
-		this.appendLine(`   ${truncate(detail, DETAIL_CHARACTERS)}`, T4, marginBottom);
+		this.transcript.seal();
+		this.transcript.detailed(`routine: ${name} started`, T3, prompt.replaceAll("\n", " "));
 	}
 
 	private cycleDetail(): void {
@@ -688,65 +630,22 @@ export class MimoApp {
 		if (screen.kind !== "conversation" || !this.conversation) {
 			return;
 		}
-		this.detail = DETAIL_LEVELS[(DETAIL_LEVELS.indexOf(this.detail) + 1) % DETAIL_LEVELS.length];
+		this.transcript.cycle();
 		this.flash("detail");
 		void this.openBot(screen.bot);
 	}
 
 	private renderApproval(approval: Approval): void {
 		this.approval = approval;
-		const from = approval.bot === this.botName ? "" : ` · ${approval.bot}`;
-		this.appendLine(`▌ ⏸ approval: ${approval.toolName}${from}`, T1);
+		const from = this.screen.kind === "conversation" && approval.bot === this.screen.bot.name ? "" : ` · ${approval.bot}`;
+		this.transcript.note(`▌ ⏸ approval: ${approval.toolName}${from}`, T1);
 		const input = JSON.stringify(approval.input);
 		if (input !== "{}") {
-			this.appendLine(`   ${truncate(input, APPROVAL_INPUT_CHARACTERS)}`, T4);
+			this.transcript.indented(input);
 		}
-		this.appendLine("   1. Approve   2. Cancel", T1);
+		this.transcript.note("   1. Approve   2. Cancel", T1);
 		this.busy = false;
 		this.setStatus("waiting");
-	}
-
-	private appendReplyDelta(delta: string): void {
-		const block = this.ensureReply();
-		this.replyText += delta;
-		block.content = `${this.botName}: ${this.replyText}`;
-	}
-
-	private completeReply(message: string): void {
-		if (message !== "") {
-			const block = this.ensureReply();
-			this.replyText = message;
-			block.content = `${this.botName}: ${message}`;
-		}
-		this.sealReply();
-	}
-
-	private ensureReply(): TextRenderable {
-		if (this.reply) {
-			return this.reply;
-		}
-		this.stopWorking();
-		this.replyText = "";
-		this.reply = this.appendLine(`${this.botName}: `);
-		return this.reply;
-	}
-
-	private sealReply(): void {
-		this.reply = null;
-		this.replyText = "";
-	}
-
-	private appendLine(content: string, fg = T1, marginBottom = 1): TextRenderable {
-		const line = new TextRenderable(this.renderer, {
-			content,
-			fg,
-			width: "100%",
-			wrapMode: "word",
-			marginBottom,
-		});
-		this.transcript.add(line);
-		this.raiseWorking();
-		return line;
 	}
 
 	private setStatus(state: string): void {
@@ -764,7 +663,7 @@ export class MimoApp {
 			parts.push(`mode: ${this.mode === "autonomous" ? "auto" : "normal"}`);
 		}
 		if (this.flashed.has("detail")) {
-			parts.push(`detail: ${this.detail}`);
+			parts.push(`detail: ${this.transcript.level}`);
 		}
 		if (this.panels.active) {
 			parts.push(`status: ${this.panels.state}`);
@@ -784,24 +683,7 @@ export class MimoApp {
 
 	private renderWorking(state: string): void {
 		const label = this.panels.active ? undefined : WORKING_LABELS[state];
-		if (label === undefined) {
-			this.stopWorking();
-			return;
-		}
-		const working = this.working;
-		if (working) {
-			working.label = this.workingLabel(label);
-			this.drawWorking();
-			return;
-		}
-		const line = this.appendLine("", T4);
-		this.working = {
-			line,
-			label: this.workingLabel(label),
-			startedAt: performance.now(),
-			timer: setInterval(() => this.drawWorking(), SPINNER_MS),
-		};
-		this.drawWorking();
+		this.transcript.working(label === undefined ? undefined : this.workingLabel(label));
 	}
 
 	private workingLabel(label: string): string {
@@ -809,37 +691,6 @@ export class MimoApp {
 			return "working";
 		}
 		return label;
-	}
-
-	private drawWorking(): void {
-		const working = this.working;
-		if (!working) {
-			return;
-		}
-		const elapsed = performance.now() - working.startedAt;
-		const frame = SPINNER[Math.floor(elapsed / SPINNER_MS) % SPINNER.length];
-		const hint = working.label === "loading" ? "" : " · esc esc to stop";
-		working.line.content = `${frame} ${working.label} · ${Math.floor(elapsed / 1000)}s${hint}`;
-	}
-
-	private stopWorking(): void {
-		const working = this.working;
-		if (!working) {
-			return;
-		}
-		clearInterval(working.timer);
-		this.working = null;
-		this.transcript.remove(working.line);
-		working.line.destroyRecursively();
-	}
-
-	private raiseWorking(): void {
-		const working = this.working;
-		if (!working) {
-			return;
-		}
-		this.transcript.remove(working.line);
-		this.transcript.add(working.line);
 	}
 }
 
@@ -852,23 +703,9 @@ function formatTokens(tokens: number): string {
 	return `${text}k`;
 }
 
-function detailText(text: string | undefined): string | undefined {
-	const detail = text?.trim();
-	if (!detail || detail === "{}") {
-		return undefined;
-	}
-	return detail;
-}
-
 function teamLine(member: TeamMember): string {
 	const seconds = Math.floor((Date.now() - member.startedAt) / 1000);
 	const elapsed = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m`;
 	return `team: ${member.name} · ${elapsed} · ${member.tool ?? "thinking"}`;
 }
 
-function truncate(text: string, max: number): string {
-	if (text.length <= max) {
-		return text;
-	}
-	return `${text.slice(0, max)}…`;
-}
