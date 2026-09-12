@@ -151,15 +151,17 @@ export class Bot {
 		return session;
 	}
 
-	setMode(mode: BotMode): void {
-		this.record = { ...this.record, mode };
+	async setMode(mode: BotMode): Promise<void> {
+		const record = { ...this.record, mode };
+		await writeBot(record);
+		this.record = record;
 		this.emit({ type: "mode", mode });
-		void writeBot(this.record);
 	}
 
 	async setTools(tools: ToolGroup[]): Promise<BotInfo> {
-		this.record = { ...this.record, tools };
-		await writeBot(this.record);
+		const record = { ...this.record, tools };
+		await writeBot(record);
+		this.record = record;
 		this.agent.state.tools = botTools(this);
 		this.emit({ type: "tools", tools });
 		return this.record;
@@ -214,8 +216,9 @@ export class Bot {
 
 	async selectModel(selection: ModelSelection): Promise<BotInfo> {
 		const model = selectModel(selection);
-		this.record = { ...this.record, model };
-		await writeBot(this.record);
+		const record = { ...this.record, model };
+		await writeBot(record);
+		this.record = record;
 		this.agent.state.model = resolveModel(model);
 		this.agent.state.thinkingLevel = model.reasoning;
 		return this.record;
