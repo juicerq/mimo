@@ -28,6 +28,8 @@ Durante uma resposta, dois `Esc` em até 400 ms interrompem o turno. Um `Esc` is
 
 ## Desenvolvimento
 
+O `CONTEXT.md` é a primeira leitura de quem vai mexer no código: ele define cada palavra do domínio e diz qual arquivo é dono dela.
+
 ```sh
 bun install
 bun run check

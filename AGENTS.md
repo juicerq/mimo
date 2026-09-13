@@ -1,5 +1,7 @@
 # Código
 
+O `CONTEXT.md` define a linguagem e o dono de cada palavra no código. Leia antes de decidir onde uma mudança entra, e atualize a linha `_Dono_` quando a posse mudar.
+
 Antes de escrever ou alterar código, use o Skill tool com name `code-practices` e o Skill tool com name `codebase-design`. As duas chamadas são obrigatórias mesmo em mudanças pequenas.
 
 # Verificação
