@@ -82,7 +82,7 @@ _Dono_: `apps/agent/src/memory/memory.ts`
 **Aprovação**:
 A confirmação da pessoa no terminal antes de uma ação que a exige.
 _Evitar_: Permissão, consentimento
-_Dono_: `apps/agent/src/bot/bot.ts` (`approvals`, `ask`, `approve`); na tela, `apps/mimo/src/view.ts`
+_Dono_: `apps/agent/src/bot/approvals.ts` (a fila de pendentes); quem decide se pede, `apps/agent/src/bot/bot.ts` (`approve`); na tela, `apps/mimo/src/view.ts`
 
 **Rascunho**:
 Uma resposta escrita pelo Bot que só vira e-mail enviado por ação da pessoa ou no Modo autônomo.
