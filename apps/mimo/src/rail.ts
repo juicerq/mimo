@@ -1,5 +1,5 @@
 import { BoxRenderable, CliRenderEvents, TextRenderable, type CliRenderer } from "@opentui/core";
-import { activity, type BotActivity } from "@agent/bot/bot";
+import { activity, type BotActivity } from "@agent/bot/registry";
 import { elapsed } from "./bar";
 import { Lines, type Line } from "./lines";
 import { cols, cut, pad } from "./text";

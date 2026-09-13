@@ -1,5 +1,5 @@
 import { BoxRenderable, type CliRenderer } from "@opentui/core";
-import type { BotActivity } from "@agent/bot/bot";
+import type { BotActivity } from "@agent/bot/registry";
 import type { TeamMember } from "@agent/bot/types";
 import { Lines } from "./lines";
 import { cols, pad } from "./text";
