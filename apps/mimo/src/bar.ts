@@ -2,6 +2,7 @@ import { BoxRenderable, type CliRenderer } from "@opentui/core";
 import type { BotActivity } from "@agent/bot/bot";
 import type { TeamMember } from "@agent/bot/types";
 import { Lines } from "./lines";
+import { cols, pad } from "./text";
 import { T4 } from "./theme";
 
 const TEAM_MS = 1000;
@@ -76,7 +77,7 @@ export class Bar {
 		}
 		const bots = source.read();
 		const team = bots.find((bot) => bot.id === source.botId)?.team ?? [];
-		const width = Math.max(0, ...team.map((member) => member.name.length));
+		const width = Math.max(0, ...team.map((member) => cols(member.name)));
 		const lines = team.map((member) => teamLine(member, width));
 		const elsewhere = bots.filter((bot) => bot.id !== source.botId).flatMap(elsewhereMark);
 		if (elsewhere.length === 0) {
@@ -97,7 +98,7 @@ function elsewhereMark(bot: BotActivity): string[] {
 }
 
 function teamLine(member: TeamMember, width: number): string {
-	return `${member.name.padEnd(width)} ${elapsed(member.startedAt).padStart(4)}  ${member.task}`;
+	return `${pad(member.name, width)} ${elapsed(member.startedAt).padStart(4)}  ${member.task}`;
 }
 
 export function elapsed(startedAt: number): string {
