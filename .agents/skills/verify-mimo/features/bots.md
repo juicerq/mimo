@@ -14,4 +14,6 @@ Cada bot mantém seu transcript, com compactação automática, e memória isola
 8. Depois da compactação, peça para consultar a conversa anterior: `search_history` e `read_history` devem recuperar mensagens e resultados reais. Confira isolamento entre bots e continuação de um registro longo.
 9. Crie um bot descartável com uma rotina, use `/delete`, escolha o número e confirme com `1`. A TUI deve voltar à lista com `Deleted "<nome>".`; confira que `bots/<id>.json`, `bots/<id>/` e a rotina daquele bot sumiram do diretório de dados e que os outros bots continuam. Repita com `2` para provar que a recusa não apaga nada.
 
+10. Ponha uma mensagem sem papel conhecido no fim de `bots/<id>/messages.json` (por exemplo `{"role":"lixo"}`) e reinicie a TUI com `--data` no mesmo diretório. Abrir o bot precisa mostrar `✗ error: A conversa gravada está estragada e não foi tocada: <caminho>`, e o arquivo precisa continuar com o mesmo número de mensagens. Devolva o arquivo bom e confira que a conversa volta inteira. O bot precisa ser reaberto **depois** de reiniciar: um bot já aberto vem da memória e não lê o disco.
+
 Capture a tela e o estado em disco a cada etapa. Não apague o histórico real para preparar uma verificação.
