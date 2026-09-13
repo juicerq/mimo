@@ -37,6 +37,12 @@ type Entry =
 	| { kind: "note"; text: string }
 	| { kind: "routine"; name: string; text: string };
 
+interface Queued {
+	entry: Entry;
+	done: (failure: string | null) => void;
+}
+
+const STOPPED = "O trabalho foi parado.";
 const NOTE_MARK = "[equipe]";
 const ROUTINE_MARK = /^\[rotina(?:: (?<name>[^\]\n]+))?\]\n/u;
 
@@ -74,7 +80,8 @@ export class Bot {
 	private readonly agent: Agent;
 	private readonly listeners = new Set<(event: BotEvent) => void>();
 	private readonly approvals: Pending[] = [];
-	private readonly queued: Entry[] = [];
+	private readonly queued: Queued[] = [];
+	private readonly settling: Queued[] = [];
 	private readonly crew = new Map<Bot, Work>();
 	private readonly running = new Map<string, string>();
 	private record: BotInfo;
@@ -145,7 +152,7 @@ export class Bot {
 	}
 
 	get queue(): string[] {
-		return this.queued.filter((entry) => entry.kind === "user").map((entry) => entry.text);
+		return this.queued.filter((item) => item.entry.kind === "user").map((item) => item.entry.text);
 	}
 
 	get team(): TeamMember[] {
@@ -264,10 +271,7 @@ export class Bot {
 	}
 
 	async runRoutine(routine: { name: string; prompt: string }): Promise<void> {
-		const ran = await this.push({ kind: "routine", name: routine.name, text: routine.prompt });
-		if (ran) {
-			this.raiseFailure();
-		}
+		raise(await this.push({ kind: "routine", name: routine.name, text: routine.prompt }));
 	}
 
 	cancel(): void {
@@ -289,10 +293,13 @@ export class Bot {
 		await this.push({ text: note, kind: "note" });
 	}
 
-	private async push(entry: Entry): Promise<boolean> {
-		this.queued.push(entry);
+	private async push(entry: Entry): Promise<string | null> {
+		const ran = new Promise<string | null>((done) => {
+			this.queued.push({ entry, done });
+		});
 		this.emit({ type: "queue", items: this.queue });
-		return await this.drain();
+		await this.drain();
+		return await ran;
 	}
 
 	private steerQueue(): void {
@@ -307,13 +314,36 @@ export class Bot {
 			return [];
 		}
 		const pending = this.queued.splice(0, this.queued.length);
+		this.settling.push(...pending);
 		this.emit({ type: "queue", items: [] });
-		return pending;
+		return pending.map((item) => item.entry);
+	}
+
+	private settleQueue(): void {
+		const failure = this.outcome();
+		for (const item of this.settling.splice(0, this.settling.length)) {
+			item.done(failure);
+		}
+	}
+
+	private outcome(): string | null {
+		if (this.failure !== null) {
+			return this.failure;
+		}
+		if (this.cancelled) {
+			return STOPPED;
+		}
+		return null;
 	}
 
 	private discard(): void {
-		const kept = this.queued.filter((entry) => entry.kind === "note");
+		const dropped = this.queued.filter((item) => item.entry.kind !== "note");
+		const kept = this.queued.filter((item) => item.entry.kind === "note");
 		this.queued.splice(0, this.queued.length, ...kept);
+		const failure = this.outcome();
+		for (const item of dropped) {
+			item.done(failure);
+		}
 		this.emit({ type: "queue", items: this.queue });
 	}
 
@@ -321,13 +351,13 @@ export class Bot {
 		this.emit(entryEvent(entry));
 	}
 
-	private async drain(): Promise<boolean> {
+	private async drain(): Promise<void> {
 		if (this.draining || this.agent.state.isStreaming) {
-			return false;
+			return;
 		}
 		const batch = this.take();
 		if (batch.length === 0) {
-			return false;
+			return;
 		}
 		this.draining = true;
 		try {
@@ -341,14 +371,14 @@ export class Bot {
 			const run = this.agent.prompt(batch.map(entryMessage));
 			this.draining = false;
 			await run;
-			return true;
 		} finally {
 			this.draining = false;
+			this.settleQueue();
 		}
 	}
 
 	private async finish(): Promise<void> {
-		await this.settle();
+		await this.saveTranscript();
 		await this.drain();
 	}
 
@@ -356,18 +386,8 @@ export class Bot {
 		if (this.busy) {
 			throw new Error("Este filho está trabalhando. Espere ele terminar.");
 		}
-		await this.send(prompt);
-		this.raiseFailure();
+		raise(await this.push({ text: prompt, kind: "user" }));
 		return this.reply;
-	}
-
-	private raiseFailure(): void {
-		if (this.failure !== null) {
-			throw new Error(this.failure);
-		}
-		if (this.cancelled) {
-			throw new Error("O trabalho foi parado.");
-		}
 	}
 
 	private async save(change: Partial<BotInfo>): Promise<BotInfo> {
@@ -515,7 +535,7 @@ export class Bot {
 		}
 	}
 
-	private async settle(): Promise<void> {
+	private async saveTranscript(): Promise<void> {
 		const compacted = await compactTranscript({ messages: this.agent.state.messages, model: this.agent.state.model })
 			.catch(() => null);
 		if (compacted) {
@@ -526,6 +546,12 @@ export class Bot {
 		await writeTranscript(this.record.id, this.agent.state.messages).catch((error: unknown) => {
 			throw new Error(`A conversa não foi gravada: ${errorText(error)}`);
 		});
+	}
+}
+
+function raise(failure: string | null): void {
+	if (failure !== null) {
+		throw new Error(failure);
 	}
 }
 

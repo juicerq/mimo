@@ -27,6 +27,7 @@ Preconditions:
 - **Disparar.** `$CONTROL wait 'MIMO-ROTINA-<run-id>' 240` (tick ≤ 60 s mais o turno do modelo). O prompt chega como novo turno na conversa, com o status passando por `thinking`.
 - **Listar.** `$CONTROL send 'liste minhas rotinas'`; `$CONTROL wait '⚙ list_routines' 180` confirma a tool. A resposta contém o nome e o próximo disparo.
 - **Apagar.** `$CONTROL send 'apague a rotina eco_<run-id>'` → `$CONTROL wait '⏸ approval: delete_routine' 180`; `$CONTROL send '1'` (Aprovar) → `$CONTROL wait '⏸ approved' 180`. Confirme que `grep eco_<run-id> "$DATA/routines.json"` não acha mais nada.
+- **Esperar na Fila.** Ponha o bot num turno longo (`sleep 150` no `bash`, aprovado) e espere o tick chegar durante esse turno. Enquanto a rotina espera, `routines.json` tem `leaseUntil` preenchido e `lastRunAt` **sem mudar**. Só depois que o prompt da rotina entra na conversa é que `lastRunAt` avança. Repita e, com a rotina na Fila, pare o turno com dois `Esc`: `lastRunAt` continua igual e `lastError` fica `O trabalho foi parado.`
 - **Falhar.** Com a rotina criada, use `/model` para escolher um provedor sem saldo e espere o próximo tick. A rotina falhada precisa gravar o erro: `routines.json` tem `lastError` com a mensagem do provedor, e não `lastError: undefined`. Uma rotina cujo turno falha nunca pode ser registrada como sucesso.
 - **Prova.** `$CONTROL capture .verify/runs/<id>/04-routines.txt` com `⚙ create_routine`, o token entregue e `⏸ approved` no delete.
 
@@ -38,7 +39,8 @@ Preconditions:
 - O token precisa ser único por execução para a espera não casar com outra coisa.
 - O nome é único por bot: criar outra rotina com o mesmo nome falha com `Você já tem uma rotina chamada ...`.
 - Uma `routines.json` gravada por uma versão antiga não tem nome; a leitura dá `rotina-1`, `rotina-2` na ordem do arquivo.
-- Um turno que falha não lança: quem chama a rotina só descobre a falha porque o `Bot` guarda a mensagem e a levanta no fim. Se o bot estiver ocupado quando o tick chega, a rotina entra na Fila e o disparo só conta quando o turno dela roda.
+- Um turno que falha não lança: quem chama a rotina só descobre a falha porque o `Bot` guarda a mensagem e a levanta no fim.
+- Se o bot estiver ocupado quando o tick chega, a rotina entra na Fila. O `claimDue` grava o `leaseUntil` na hora, mas `lastRunAt` e `lastError` só são gravados quando o turno dela termina.
 - `stop` restaura o snapshot e remove a rotina de teste do estado do usuário.
 
 ## Continuidade
