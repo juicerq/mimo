@@ -47,7 +47,7 @@ _Dono_: `apps/agent/src/bot/bot.ts` (`work`); a marca `[equipe]`, `apps/agent/sr
 **Fila**:
 As entregas que a pessoa escreve enquanto o Bot trabalha. Esperam acima do composer e entram na Sessão juntas e na ordem, num Turno só, assim que o Bot termina o passo atual. Interromper o Turno descarta a Fila.
 _Evitar_: Buffer, rascunho
-_Dono_: `apps/agent/src/bot/bot.ts` (`queued`, `push`, `drain`, `settleQueue`); na tela, `apps/mimo/src/bar.ts`
+_Dono_: `apps/agent/src/bot/queue.ts` (as entradas e a promessa de cada uma); quando ela entra, `apps/agent/src/bot/bot.ts` (`push`, `drain`, `steerQueue`); na tela, `apps/mimo/src/bar.ts`
 
 **Rotina**:
 Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Tem um nome curto e único dentro do Bot, que as tools usam para tratá-la. Aparece na conversa como `routine: <nome> started`, nunca como entrega da pessoa. Continua pertencendo ao mesmo Bot quando a Sessão muda.
