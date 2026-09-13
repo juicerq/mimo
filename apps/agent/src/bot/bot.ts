@@ -10,24 +10,17 @@ import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
 import { isTeamCall } from "../team/tools";
 import { botInstructions, botTools, needsApproval } from "../tools";
+import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
 import { entryEvent, entryMessage, replayMessage, resultEvent, toolErrorText, toolResultText, usageEvent, type Entry } from "./events";
 import { deleteBot, runningBot, trackBot } from "./registry";
 import { readBot, readTranscript, writeBot, writeTranscript, type BotPatch } from "./store";
 import type { Approval, BotEvent, BotInfo, BotMode, Delegation, TeamMember, ToolGroup } from "./types";
 
-const APPROVE_WORDS = new Set(["1", "approve", "aprovar", "sim", "s"]);
-const DENY_WORDS = new Set(["2", "cancel", "cancelar", "não", "nao", "n"]);
-
 interface Work {
 	task: string;
 	worktree: string | null;
 	startedAt: number;
-}
-
-interface Pending {
-	approval: Approval;
-	resolve: (approved: boolean) => void;
 }
 
 interface Queued {
@@ -40,7 +33,7 @@ const STOPPED = "O trabalho foi parado.";
 export class Bot {
 	private readonly agent: Agent;
 	private readonly listeners = new Set<(event: BotEvent) => void>();
-	private readonly approvals: Pending[] = [];
+	private readonly approvals = new Approvals((event) => this.emit(event));
 	private readonly queued: Queued[] = [];
 	private readonly settling: Queued[] = [];
 	private readonly crew = new Map<Bot, Work>();
@@ -125,7 +118,7 @@ export class Bot {
 	}
 
 	get approval(): Approval | null {
-		return this.approvals[0]?.approval ?? null;
+		return this.approvals.current;
 	}
 
 	get failed(): string | null {
@@ -218,10 +211,7 @@ export class Bot {
 	}
 
 	async deliver(text: string): Promise<void> {
-		const answer = text.trim().toLowerCase();
-		const pending = this.approvals[0];
-		if (pending && (APPROVE_WORDS.has(answer) || DENY_WORDS.has(answer))) {
-			this.resolveApproval(pending, APPROVE_WORDS.has(answer));
+		if (this.approvals.answer(text)) {
 			return;
 		}
 		await this.send(text);
@@ -239,9 +229,7 @@ export class Bot {
 		this.cancelled = true;
 		this.running.clear();
 		this.discard();
-		for (const pending of this.approvals.slice()) {
-			this.resolveApproval(pending, false);
-		}
+		this.approvals.denyAll();
 		this.agent.abort();
 	}
 
@@ -402,36 +390,11 @@ export class Bot {
 		if (!needsApproval(this, toolName, args)) {
 			return;
 		}
-		const approved = await this.commander().ask({ id: toolCallId, bot: this.record.name, toolName, input: args }, signal);
+		const approved = await this.commander().approvals.ask({ id: toolCallId, bot: this.record.name, toolName, input: args }, signal);
 		if (approved) {
 			return;
 		}
 		return { block: true, reason: "A pessoa não aprovou esta ação." };
-	}
-
-	private ask(approval: Approval, signal?: AbortSignal): Promise<boolean> {
-		return new Promise<boolean>((resolve) => {
-			const pending: Pending = { approval, resolve };
-			this.approvals.push(pending);
-			signal?.addEventListener("abort", () => this.resolveApproval(pending, false), { once: true });
-			if (this.approvals[0] === pending) {
-				this.emit({ type: "approval", approval });
-			}
-		});
-	}
-
-	private resolveApproval(pending: Pending, approved: boolean): void {
-		const index = this.approvals.indexOf(pending);
-		if (index === -1) {
-			return;
-		}
-		this.approvals.splice(index, 1);
-		pending.resolve(approved);
-		this.emit({ type: "approval-resolved", outcome: approved ? "approved" : "denied" });
-		const next = this.approvals[0];
-		if (next) {
-			this.emit({ type: "approval", approval: next.approval });
-		}
 	}
 
 	private translate(event: AgentEvent): void {
