@@ -2,7 +2,7 @@ import type { Approval, BotEvent, TeamCall, ToolGroup } from "@agent/bot/types";
 import type { Bar } from "./bar";
 import type { Footer } from "./footer";
 import type { Panel } from "./panel";
-import { loginPanel } from "./screens/login";
+import { loginPanel } from "./panels/login";
 import type { Transcript } from "./transcript";
 import type { Turn } from "./turn";
 import { T1, T3, T4 } from "./theme";
