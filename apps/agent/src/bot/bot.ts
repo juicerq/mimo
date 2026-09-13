@@ -1,17 +1,17 @@
-import { Agent, calculateContextTokens, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
-import { uuidv7, type Usage } from "@earendil-works/pi-ai";
+import { Agent, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
+import { uuidv7 } from "@earendil-works/pi-ai";
 import { archiveSession } from "../history/history";
 import { LoginSession, type LoginTarget } from "../login/login";
-import { contentText, isLlmMessage } from "../messages";
+import { contentText } from "../messages";
 import { resolveModel, selectModel } from "../model/catalog";
 import { modelFailure } from "../model/failure";
 import { models } from "../model/models";
 import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
-import { isTeamCall, teamCall } from "../team/tools";
+import { isTeamCall } from "../team/tools";
 import { botInstructions, botTools, needsApproval } from "../tools";
-import { toolWarning } from "../tools/tool";
 import { compactTranscript } from "./compaction";
+import { entryEvent, entryMessage, replayMessage, resultEvent, toolErrorText, toolResultText, usageEvent, type Entry } from "./events";
 import { deleteBotRoutines } from "../routines/routines";
 import { listChildren, readBot, readTranscript, removeBot, writeBot, writeTranscript, type BotPatch } from "./store";
 import type { Approval, BotEvent, BotInfo, BotMode, Delegation, TeamMember, ToolGroup } from "./types";
@@ -32,19 +32,12 @@ interface Pending {
 	resolve: (approved: boolean) => void;
 }
 
-type Entry =
-	| { kind: "user"; text: string }
-	| { kind: "note"; text: string }
-	| { kind: "routine"; name: string; text: string };
-
 interface Queued {
 	entry: Entry;
 	done: (failure: string | null) => void;
 }
 
 const STOPPED = "O trabalho foi parado.";
-const NOTE_MARK = "[equipe]";
-const ROUTINE_MARK = /^\[rotina(?:: (?<name>[^\]\n]+))?\]\n/u;
 
 export interface BotActivity {
 	id: string;
@@ -555,107 +548,9 @@ function raise(failure: string | null): void {
 	}
 }
 
-function entryMessage(entry: Entry): AgentMessage {
-	return { role: "user", content: entryContent(entry), timestamp: Date.now() };
-}
-
-function entryContent(entry: Entry): string {
-	if (entry.kind === "routine") {
-		return `[rotina: ${entry.name}]\n${entry.text}`;
-	}
-	if (entry.kind === "note") {
-		return `${NOTE_MARK}\n${entry.text}`;
-	}
-	return entry.text;
-}
-
-function entryEvent(entry: Entry): BotEvent {
-	if (entry.kind === "routine") {
-		return { type: "routine", name: entry.name, prompt: entry.text };
-	}
-	if (entry.kind === "note") {
-		return { type: "note", text: entry.text };
-	}
-	return { type: "user", text: entry.text };
-}
-
-function entryOf(text: string): Entry {
-	const routine = ROUTINE_MARK.exec(text);
-	if (routine) {
-		return { kind: "routine", name: routine.groups?.name ?? "rotina", text: text.slice(routine[0].length) };
-	}
-	if (text.startsWith(`${NOTE_MARK}\n`)) {
-		return { kind: "note", text: text.slice(NOTE_MARK.length + 1) };
-	}
-	return { kind: "user", text };
-}
-
-function resultEvent(toolName: string, output: string): BotEvent[] {
-	const call = teamCall(toolName, output);
-	if (call) {
-		return [{ type: "team-call", call }];
-	}
-	const warning = toolWarning(output);
-
-	return [
-		...warning ? [{ type: "tool-warned" as const, message: warning }] : [],
-		{ type: "tool-result", toolName, output },
-	];
-}
-
 function errorText(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
 	}
 	return String(error);
-}
-
-function toolErrorText(result: unknown): string {
-	if (result && typeof result === "object" && "content" in result && Array.isArray(result.content)) {
-		return result.content.filter((part) => part.type === "text").map((part) => part.text).join("");
-	}
-	return "tool failed";
-}
-
-function toolResultText(result: unknown): string {
-	const text = toolErrorText(result);
-	if (text !== "tool failed") {
-		return text;
-	}
-	return JSON.stringify(result) ?? "";
-}
-
-function usageEvent(usage: Usage): BotEvent[] {
-	const contextTokens = calculateContextTokens(usage);
-	if (contextTokens === 0) {
-		return [];
-	}
-	return [{ type: "usage", contextTokens }];
-}
-
-function replayMessage(message: AgentMessage): BotEvent[] {
-	if (!isLlmMessage(message)) {
-		return [];
-	}
-	if (message.role === "user") {
-		const text = contentText(message.content);
-		if (!text) {
-			return [];
-		}
-		return [entryEvent(entryOf(text))];
-	}
-	if (message.role === "toolResult") {
-		if (message.isError) {
-			return [{ type: "tool-failed", message: toolErrorText(message) }];
-		}
-		return resultEvent(message.toolName, contentText(message.content));
-	}
-	const text = contentText(message.content);
-	return [
-		...(text ? [{ type: "reply" as const, text }] : []),
-		...message.content.filter((part) => part.type === "toolCall")
-			.filter((part) => !isTeamCall(part.name))
-			.map((part) => ({ type: "tool" as const, toolName: part.name, input: part.arguments })),
-		...usageEvent(message.usage),
-	];
 }
