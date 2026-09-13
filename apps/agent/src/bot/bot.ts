@@ -12,6 +12,7 @@ import { isTeamCall } from "../team/tools";
 import { botInstructions, botTools, needsApproval } from "../tools";
 import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
+import { Queue } from "./queue";
 import { entryEvent, entryMessage, replayMessage, resultEvent, toolErrorText, toolResultText, usageEvent, type Entry } from "./events";
 import { deleteBot, runningBot, trackBot } from "./registry";
 import { readBot, readTranscript, writeBot, writeTranscript, type BotPatch } from "./store";
@@ -23,19 +24,13 @@ interface Work {
 	startedAt: number;
 }
 
-interface Queued {
-	entry: Entry;
-	done: (failure: string | null) => void;
-}
-
 const STOPPED = "O trabalho foi parado.";
 
 export class Bot {
 	private readonly agent: Agent;
 	private readonly listeners = new Set<(event: BotEvent) => void>();
 	private readonly approvals = new Approvals((event) => this.emit(event));
-	private readonly queued: Queued[] = [];
-	private readonly settling: Queued[] = [];
+	private readonly entries = new Queue((event) => this.emit(event));
 	private readonly crew = new Map<Bot, Work>();
 	private readonly running = new Map<string, string>();
 	private record: BotInfo;
@@ -106,7 +101,7 @@ export class Bot {
 	}
 
 	get queue(): string[] {
-		return this.queued.filter((item) => item.entry.kind === "user").map((item) => item.entry.text);
+		return this.entries.texts;
 	}
 
 	get team(): TeamMember[] {
@@ -228,7 +223,7 @@ export class Bot {
 	cancel(): void {
 		this.cancelled = true;
 		this.running.clear();
-		this.discard();
+		this.entries.discard(this.outcome());
 		this.approvals.denyAll();
 		this.agent.abort();
 	}
@@ -243,35 +238,15 @@ export class Bot {
 	}
 
 	private async push(entry: Entry): Promise<string | null> {
-		const ran = new Promise<string | null>((done) => {
-			this.queued.push({ entry, done });
-		});
-		this.emit({ type: "queue", items: this.queue });
+		const ran = this.entries.add(entry);
 		await this.drain();
 		return await ran;
 	}
 
 	private steerQueue(): void {
-		for (const entry of this.take()) {
+		for (const entry of this.entries.take()) {
 			this.announce(entry);
 			this.agent.steer(entryMessage(entry));
-		}
-	}
-
-	private take(): Entry[] {
-		if (this.queued.length === 0) {
-			return [];
-		}
-		const pending = this.queued.splice(0, this.queued.length);
-		this.settling.push(...pending);
-		this.emit({ type: "queue", items: [] });
-		return pending.map((item) => item.entry);
-	}
-
-	private settleQueue(): void {
-		const failure = this.outcome();
-		for (const item of this.settling.splice(0, this.settling.length)) {
-			item.done(failure);
 		}
 	}
 
@@ -285,17 +260,6 @@ export class Bot {
 		return null;
 	}
 
-	private discard(): void {
-		const dropped = this.queued.filter((item) => item.entry.kind !== "note");
-		const kept = this.queued.filter((item) => item.entry.kind === "note");
-		this.queued.splice(0, this.queued.length, ...kept);
-		const failure = this.outcome();
-		for (const item of dropped) {
-			item.done(failure);
-		}
-		this.emit({ type: "queue", items: this.queue });
-	}
-
 	private announce(entry: Entry): void {
 		this.emit(entryEvent(entry));
 	}
@@ -304,7 +268,7 @@ export class Bot {
 		if (this.draining || this.agent.state.isStreaming) {
 			return;
 		}
-		const batch = this.take();
+		const batch = this.entries.take();
 		if (batch.length === 0) {
 			return;
 		}
@@ -322,7 +286,7 @@ export class Bot {
 			await run;
 		} finally {
 			this.draining = false;
-			this.settleQueue();
+			this.entries.settle(this.outcome());
 		}
 	}
 
