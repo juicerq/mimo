@@ -1,5 +1,5 @@
 import { BoxRenderable, InputRenderable, InputRenderableEvents, RenderableEvents, type CliRenderer } from "@opentui/core";
-import { activity, Bot, deleteBot } from "@agent/bot/bot";
+import { activity, Bot, deleteBot, type BotActivity } from "@agent/bot/bot";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type BotEvent, type BotInfo, type ToolGroup } from "@agent/bot/types";
 import { modelOption } from "@agent/model/catalog";
@@ -20,6 +20,16 @@ import { View } from "./view";
 import { T1, T2, T3, T4, T5 } from "./theme";
 
 const DOUBLE_ESCAPE_MS = 400;
+
+function listMark(entry: BotActivity | undefined): string {
+	if (entry?.failed) {
+		return " ✗ error";
+	}
+	if (entry?.waiting) {
+		return ` ⏸ approval: ${entry.waiting}`;
+	}
+	return "";
+}
 
 export class MimoApp {
 	private readonly transcript: Transcript;
@@ -322,11 +332,10 @@ export class MimoApp {
 				return;
 			}
 			this.screen.list(bots);
-			const waiting = new Map(activity().map((entry) => [entry.id, entry.waiting]));
+			const open = new Map(activity().map((entry) => [entry.id, entry]));
 			for (const [index, bot] of bots.entries()) {
-				const toolName = waiting.get(bot.id);
-				const mark = toolName ? ` ⏸ approval: ${toolName}` : "";
-				this.transcript.note(`${index + 1}. ${bot.name}${mark}`, T2);
+				const entry = open.get(bot.id);
+				this.transcript.note(`${index + 1}. ${bot.name}${listMark(entry)}`, T2);
 			}
 			this.transcript.note(bots.length ? "/new <name> to create a bot, /delete to remove one" : "Create your first bot with /new <name>.", T4);
 			if (note) {
@@ -379,6 +388,10 @@ export class MimoApp {
 			const approval = conversation.approval;
 			if (approval) {
 				this.showEvent({ type: "approval", approval });
+			}
+			const failure = conversation.failed;
+			if (failure) {
+				this.showEvent({ type: "turn-failed", message: failure });
 			}
 		} catch (error) {
 			if (!signal.aborted) {

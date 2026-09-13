@@ -45,6 +45,7 @@ export interface BotActivity {
 	name: string;
 	team: TeamMember[];
 	waiting: string | null;
+	failed: string | null;
 }
 
 export function activity(): BotActivity[] {
@@ -53,7 +54,7 @@ export function activity(): BotActivity[] {
 		if (bot.parentId !== undefined) {
 			continue;
 		}
-		bots.push({ id: bot.botId, name: bot.info.name, team: bot.team, waiting: bot.approval?.toolName ?? null });
+		bots.push({ id: bot.botId, name: bot.info.name, team: bot.team, waiting: bot.approval?.toolName ?? null, failed: bot.failed });
 	}
 	return bots;
 }
@@ -159,6 +160,10 @@ export class Bot {
 		return this.approvals[0]?.approval ?? null;
 	}
 
+	get failed(): string | null {
+		return this.failure;
+	}
+
 	private get tool(): string | null {
 		let last: string | null = null;
 		for (const name of this.running.values()) {
@@ -259,7 +264,10 @@ export class Bot {
 	}
 
 	async runRoutine(routine: { name: string; prompt: string }): Promise<void> {
-		await this.push({ kind: "routine", name: routine.name, text: routine.prompt });
+		const ran = await this.push({ kind: "routine", name: routine.name, text: routine.prompt });
+		if (ran) {
+			this.raiseFailure();
+		}
 	}
 
 	cancel(): void {
@@ -281,10 +289,10 @@ export class Bot {
 		await this.push({ text: note, kind: "note" });
 	}
 
-	private async push(entry: Entry): Promise<void> {
+	private async push(entry: Entry): Promise<boolean> {
 		this.queued.push(entry);
 		this.emit({ type: "queue", items: this.queue });
-		await this.drain();
+		return await this.drain();
 	}
 
 	private steerQueue(): void {
@@ -313,17 +321,18 @@ export class Bot {
 		this.emit(entryEvent(entry));
 	}
 
-	private async drain(): Promise<void> {
+	private async drain(): Promise<boolean> {
 		if (this.draining || this.agent.state.isStreaming) {
-			return;
+			return false;
 		}
 		const batch = this.take();
 		if (batch.length === 0) {
-			return;
+			return false;
 		}
 		this.draining = true;
 		try {
 			this.cancelled = false;
+			this.failure = null;
 			for (const entry of batch) {
 				this.announce(entry);
 			}
@@ -332,6 +341,7 @@ export class Bot {
 			const run = this.agent.prompt(batch.map(entryMessage));
 			this.draining = false;
 			await run;
+			return true;
 		} finally {
 			this.draining = false;
 		}
@@ -346,15 +356,18 @@ export class Bot {
 		if (this.busy) {
 			throw new Error("Este filho está trabalhando. Espere ele terminar.");
 		}
-		this.failure = null;
 		await this.send(prompt);
+		this.raiseFailure();
+		return this.reply;
+	}
+
+	private raiseFailure(): void {
 		if (this.failure !== null) {
 			throw new Error(this.failure);
 		}
 		if (this.cancelled) {
 			throw new Error("O trabalho foi parado.");
 		}
-		return this.reply;
 	}
 
 	private async save(change: Partial<BotInfo>): Promise<BotInfo> {
@@ -477,7 +490,8 @@ export class Bot {
 		if (event.type === "agent_end") {
 			this.emit({ type: "turn-finished" });
 			void this.finish().catch((error: unknown) => {
-				this.emit({ type: "turn-failed", message: errorText(error) });
+				this.failure = errorText(error);
+				this.emit({ type: "turn-failed", message: this.failure });
 			});
 		}
 	}

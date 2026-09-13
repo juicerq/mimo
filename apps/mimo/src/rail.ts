@@ -6,6 +6,8 @@ import { T1, T2, T3, T4, T5 } from "./theme";
 
 const RAIL_MS = 1000;
 const RAIL_COLS = 44;
+const MIN_COLS = 16;
+const INSET = 7;
 
 export class Rail {
 	readonly box: BoxRenderable;
@@ -77,25 +79,34 @@ export class Rail {
 	}
 
 	private read(): Line[] {
-		const bots = activity().filter((bot) => bot.team.length > 0 || bot.waiting !== null);
+		const bots = activity().filter((bot) => bot.team.length > 0 || bot.waiting !== null || bot.failed !== null);
 		if (bots.length === 0) {
 			return [{ text: "nothing running", fg: T4 }];
 		}
 		const lines: Line[] = [];
+		const cols = Math.max(MIN_COLS, this.box.width - INSET);
 		for (const bot of bots) {
 			lines.push(...lines.length > 0 ? [{ text: "", fg: T4 }] : [], { text: head(bot), fg: T1 });
-			lines.push(...body(bot));
+			lines.push(...body(bot, cols));
 		}
 		return lines;
 	}
 }
 
 function head(bot: BotActivity): string {
-	const marks = [...bot.team.length > 0 ? [`${bot.team.length} working`] : [], ...bot.waiting === null ? [] : ["waiting"]];
+	const marks = [...bot.team.length > 0 ? [`${bot.team.length} working`] : [], ...bot.waiting === null ? [] : ["waiting"], ...bot.failed === null ? [] : ["failed"]];
 	return `${bot.name} · ${marks.join(" · ")}`;
 }
 
-function body(bot: BotActivity): Line[] {
+function clip(text: string, width: number): string {
+	const first = text.split(/\n|\. /u)[0] ?? text;
+	if (first.length <= width) {
+		return first;
+	}
+	return `${first.slice(0, width - 1)}…`;
+}
+
+function body(bot: BotActivity, cols: number): Line[] {
 	const lines: Line[] = [];
 	const width = Math.max(0, ...bot.team.map((member) => member.name.length));
 	for (const member of bot.team) {
@@ -107,6 +118,9 @@ function body(bot: BotActivity): Line[] {
 	}
 	if (bot.waiting !== null) {
 		lines.push({ text: `  ⏸ approval: ${bot.waiting}`, fg: T2 });
+	}
+	if (bot.failed !== null) {
+		lines.push({ text: `  ✗ ${clip(bot.failed, cols)}`, fg: T2 });
 	}
 	return lines;
 }
