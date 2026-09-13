@@ -78,12 +78,22 @@ export class Bar {
 		const team = bots.find((bot) => bot.id === source.botId)?.team ?? [];
 		const width = Math.max(0, ...team.map((member) => member.name.length));
 		const lines = team.map((member) => teamLine(member, width));
-		const elsewhere = bots.filter((bot) => bot.id !== source.botId && bot.waiting !== null).map((bot) => `${bot.name} ⏸ approval: ${bot.waiting}`);
+		const elsewhere = bots.filter((bot) => bot.id !== source.botId).flatMap(elsewhereMark);
 		if (elsewhere.length === 0) {
 			return lines;
 		}
 		return [...lines, `elsewhere: ${elsewhere.join(", ")}`];
 	}
+}
+
+function elsewhereMark(bot: BotActivity): string[] {
+	if (bot.failed !== null) {
+		return [`${bot.name} ✗ error`];
+	}
+	if (bot.waiting !== null) {
+		return [`${bot.name} ⏸ approval: ${bot.waiting}`];
+	}
+	return [];
 }
 
 function teamLine(member: TeamMember, width: number): string {
