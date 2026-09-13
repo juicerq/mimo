@@ -1,11 +1,12 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { readdir } from "node:fs/promises";
 import { z } from "zod";
+import { MessageSchema } from "../bot/types";
 import { contentText, isLlmMessage } from "../messages";
 import { dataPath } from "../storage/data";
 import { readJsonFile, writeTextFile } from "../storage/files";
 
-const ArchiveSchema = z.object({ messages: z.array(z.custom<AgentMessage>()) });
+const ArchiveSchema = z.object({ messages: z.array(MessageSchema) });
 const HISTORY_RESPONSE_CHARACTERS = 12_000;
 const SNIPPET_CHARACTERS = 600;
 const SNIPPET_LEAD = 120;

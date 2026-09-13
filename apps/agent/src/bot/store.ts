@@ -6,7 +6,7 @@ import { initialModel, selectModel } from "../model/catalog";
 import { ModelSelectionSchema, type ModelInfo } from "../model/types";
 import { dataPath } from "../storage/data";
 import { readJsonFile, writeTextFile } from "../storage/files";
-import { BotModeSchema, BotNameSchema, BotPromptSchema, CHILD_GROUPS, TOOL_GROUPS, ToolGroupSchema, type BotInfo, type ToolGroup } from "./types";
+import { BotModeSchema, BotNameSchema, BotPromptSchema, CHILD_GROUPS, TOOL_GROUPS, MessageSchema, ToolGroupSchema, type BotInfo, type ToolGroup } from "./types";
 
 const VERSION = 1;
 const LEGACY_PROVIDERS: Record<string, string> = { "openai-oauth": "openai-codex" };
@@ -25,7 +25,7 @@ const StoredBotSchema = z.object({
 	version: z.number().optional(),
 });
 
-const TranscriptSchema = z.array(z.custom<AgentMessage>());
+const TranscriptSchema = z.array(MessageSchema);
 
 function botPath(id: string) {
 	return dataPath("bots", `${id}.json`);
@@ -121,7 +121,14 @@ export async function removeBot(id: string): Promise<void> {
 }
 
 export async function readTranscript(id: string): Promise<AgentMessage[]> {
-	return await readJsonFile(dataPath("bots", id, "messages.json"), TranscriptSchema) ?? [];
+	const path = dataPath("bots", id, "messages.json");
+	const stored = await readJsonFile(path, TranscriptSchema).catch((error: unknown) => {
+		if (error instanceof z.ZodError || error instanceof SyntaxError) {
+			throw new Error(`A conversa gravada está estragada e não foi tocada: ${path}`);
+		}
+		throw error;
+	});
+	return stored ?? [];
 }
 
 export async function writeTranscript(id: string, messages: AgentMessage[]): Promise<void> {

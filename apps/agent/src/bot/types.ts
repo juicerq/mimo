@@ -1,6 +1,18 @@
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
 import type { LoginSession, LoginTarget } from "../login/login";
 import type { ModelInfo } from "../model/types";
+
+const MESSAGE_ROLES = new Set(["user", "assistant", "toolResult"]);
+
+function isMessage(value: unknown): boolean {
+	if (typeof value !== "object" || value === null || !("role" in value)) {
+		return false;
+	}
+	return typeof value.role === "string" && MESSAGE_ROLES.has(value.role);
+}
+
+export const MessageSchema = z.custom<AgentMessage>(isMessage, "Esta mensagem não tem um papel conhecido.");
 
 export const BotNameSchema = z.string().trim().min(1).max(80).regex(/^[^\p{Cc}\p{Cf}]+$/u);
 export const BotModeSchema = z.enum(["normal", "autonomous"]);
