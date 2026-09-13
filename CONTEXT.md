@@ -22,7 +22,7 @@ _Dono_: `apps/agent/src/bot/bot.ts` (`drain`, `translate`); na tela, `apps/mimo/
 **Modelo do Bot**:
 A escolha de provedor, modelo e esforço para as próximas respostas de um Bot. Permanece salva e pode mudar sem abrir outra Sessão. Uma resposta em andamento mantém a escolha com que começou, inclusive enquanto espera Aprovação.
 _Evitar_: Modelo global, modelo da sessão
-_Dono_: `apps/agent/src/model/catalog.ts`; o Painel, `apps/mimo/src/screens/model.ts`
+_Dono_: `apps/agent/src/model/catalog.ts`; o Painel, `apps/mimo/src/panels/model.ts`
 
 **Bot filho**:
 Um Bot criado por outro Bot, com Memória e Sessão próprias. Pertence a quem o criou, não aparece na lista de Bots da pessoa e é apagado junto com o pai.
@@ -62,7 +62,7 @@ _Dono_: `apps/mimo/src/transcript.ts` (`DETAIL_LEVELS`, `cycle`)
 **Grupo de tools**:
 Um conjunto de tools que um Bot tem ou não tem: `computer`, `web`, `gmail`, `routines` e `team`. O grupo pode carregar junto um bloco de instruções, e aí desligá-lo também tira esse bloco do contexto do Bot. A pessoa escolhe pelo Painel de tools ou pedindo ao Bot. Um Bot filho nunca recebe `team`.
 _Evitar_: Permissão, capacidade, plugin
-_Dono_: `apps/agent/src/tools/index.ts` (`botTools`, `botInstructions`); o Painel, `apps/mimo/src/screens/tools.ts`
+_Dono_: `apps/agent/src/tools/index.ts` (`botTools`, `botInstructions`); o Painel, `apps/mimo/src/panels/tools.ts`
 
 **Modo normal**:
 O Bot executa o trabalho e pede Aprovação para as ações que a exigem, como enviar e-mails, apagar Rotinas e ativar o Modo autônomo.
@@ -92,7 +92,7 @@ _Dono_: `apps/agent/src/gmail/tools.ts`
 **Painel**:
 A tela que substitui a conversa para uma escolha ou uma conexão: modelo, esforço, tools, login e logout. Tem título, itens numerados e volta à conversa com `/cancel` ou `Esc`, preservando o rascunho.
 _Evitar_: Seletor, modal, picker
-_Dono_: `apps/mimo/src/panel.ts`; cada um, `apps/mimo/src/screens/`
+_Dono_: `apps/mimo/src/panel.ts`; cada um, `apps/mimo/src/panels/`
 
 **Sandbox**:
 Um diretório de dados separado (`MIMO_DATA_DIR`) usado para experimentar sem tocar nos dados reais.

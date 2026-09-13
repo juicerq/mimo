@@ -42,20 +42,20 @@ interface ChoiceList<Id extends string> {
 	notes?: string[];
 }
 
-export interface ChoiceScreen<Id extends string> {
+export interface ChoiceSpec<Id extends string> {
 	heading: string;
 	empty?: string;
 	load(): ChoiceList<Id> | Promise<ChoiceList<Id>>;
 	pick(id: Id, view: PanelView): void;
 }
 
-export function choicePanel<Id extends string>(screen: ChoiceScreen<Id>): Panel {
+export function choicePanel<Id extends string>(spec: ChoiceSpec<Id>): Panel {
 	let choices: Choice<Id>[] = [];
 
 	return {
-		heading: screen.heading,
+		heading: spec.heading,
 		start(view) {
-			void render(screen, view).then((loaded) => {
+			void render(spec, view).then((loaded) => {
 				choices = loaded;
 			});
 		},
@@ -69,14 +69,14 @@ export function choicePanel<Id extends string>(screen: ChoiceScreen<Id>): Panel 
 				view.line("Choose one of the listed numbers.", "note");
 				return;
 			}
-			screen.pick(choice.id, view);
+			spec.pick(choice.id, view);
 		},
 	};
 }
 
-async function render<Id extends string>(screen: ChoiceScreen<Id>, view: PanelView): Promise<Choice<Id>[]> {
+async function render<Id extends string>(spec: ChoiceSpec<Id>, view: PanelView): Promise<Choice<Id>[]> {
 	try {
-		const list = await screen.load();
+		const list = await spec.load();
 		let group: string | null = null;
 		for (const [index, choice] of list.choices.entries()) {
 			if (choice.group !== undefined && choice.group !== group) {
@@ -88,8 +88,8 @@ async function render<Id extends string>(screen: ChoiceScreen<Id>, view: PanelVi
 			}
 			view.line(`${index + 1}. ${choice.label}`, "item", true);
 		}
-		if (list.choices.length === 0 && screen.empty !== undefined) {
-			view.line(screen.empty, "note", true);
+		if (list.choices.length === 0 && spec.empty !== undefined) {
+			view.line(spec.empty, "note", true);
 		}
 		for (const note of list.notes ?? []) {
 			view.line(note, "note");
