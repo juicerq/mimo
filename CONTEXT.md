@@ -7,7 +7,7 @@ Este contexto define como uma pessoa cria e usa Bots pessoais pelo terminal.
 **Bot**:
 Um agente pessoal criado e nomeado pela pessoa, com Memória própria e uma Sessão atual. Seu propósito se desenvolve pelo uso, sem especialidade predeterminada, e a pessoa pode criar quantos Bots quiser.
 _Evitar_: Assistente, agente
-_Dono_: `apps/agent/src/bot/bot.ts` (classe `Bot`); em disco, `apps/agent/src/bot/store.ts`
+_Dono_: `apps/agent/src/bot/bot.ts` (classe `Bot`); em disco, `apps/agent/src/bot/store.ts`; quem está aberto, `apps/agent/src/bot/registry.ts`
 
 **Sessão**:
 A conversa durável atual de um Bot, que sobrevive a reinícios e à troca de Bot. Quando o contexto é compactado, a Sessão atual é arquivada e outra começa com um resumo, preservando a Memória e o acesso às Sessões anteriores.
@@ -42,7 +42,7 @@ _Dono_: `apps/agent/src/bot/bot.ts` (`delegate`, `work`)
 **Aviso**:
 A resposta de um Bot filho, entregue sozinha na Sessão de quem delegou quando o trabalho termina ou falha. Espera o fim do Turno em andamento e entra junto com a Fila.
 _Evitar_: Callback, notificação
-_Dono_: `apps/agent/src/bot/bot.ts` (`work`, entrada `kind: "note"`)
+_Dono_: `apps/agent/src/bot/bot.ts` (`work`); a marca `[equipe]`, `apps/agent/src/bot/events.ts`
 
 **Fila**:
 As entregas que a pessoa escreve enquanto o Bot trabalha. Esperam acima do composer e entram na Sessão juntas e na ordem, num Turno só, assim que o Bot termina o passo atual. Interromper o Turno descarta a Fila.
@@ -52,7 +52,7 @@ _Dono_: `apps/agent/src/bot/bot.ts` (`queued`, `push`, `drain`, `settleQueue`); 
 **Rotina**:
 Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Tem um nome curto e único dentro do Bot, que as tools usam para tratá-la. Aparece na conversa como `routine: <nome> started`, nunca como entrega da pessoa. Continua pertencendo ao mesmo Bot quando a Sessão muda.
 _Evitar_: Agendamento, cron job, automação
-_Dono_: `apps/agent/src/routines/routines.ts`; o disparo, `apps/agent/src/routines/dispatcher.ts`
+_Dono_: `apps/agent/src/routines/routines.ts`; o disparo, `apps/agent/src/routines/dispatcher.ts`; a marca `[rotina: <nome>]`, `apps/agent/src/bot/events.ts`
 
 **Detalhe**:
 Tudo que aparece na conversa e não é a entrega da pessoa nem a resposta do Bot: a tool, o disparo de uma Rotina, a ação de equipe e a troca de Grupo de tools. A pessoa escolhe quanto ver com `Ctrl+O`: `off` esconde, `brief` mostra uma linha por item e `full` acrescenta o conteúdo.
@@ -108,5 +108,7 @@ O dispatcher de Rotinas vive **dentro do processo da TUI** e faz um tick por min
 Um Grupo de tools pode carregar um bloco de instruções, em `apps/agent/src/<grupo>/instructions.md`. Hoje `gmail`, `routines`, `computer` e `team` têm um; `web` não tem. `botInstructions` em `apps/agent/src/tools/index.ts` monta o texto, então desligar o grupo tira as tools e também o bloco.
 
 Tudo o que dura fica no diretório de dados (`MIMO_DATA_DIR`, padrão `.data`): `bots/<id>.json`, `bots/<id>/messages.json`, `bots/<id>/sessions/`, `routines.json` e `actions.jsonl`.
+
+Quem está aberto agora mora em `apps/agent/src/bot/registry.ts`: ele guarda o mapa dos Bots vivos, responde o que a barra e o trilho mostram (`activity`) e apaga um Bot com os filhos (`deleteBot`).
 
 A verificação não tem suíte: ela é dirigir a TUI de verdade. A receita por feature está em `.agents/skills/verify-mimo/features/`.

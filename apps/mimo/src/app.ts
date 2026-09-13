@@ -1,5 +1,6 @@
 import { BoxRenderable, InputRenderable, InputRenderableEvents, RenderableEvents, type CliRenderer } from "@opentui/core";
-import { activity, Bot, deleteBot, type BotActivity } from "@agent/bot/bot";
+import { Bot } from "@agent/bot/bot";
+import { activity, deleteBot, type BotActivity } from "@agent/bot/registry";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type BotEvent, type BotInfo, type ToolGroup } from "@agent/bot/types";
 import { modelOption } from "@agent/model/catalog";

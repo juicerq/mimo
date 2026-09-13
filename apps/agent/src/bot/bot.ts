@@ -12,14 +12,12 @@ import { isTeamCall } from "../team/tools";
 import { botInstructions, botTools, needsApproval } from "../tools";
 import { compactTranscript } from "./compaction";
 import { entryEvent, entryMessage, replayMessage, resultEvent, toolErrorText, toolResultText, usageEvent, type Entry } from "./events";
-import { deleteBotRoutines } from "../routines/routines";
-import { listChildren, readBot, readTranscript, removeBot, writeBot, writeTranscript, type BotPatch } from "./store";
+import { deleteBot, runningBot, trackBot } from "./registry";
+import { readBot, readTranscript, writeBot, writeTranscript, type BotPatch } from "./store";
 import type { Approval, BotEvent, BotInfo, BotMode, Delegation, TeamMember, ToolGroup } from "./types";
 
 const APPROVE_WORDS = new Set(["1", "approve", "aprovar", "sim", "s"]);
 const DENY_WORDS = new Set(["2", "cancel", "cancelar", "não", "nao", "n"]);
-
-const open = new Map<string, Bot>();
 
 interface Work {
 	task: string;
@@ -38,36 +36,6 @@ interface Queued {
 }
 
 const STOPPED = "O trabalho foi parado.";
-
-export interface BotActivity {
-	id: string;
-	name: string;
-	team: TeamMember[];
-	waiting: string | null;
-	failed: string | null;
-}
-
-export function activity(): BotActivity[] {
-	const bots: BotActivity[] = [];
-	for (const bot of open.values()) {
-		if (bot.parentId !== undefined) {
-			continue;
-		}
-		bots.push({ id: bot.botId, name: bot.info.name, team: bot.team, waiting: bot.approval?.toolName ?? null, failed: bot.failed });
-	}
-	return bots;
-}
-
-export async function deleteBot(id: string): Promise<void> {
-	for (const child of await listChildren(id)) {
-		await deleteBot(child.id);
-	}
-	const running = open.get(id);
-	running?.cancel();
-	open.delete(id);
-	await deleteBotRoutines(id);
-	await removeBot(id);
-}
 
 export class Bot {
 	private readonly agent: Agent;
@@ -103,7 +71,7 @@ export class Bot {
 	}
 
 	static async open(id: string): Promise<Bot> {
-		const running = open.get(id);
+		const running = runningBot(id);
 		if (running) {
 			return running;
 		}
@@ -112,7 +80,7 @@ export class Bot {
 			throw new Error("This bot no longer exists.");
 		}
 		const bot = new Bot(record, await readTranscript(id));
-		open.set(id, bot);
+		trackBot(bot);
 		return bot;
 	}
 
@@ -217,7 +185,7 @@ export class Bot {
 
 	async updateChild(botId: string, patch: BotPatch): Promise<BotInfo> {
 		const child = await this.child(botId);
-		const running = open.get(botId);
+		const running = runningBot(botId);
 		if (running?.busy) {
 			throw new Error("Este filho está trabalhando. Espere ele terminar.");
 		}
