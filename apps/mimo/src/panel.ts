@@ -177,10 +177,10 @@ export class Panels {
 		return this.panel.copy(view);
 	}
 
-	cancel(): void {
+	readonly cancel = (): void => {
 		this.panel?.cancel?.();
 		this.close();
-	}
+	};
 
 	dismiss(): void {
 		this.panel?.cancel?.();

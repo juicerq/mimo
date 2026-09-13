@@ -7,7 +7,7 @@ import type { ModelSelection } from "@agent/model/types";
 import { Bar, NEXT_TEAM_VIEW, type TeamView } from "./bar";
 import { describeError } from "./errors";
 import { Footer } from "./footer";
-import { Panels, type PanelResult } from "./panel";
+import { Panels, type Panel, type PanelResult } from "./panel";
 import { Rail } from "./rail";
 import { Screen } from "./screen";
 import { deletePanel } from "./screens/delete";
@@ -200,80 +200,59 @@ export class MimoApp {
 		this.screen.conversation?.cancel();
 	}
 
-	private navigate(text: string) {
+	private readonly showModels = (): void => {
+		this.showBotPanel("Open a bot to choose its model.", (info) => modelPanel(info, this.saveModel));
+	};
+
+	private get commands(): Map<string, () => void> {
+		return new Map<string, () => void>([
+			["/bots", () => {
+				void this.showBots();
+			}],
+			["/cancel", this.panels.cancel],
+			["/model", this.showModels],
+			["/tools", () => {
+				this.showBotPanel("Open a bot to choose its tools.", (info) => toolsPanel(info, this.saveTools));
+			}],
+			["/effort", () => {
+				this.showBotPanel("Open a bot to choose its effort.", (info) => effortPanel(modelOption(info.model), this.saveModel));
+			}],
+			["/delete", () => {
+				this.panels.show(deletePanel(this.removeBot));
+			}],
+			["/login", () => {
+				this.panels.show(loginTargetsPanel());
+			}],
+			["/logout", () => {
+				this.panels.show(accountsPanel());
+			}],
+		]);
+	}
+
+	private navigate(text: string): boolean {
 		if (this.panels.state === "saving") {
 			return true;
 		}
-		if (text === "/bots") {
-			void this.showBots();
-			return true;
+		const command = this.commands.get(text);
+		if (!command) {
+			return false;
 		}
-		if (text === "/cancel") {
-			this.panels.cancel();
-			return true;
-		}
-		if (text === "/model") {
-			this.input.value = "";
-			this.showModels();
-			return true;
-		}
-		if (text === "/tools") {
-			this.input.value = "";
-			this.showTools();
-			return true;
-		}
-		if (text === "/effort") {
-			this.input.value = "";
-			this.showEfforts();
-			return true;
-		}
-		if (text === "/delete") {
-			this.input.value = "";
-			this.panels.show(deletePanel(this.removeBot));
-			return true;
-		}
-		if (text === "/login") {
-			this.input.value = "";
-			this.panels.show(loginTargetsPanel());
-			return true;
-		}
-		if (text === "/logout") {
-			this.input.value = "";
-			this.panels.show(accountsPanel());
-			return true;
-		}
-		return false;
+		this.input.value = "";
+		command();
+		return true;
 	}
 
-	private showModels(): void {
+	private showBotPanel(hint: string, build: (info: BotInfo) => Panel): void {
 		const conversation = this.screen.conversation;
 		if (!conversation) {
-			this.transcript.note("Open a bot to choose its model.", T3);
-			return;
-		}
-		this.panels.show(modelPanel(conversation.info, this.saveModel));
-	}
-
-	private showEfforts(): void {
-		const conversation = this.screen.conversation;
-		if (!conversation) {
-			this.transcript.note("Open a bot to choose its effort.", T3);
+			this.transcript.note(hint, T3);
 			return;
 		}
 		try {
-			this.panels.show(effortPanel(modelOption(conversation.info.model), this.saveModel));
+			this.panels.show(build(conversation.info));
 		} catch (error) {
 			this.transcript.note(describeError(error), T1);
 		}
-	}
-
-	private showTools(): void {
-		const conversation = this.screen.conversation;
-		if (!conversation) {
-			this.transcript.note("Open a bot to choose its tools.", T3);
-			return;
-		}
-		this.panels.show(toolsPanel(conversation.info, this.saveTools));
 	}
 
 	private readonly saveTools = async (tools: ToolGroup[]): Promise<BotInfo> => {

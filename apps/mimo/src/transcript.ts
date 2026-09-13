@@ -35,10 +35,6 @@ export class Transcript {
 		});
 	}
 
-	get level(): Detail {
-		return this.detail;
-	}
-
 	cycle(): Detail {
 		this.detail = DETAIL_LEVELS[(DETAIL_LEVELS.indexOf(this.detail) + 1) % DETAIL_LEVELS.length];
 		return this.detail;
