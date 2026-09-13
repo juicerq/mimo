@@ -2,6 +2,7 @@ import { BoxRenderable, CliRenderEvents, TextRenderable, type CliRenderer } from
 import { activity, type BotActivity } from "@agent/bot/bot";
 import { elapsed } from "./bar";
 import { Lines, type Line } from "./lines";
+import { cols, cut, pad } from "./text";
 import { T1, T2, T3, T4, T5 } from "./theme";
 
 const RAIL_MS = 1000;
@@ -84,10 +85,10 @@ export class Rail {
 			return [{ text: "nothing running", fg: T4 }];
 		}
 		const lines: Line[] = [];
-		const cols = Math.max(MIN_COLS, this.box.width - INSET);
+		const inner = Math.max(MIN_COLS, this.box.width - INSET);
 		for (const bot of bots) {
 			lines.push(...lines.length > 0 ? [{ text: "", fg: T4 }] : [], { text: head(bot), fg: T1 });
-			lines.push(...body(bot, cols));
+			lines.push(...body(bot, inner));
 		}
 		return lines;
 	}
@@ -99,18 +100,14 @@ function head(bot: BotActivity): string {
 }
 
 function clip(text: string, width: number): string {
-	const first = text.split(/\n|\. /u)[0] ?? text;
-	if (first.length <= width) {
-		return first;
-	}
-	return `${first.slice(0, width - 1)}…`;
+	return cut(text.split(/\n|\. /u)[0] ?? text, width);
 }
 
-function body(bot: BotActivity, cols: number): Line[] {
+function body(bot: BotActivity, inner: number): Line[] {
 	const lines: Line[] = [];
-	const width = Math.max(0, ...bot.team.map((member) => member.name.length));
+	const width = Math.max(0, ...bot.team.map((member) => cols(member.name)));
 	for (const member of bot.team) {
-		lines.push({ text: `  ${member.name.padEnd(width)} ${elapsed(member.startedAt).padStart(4)}  ${member.tool ?? ""}`.trimEnd(), fg: T2 });
+		lines.push({ text: `  ${pad(member.name, width)} ${elapsed(member.startedAt).padStart(4)}  ${member.tool ?? ""}`.trimEnd(), fg: T2 });
 		lines.push({ text: `  ${member.task}`, fg: T3 });
 		if (member.worktree !== null) {
 			lines.push({ text: `  ${member.worktree}`, fg: T4 });
@@ -120,7 +117,7 @@ function body(bot: BotActivity, cols: number): Line[] {
 		lines.push({ text: `  ⏸ approval: ${bot.waiting}`, fg: T2 });
 	}
 	if (bot.failed !== null) {
-		lines.push({ text: `  ✗ ${clip(bot.failed, cols)}`, fg: T2 });
+		lines.push({ text: `  ✗ ${clip(bot.failed, inner)}`, fg: T2 });
 	}
 	return lines;
 }
