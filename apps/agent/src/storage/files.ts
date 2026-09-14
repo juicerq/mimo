@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
@@ -10,6 +11,17 @@ function isMissing(error: unknown): boolean {
 export async function readTextFile(path: string): Promise<string | null> {
 	try {
 		return await readFile(path, "utf8");
+	} catch (error) {
+		if (isMissing(error)) {
+			return null;
+		}
+		throw error;
+	}
+}
+
+export function readTextFileSync(path: string): string | null {
+	try {
+		return readFileSync(path, "utf8");
 	} catch (error) {
 		if (isMissing(error)) {
 			return null;

@@ -32,6 +32,15 @@ Você pode escrever enquanto o bot trabalha. A mensagem fica acima do composer c
 
 Durante uma resposta, dois `Esc` em até 400 ms interrompem o turno. Um `Esc` isolado não interrompe; dentro do painel de modelos ele apenas volta à conversa. Se houver uma aprovação pendente, o atalho a recusa. Depois de uma falha ou interrupção, escreva “continue”, ajuste o pedido ou mude de assunto normalmente. Interromper não desfaz ações já concluídas.
 
+## Instalação
+
+```sh
+bun install
+cd apps/mimo && bun link
+```
+
+Isso dá o comando `mimo` em qualquer pasta. O link aponta para o código do repo, então `git pull` já atualiza o comando; não há build nem publicação no npm. Coloque suas chaves em `~/.mimo/.env`, no formato do `.env.example`.
+
 ## Desenvolvimento
 
 O `CONTEXT.md` é a primeira leitura de quem vai mexer no código: ele define cada palavra do domínio e diz qual arquivo é dono dela.
@@ -66,7 +75,7 @@ MIMO_MODEL=openai-codex/gpt-5.6-luna MIMO_REASONING=max bun run dev
 
 A integração OpenAI usa as credenciais locais do Codex em `~/.codex/auth.json`; a OpenCode Go usa `~/.local/share/opencode/auth.json`. O catálogo vem das mesmas contas. A assinatura tem seus próprios limites de uso, separados de uma chave de API.
 
-Use `/login` para conectar uma conta sem sair da TUI. O painel separa `providers` (OpenCode Go com chave de API, OpenAI com OAuth) de `plugins` (Gmail com OAuth), com numeração contínua. Na OpenAI, escolha login pelo navegador ou por código de dispositivo; a TUI mostra o link e `c` copia ele para a área de transferência. Cole o código de autorização no composer se o navegador não voltar sozinho. `/cancel` ou `Esc` aborta o login. `/logout` lista as contas de Gmail conectadas e desconecta pelo número. A credencial dos modelos é gravada nos mesmos arquivos do Codex e da OpenCode, e o token renovado é salvo a cada atualização. O Gmail segue o mesmo caminho e grava a conta em `.data/gmail/accounts.json`; a autorização volta sozinha do navegador.
+Use `/login` para conectar uma conta sem sair da TUI. O painel separa `providers` (OpenCode Go com chave de API, OpenAI com OAuth) de `plugins` (Gmail com OAuth), com numeração contínua. Na OpenAI, escolha login pelo navegador ou por código de dispositivo; a TUI mostra o link e `c` copia ele para a área de transferência. Cole o código de autorização no composer se o navegador não voltar sozinho. `/cancel` ou `Esc` aborta o login. `/logout` lista as contas de Gmail conectadas e desconecta pelo número. A credencial dos modelos é gravada nos mesmos arquivos do Codex e da OpenCode, e o token renovado é salvo a cada atualização. O Gmail segue o mesmo caminho e grava a conta em `~/.mimo/gmail/accounts.json`; a autorização volta sozinha do navegador.
 
 O modelo inicial padrão é `opencode-go/deepseek-v4-flash`. `MIMO_MODEL` e `MIMO_REASONING` definem apenas a configuração inicial de um bot novo. As escolhas salvas por bot prevalecem sobre o ambiente.
 
@@ -78,21 +87,21 @@ O contexto é compactado automaticamente em 80% da janela do modelo: as mensagen
 
 ## Dados
 
-Por padrão os dados reais ficam em `.data/` na raiz: bots, transcripts, memória, contas do Gmail, rotinas e registros de ações. Para experimentar sem tocar neles, rode o sandbox:
+O mimo guarda tudo em `~/.mimo/`: bots, transcripts, memória, contas do Gmail, rotinas, registros de ações e as chaves em `~/.mimo/.env`. A casa não depende da pasta de onde você chamou o mimo, então `bun run dev` e o comando `mimo` veem os mesmos bots. Para experimentar sem tocar neles, rode o sandbox:
 
 ```sh
 bun run dev:sandbox
 ```
 
-Ele usa `.data-dev` (ignorado pelo git). Qualquer outro diretório serve com `MIMO_DATA_DIR` (relativo à raiz ou absoluto). Para conectar contas no sandbox, rode `/login` dentro dele: a conta é gravada no diretório de dados em uso.
+Ele usa `.data-dev` (ignorado pelo git). Qualquer outro diretório serve com `MIMO_DATA_DIR` (relativo à pasta atual ou absoluto). Para conectar contas no sandbox, rode `/login` dentro dele: a conta é gravada no diretório de dados em uso.
 
 A verificação de ponta a ponta (`verify-mimo`) também roda em sandbox por padrão e só usa os dados reais se for apontada para eles de propósito.
 
 ## Memória
 
-Cada bot tem memória isolada em `.data/bots/<id>/memory.md`. Ela registra fatos, preferências e decisões úteis para os próximos turnos. Peça ao bot para lembrar ou remover algo.
+Cada bot tem memória isolada em `~/.mimo/bots/<id>/memory.md`. Ela registra fatos, preferências e decisões úteis para os próximos turnos. Peça ao bot para lembrar ou remover algo.
 
-O registro do bot fica em `.data/bots/<id>.json` e o transcript atual em `.data/bots/<id>/messages.json`. Cada compactação arquiva a conversa anterior em `.data/bots/<id>/sessions/<session-id>.json`. As ferramentas de histórico consultam todos os arquivos do próprio bot e omitem metadados técnicos na leitura, preservando as mensagens e o estado das ações.
+O registro do bot fica em `~/.mimo/bots/<id>.json` e o transcript atual em `~/.mimo/bots/<id>/messages.json`. Cada compactação arquiva a conversa anterior em `~/.mimo/bots/<id>/sessions/<session-id>.json`. As ferramentas de histórico consultam todos os arquivos do próprio bot e omitem metadados técnicos na leitura, preservando as mensagens e o estado das ações.
 
 ## Equipe
 
@@ -112,12 +121,12 @@ O filho não tem tela. Quando uma ação dele precisa de aprovação, ela sobe p
 
 ## Gmail
 
-Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão de uma conta pelo próprio bot: o link aparece no terminal e a pessoa autoriza no navegador. A tool `disconnect_gmail` apaga a conta guardada e revoga o acesso no Google; no modo normal ela espera aprovação. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria rascunhos, `send_draft` envia um rascunho e `send_email` inicia um e-mail novo; no modo normal, ambos esperam aprovação. Cada conta conectada guarda o refresh token em `.data/gmail/accounts.json`; o client id e o client secret ficam em `.env.local` na raiz.
+Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão de uma conta pelo próprio bot: o link aparece no terminal e a pessoa autoriza no navegador. A tool `disconnect_gmail` apaga a conta guardada e revoga o acesso no Google; no modo normal ela espera aprovação. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria rascunhos, `send_draft` envia um rascunho e `send_email` inicia um e-mail novo; no modo normal, ambos esperam aprovação. Cada conta conectada guarda o refresh token em `~/.mimo/gmail/accounts.json`; o client id e o client secret ficam em `~/.mimo/.env`.
 
 1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto e ative a Gmail API.
 2. Configure a tela de consentimento OAuth (tipo External, com você como usuário de teste).
 3. Em Credenciais, crie um cliente OAuth do tipo App para computador.
-4. Coloque o client id e o client secret em `.env.local` (`GMAIL_CLIENT_ID` e `GMAIL_CLIENT_SECRET`).
+4. Coloque o client id e o client secret em `~/.mimo/.env` (`GMAIL_CLIENT_ID` e `GMAIL_CLIENT_SECRET`).
 5. Rode `bun run dev` e peça ao bot para conectar sua conta do Gmail (ele chama `connect_gmail`), ou digite `/login` e escolha Gmail. Abra o link (`c` copia), autorize a conta e a TUI grava a conta e o refresh token sozinha; repita para conectar outras contas.
 6. Peça para o bot listar os não lidos. Com mais de uma conta, diga qual.
 
@@ -131,7 +140,7 @@ As tools partem da pasta do bot, ou da pasta pessoal quando ele não tem uma; ca
 
 ## Busca na web
 
-A tool `web_search` usa o MCP público da [Exa](https://exa.ai/) (`mcp.exa.ai/mcp`), o mesmo que o OpenCode usa: funciona sem conta e sem chave. Quem tiver uma `EXA_API_KEY` pode colocá-la em `.env.local` para limites maiores.
+A tool `web_search` usa o MCP público da [Exa](https://exa.ai/) (`mcp.exa.ai/mcp`), o mesmo que o OpenCode usa: funciona sem conta e sem chave. Quem tiver uma `EXA_API_KEY` pode colocá-la em `~/.mimo/.env` para limites maiores.
 
 ```sh
 EXA_API_KEY=
@@ -139,7 +148,7 @@ EXA_API_KEY=
 
 ## Rotinas
 
-As rotinas ficam em `.data/routines.json` e pertencem ao bot que as criou. Um dispatcher de um minuto roda dentro da TUI e entrega o prompt ao bot pelo mesmo caminho usado pela conversa. Com a TUI fechada, nenhuma rotina dispara.
+As rotinas ficam em `~/.mimo/routines.json` e pertencem ao bot que as criou. Um dispatcher de um minuto roda dentro da TUI e entrega o prompt ao bot pelo mesmo caminho usado pela conversa. Com a TUI fechada, nenhuma rotina dispara.
 
 Cada rotina tem um nome curto, escolhido na criação e único dentro do bot, como `check_emails`. As tools `update_routine` e `delete_routine` tratam a rotina pelo nome, e `list_routines` mostra os nomes.
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dataPath } from "../storage/data";
+import { dataPath } from "../storage/home";
 import { appendJsonLine, readTextFile } from "../storage/files";
 import type { BotMode } from "../bot/types";
 

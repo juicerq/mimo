@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
 import { CliRenderEvents, createCliRenderer } from "@opentui/core";
 import { startRoutines } from "@agent/routines/dispatcher";
+import { loadEnv } from "@agent/storage/home";
 import pkg from "../package.json";
 import { MimoApp } from "./app";
 
 async function main(): Promise<void> {
+	loadEnv();
 	if (process.argv.includes("--version") || process.argv.includes("-v")) {
 		console.log(`mimo ${pkg.version}`);
 		return;

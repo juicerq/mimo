@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { dataPath } from "../storage/data";
+import { dataPath } from "../storage/home";
 import { readJsonFile, writeTextFile } from "../storage/files";
 
 const STORE_PATH = dataPath("routines.json");

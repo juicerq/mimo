@@ -114,10 +114,15 @@ A tela que substitui a conversa para uma escolha ou uma conexão: modelo, esfor�
 _Evitar_: Seletor, modal, picker
 _Dono_: `apps/mimo/src/panel.ts`; cada um, `apps/mimo/src/panels/`
 
+**Casa**:
+Onde o mimo guarda tudo: `~/.mimo`, com os bots, as rotinas, o registro de ações e as chaves em `.env`. Não depende da pasta de onde o mimo foi chamado. `MIMO_DATA_DIR` troca o lugar dos dados; as chaves seguem o `$HOME`, porque pertencem à pessoa e não ao Sandbox.
+_Evitar_: Diretório de dados, data dir, raiz
+_Dono_: `apps/agent/src/storage/home.ts` (`dataPath`, `loadEnv`)
+
 **Sandbox**:
-Um diretório de dados separado (`MIMO_DATA_DIR`) usado para experimentar sem tocar nos dados reais.
+Uma Casa separada (`MIMO_DATA_DIR`) usada para experimentar sem tocar nos dados reais.
 _Evitar_: Máquina, VM, computador
-_Dono_: `apps/agent/src/storage/data.ts` (`dataPath`); a receita, `.agents/skills/verify-mimo`
+_Dono_: `apps/agent/src/storage/home.ts` (`dataPath`); a receita, `.agents/skills/verify-mimo`
 
 ## Onde as coisas rodam
 
@@ -127,7 +132,7 @@ O dispatcher de Rotinas vive **dentro do processo da TUI** e faz um tick por min
 
 Um Grupo de tools pode carregar um bloco de instruções, em `apps/agent/src/<grupo>/instructions.md`. Hoje `gmail`, `routines`, `computer` e `team` têm um; `web` não tem. `botInstructions` em `apps/agent/src/tools/index.ts` monta o texto, então desligar o grupo tira as tools e também o bloco.
 
-Tudo o que dura fica no diretório de dados (`MIMO_DATA_DIR`, padrão `.data`): `bots/<id>.json`, `bots/<id>/messages.json`, `routines.json` e `actions.jsonl`.
+Tudo o que dura fica na Casa (`MIMO_DATA_DIR`, padrão `~/.mimo`): `bots/<id>.json`, `bots/<id>/messages.json`, `routines.json` e `actions.jsonl`. As chaves entram por `loadEnv()`, chamado no começo de `main()`: ele lê `~/.mimo/.env` e não sobrescreve variável já definida no ambiente.
 
 Quem está aberto agora mora em `apps/agent/src/bot/registry.ts`: ele guarda o mapa dos Bots vivos, responde o que a barra e o trilho mostram (`activity`) e apaga um Bot com os filhos (`deleteBot`).
 

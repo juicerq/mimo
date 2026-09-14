@@ -62,7 +62,7 @@ async function post(body: unknown): Promise<Response> {
 
 async function describeFailure(response: Response): Promise<string> {
 	if (response.status === 429) {
-		return "A busca recusou a chamada por excesso de pedidos (429). Espere alguns minutos ou configure EXA_API_KEY em apps/agent/.env.local para limites maiores.";
+		return "A busca recusou a chamada por excesso de pedidos (429). Espere alguns minutos ou configure EXA_API_KEY em ~/.mimo/.env para limites maiores.";
 	}
 	return `A busca respondeu ${response.status}: ${(await response.text()).slice(0, 300)}`;
 }
