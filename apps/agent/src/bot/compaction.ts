@@ -4,6 +4,11 @@ import { isLlmMessage } from "../messages";
 import { models } from "../model/models";
 import { entryMessage } from "./events";
 
+export interface Compaction {
+	dropped: AgentMessage[];
+	messages: AgentMessage[];
+}
+
 const COMPACT_AT = 0.8;
 const KEEP_FRACTION = 0.25;
 const SUMMARY_PROMPT = "Você resume conversas. Leia a conversa e devolve um resumo estruturado em português com: objetivos da pessoa, decisões tomadas, fatos duráveis, trabalho em andamento e pendências. Não responda à conversa, só produza o resumo.";
@@ -30,7 +35,7 @@ function cutIndex(messages: AgentMessage[], budget: number): number {
 	return lastTurn;
 }
 
-export async function compactTranscript(input: { messages: AgentMessage[]; model: Model<Api> }): Promise<AgentMessage[] | null> {
+export async function compactTranscript(input: { messages: AgentMessage[]; model: Model<Api> }): Promise<Compaction | null> {
 	if (estimateContextTokens(input.messages).tokens < input.model.contextWindow * COMPACT_AT) {
 		return null;
 	}
@@ -54,5 +59,5 @@ export async function compactTranscript(input: { messages: AgentMessage[]; model
 	if (estimateTokens(message) >= earlier.reduce((total, entry) => total + estimateTokens(entry), 0)) {
 		return null;
 	}
-	return [message, ...input.messages.slice(cut)];
+	return { dropped: earlier, messages: [message, ...input.messages.slice(cut)] };
 }
