@@ -7,7 +7,7 @@ import { models } from "../model/models";
 import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
 import { isTeamCall } from "../team/tools";
-import { resolveFolder } from "../computer/folder";
+import { projectRules, resolveFolder } from "../computer/folder";
 import { botInstructions, botTools, needsApproval } from "../tools";
 import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
@@ -293,8 +293,8 @@ export class Bot {
 				this.announce(entry);
 			}
 			this.emit({ type: "turn-started" });
+			this.agent.state.systemPrompt = await this.systemPrompt();
 			await this.compact();
-			this.agent.state.systemPrompt = `${this.basePrompt()}\n\n${await recallMemory(this.record.id)}`;
 			const run = this.agent.prompt(batch.map(entryMessage));
 			this.draining = false;
 			await run;
@@ -348,6 +348,11 @@ export class Bot {
 			throw new Error("Este bot não é da sua equipe.");
 		}
 		return child;
+	}
+
+	private async systemPrompt(): Promise<string> {
+		const rules = await projectRules(this.record.folder);
+		return [this.basePrompt(), rules, await recallMemory(this.record.id)].filter(Boolean).join("\n\n");
 	}
 
 	private basePrompt(): string {
@@ -438,13 +443,20 @@ export class Bot {
 	}
 
 	private async compact(): Promise<void> {
-		const compacted = await compactTranscript({ messages: this.agent.state.messages, model: this.agent.state.model })
+		const compacted = await compactTranscript({
+			messages: this.agent.state.messages,
+			model: this.agent.state.model,
+			systemPrompt: this.agent.state.systemPrompt,
+		})
 			.catch((error: unknown) => {
 				this.emit({ type: "warning", text: `A conversa não foi resumida: ${errorText(error)}` });
 				return null;
 			});
 		if (!compacted) {
 			return;
+		}
+		if (compacted.crowded) {
+			this.emit({ type: "warning", text: compacted.crowded });
 		}
 		this.archive = [...this.archive, ...compacted.dropped];
 		this.agent.state.messages = compacted.messages;

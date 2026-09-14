@@ -5,6 +5,7 @@ import { models } from "../model/models";
 import { entryMessage } from "./events";
 
 export interface Compaction {
+	crowded: string | null;
 	dropped: AgentMessage[];
 	messages: AgentMessage[];
 	summary: string;
@@ -12,6 +13,7 @@ export interface Compaction {
 
 const COMPACT_AT = 0.8;
 const KEEP_FRACTION = 0.25;
+const CROWDED_AT = 0.5;
 const SUMMARY_PROMPT = "Você resume conversas. Leia a conversa e devolve um resumo estruturado em português com: objetivos da pessoa, decisões tomadas, fatos duráveis, trabalho em andamento e pendências. Não responda à conversa, só produza o resumo.";
 
 function cutIndex(messages: AgentMessage[], budget: number): number {
@@ -36,11 +38,25 @@ function cutIndex(messages: AgentMessage[], budget: number): number {
 	return lastTurn;
 }
 
-export async function compactTranscript(input: { messages: AgentMessage[]; model: Model<Api> }): Promise<Compaction | null> {
+function promptTokens(systemPrompt: string): number {
+	return estimateTokens({ role: "user", content: [{ type: "text", text: systemPrompt }], timestamp: 0 });
+}
+
+function crowdedText(floor: number, contextWindow: number): string | null {
+	if (floor <= contextWindow * CROWDED_AT) {
+		return null;
+	}
+	const share = `${Math.round(floor / 1_000)}k de ${Math.round(contextWindow / 1_000)}k`;
+	return `As instruções permanentes deste bot ocupam ${share} da janela, então sobra pouco para a conversa.`;
+}
+
+export async function compactTranscript(input: { messages: AgentMessage[]; model: Model<Api>; systemPrompt: string }): Promise<Compaction | null> {
 	if (estimateContextTokens(input.messages).tokens < input.model.contextWindow * COMPACT_AT) {
 		return null;
 	}
-	const cut = cutIndex(input.messages, input.model.contextWindow * KEEP_FRACTION);
+	const floor = promptTokens(input.systemPrompt);
+	const room = Math.max(0, input.model.contextWindow - floor);
+	const cut = cutIndex(input.messages, room * KEEP_FRACTION);
 	if (cut < 0) {
 		return null;
 	}
@@ -61,5 +77,5 @@ export async function compactTranscript(input: { messages: AgentMessage[]; model
 	if (estimateTokens(message) >= earlier.reduce((total, entry) => total + estimateTokens(entry), 0)) {
 		throw new Error("O resumo ficou maior que a conversa que ele substitui.");
 	}
-	return { dropped: earlier, messages: [message, ...input.messages.slice(cut)], summary: summaryText };
+	return { crowded: crowdedText(floor, input.model.contextWindow), dropped: earlier, messages: [message, ...input.messages.slice(cut)], summary: summaryText };
 }
