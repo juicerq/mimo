@@ -1,7 +1,10 @@
+import { recordAction } from "../actions/actions";
 import { deleteBotRoutines } from "../routines/routines";
 import type { Bot } from "./bot";
-import { listChildren, removeBot } from "./store";
+import { listChildren, readBot, removeBot } from "./store";
 import type { TeamMember } from "./types";
+
+export type DeleteOrigin = "panel" | "tool" | "cascade";
 
 const open = new Map<string, Bot>();
 
@@ -32,13 +35,23 @@ export function activity(): BotActivity[] {
 	return bots;
 }
 
-export async function deleteBot(id: string): Promise<void> {
+export async function deleteBot(id: string, origin: DeleteOrigin): Promise<void> {
+	const record = await readBot(id);
 	for (const child of await listChildren(id)) {
-		await deleteBot(child.id);
+		await deleteBot(child.id, "cascade");
 	}
 	const running = open.get(id);
 	running?.cancel();
 	open.delete(id);
 	await deleteBotRoutines(id);
 	await removeBot(id);
+	if (record) {
+		await recordAction({
+			kind: "delete_bot",
+			mode: record.mode,
+			botId: record.parentId ?? id,
+			summary: record.name,
+			detail: { origin, bot: id },
+		});
+	}
 }

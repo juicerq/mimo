@@ -7,7 +7,7 @@ const ACTIONS_PATH = dataPath("actions.jsonl");
 
 const actionSchema = z.object({
 	at: z.string(),
-	kind: z.enum(["send_email", "send_draft", "delete_routine"]),
+	kind: z.enum(["send_email", "send_draft", "delete_routine", "delete_bot"]),
 	mode: z.enum(["normal", "autonomous"]),
 	botId: z.string(),
 	account: z.string().nullable(),

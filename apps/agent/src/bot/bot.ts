@@ -199,7 +199,7 @@ export class Bot {
 
 	async deleteChild(botId: string): Promise<void> {
 		await this.child(botId);
-		await deleteBot(botId);
+		await deleteBot(botId, "tool");
 	}
 
 	subscribe(listener: (event: BotEvent) => void): () => void {
