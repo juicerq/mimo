@@ -1,6 +1,7 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
-import { createBot, listChildren, type BotPatch } from "../bot/store";
+import { createBot, listChildren, removeBot, writeBot, type BotPatch } from "../bot/store";
+import { addWorktree } from "../computer/worktree";
 import { BotNameSchema, BotPromptSchema, ChildGroupSchema, type BotInfo, type TeamCall, type TeamCallKind, type TeamMember } from "../bot/types";
 import { listModels, selectModel } from "../model/catalog";
 import { ModelSelectionSchema } from "../model/types";
@@ -17,6 +18,7 @@ const CreateBotInput = z.object({
 	prompt: PromptInput,
 	tools: ToolsInput.optional(),
 	model: ModelInput.optional(),
+	worktree: z.boolean().optional().describe("Abre uma cópia isolada do projeto para este filho, num git worktree com branch próprio. Use quando duas frentes mexem no mesmo repositório."),
 });
 
 const UpdateBotInput = z.object({
@@ -33,7 +35,6 @@ const DelegateInput = z.object({
 	bot: NameInput,
 	task: z.string().trim().min(1).max(48).describe("O trabalho em poucas palavras, para a pessoa ler na tela. Diga o que este filho carrega, não o que a equipe faz."),
 	prompt: z.string().min(1).describe("O trabalho para o filho, com tudo o que ele precisa saber."),
-	worktree: z.string().trim().min(1).optional().describe("O git worktree onde este filho trabalha. É só o rótulo que a pessoa lê na tela: quem manda o filho ir para lá é o prompt."),
 });
 
 const TEAM_CALLS: Record<string, TeamCallKind | undefined> = {
@@ -65,9 +66,31 @@ export function isTeamCall(toolName: string): boolean {
 	return TEAM_CALLS[toolName] !== undefined;
 }
 
+function isolatedFolder(worktree: boolean | undefined, folder: string | undefined): string | null {
+	if (worktree !== true) {
+		return null;
+	}
+	if (folder === undefined) {
+		throw new Error("Este bot não tem pasta, então não dá para abrir uma cópia isolada. Peça à pessoa para escolher a pasta do projeto.");
+	}
+	return folder;
+}
+
+async function openWorktree(bot: BotInfo, folder: string): Promise<BotInfo> {
+	const worktree = await addWorktree(folder, bot.id, bot.name).catch(async (error: unknown) => {
+		await removeBot(bot.id);
+		throw error;
+	});
+	const updated = { ...bot, folder: worktree.folder, branch: worktree.branch };
+	await writeBot(updated);
+	return updated;
+}
+
 function botView(bot: BotInfo) {
 	return {
 		name: bot.name,
+		folder: bot.folder ?? null,
+		branch: bot.branch ?? null,
 		prompt: bot.prompt ?? null,
 		tools: bot.tools,
 		model: `${bot.model.provider}/${bot.model.id}`,
@@ -105,17 +128,22 @@ export function teamTools(context: ToolContext): AgentTool[] {
 			name: "create_bot",
 			description: "Cria um bot filho com instrução, tools e modelo próprios. Ele pertence a você e não aparece na lista da pessoa.",
 			input: CreateBotInput,
-			async execute({ model, ...draft }) {
+			async execute({ model, worktree, ...draft }) {
+				const isolated = isolatedFolder(worktree, context.folder);
 				const taken = (await listChildren(context.botId)).some((bot) => bot.name === draft.name);
 				if (taken) {
 					throw new Error(`Você já tem um filho chamado ${draft.name}.`);
 				}
-				return botView(await createBot({
+				const created = await createBot({
 					...draft,
 					parentId: context.botId,
 					...context.folder !== undefined && { folder: context.folder },
 					...model && { model: selectModel(model) },
-				}));
+				});
+				if (isolated === null) {
+					return botView(created);
+				}
+				return botView(await openWorktree(created, isolated));
 			},
 		}),
 		tool({
@@ -124,7 +152,7 @@ export function teamTools(context: ToolContext): AgentTool[] {
 			input: DelegateInput,
 			async execute(input) {
 				const target = await child(context, input.bot);
-				await context.delegate({ botId: target.id, task: input.task, prompt: input.prompt, ...input.worktree && { worktree: input.worktree } });
+				await context.delegate({ botId: target.id, task: input.task, prompt: input.prompt });
 				return { bot: target.name, task: input.task, status: "started" };
 			},
 		}),

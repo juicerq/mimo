@@ -23,6 +23,7 @@ const StoredBotSchema = z.object({
 	parentId: z.uuid().optional(),
 	prompt: BotPromptSchema.optional(),
 	folder: z.string().optional(),
+	branch: z.string().optional(),
 	version: z.number().optional(),
 });
 

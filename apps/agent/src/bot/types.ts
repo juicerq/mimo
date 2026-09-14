@@ -36,6 +36,7 @@ export interface BotInfo {
 	parentId?: string;
 	prompt?: string;
 	folder?: string;
+	branch?: string;
 }
 
 export interface Approval {
@@ -49,7 +50,6 @@ export interface Delegation {
 	botId: string;
 	task: string;
 	prompt: string;
-	worktree?: string;
 }
 
 export type TeamCallKind = "created" | "delegated" | "stopped" | "deleted";

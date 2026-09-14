@@ -1,4 +1,5 @@
 import { recordAction } from "../actions/actions";
+import { removeWorktree } from "../computer/worktree";
 import { deleteBotRoutines } from "../routines/routines";
 import type { Bot } from "./bot";
 import { listChildren, readBot, removeBot } from "./store";
@@ -44,6 +45,7 @@ export async function deleteBot(id: string, origin: DeleteOrigin): Promise<void>
 	running?.cancel();
 	open.delete(id);
 	await deleteBotRoutines(id);
+	await removeWorktree(id);
 	await removeBot(id);
 	if (record) {
 		await recordAction({
