@@ -75,9 +75,14 @@ _Evitar_: Permissão, capacidade, plugin
 _Dono_: `apps/agent/src/tools/index.ts` (`botTools`, `botInstructions`); o Painel, `apps/mimo/src/panels/tools.ts`
 
 **Pasta**:
-A pasta em que as tools do grupo `computer` de um Bot rodam — o projeto dele. É opcional: sem Pasta, elas rodam a partir de `$HOME`, como sempre. A pessoa escolhe por `/folder`, e o nome dela aparece no rodapé. Um Bot filho nasce com a Pasta do pai.
+A pasta em que as tools do grupo `computer` de um Bot rodam — o projeto dele. É opcional: sem Pasta, elas rodam a partir de `$HOME`, como sempre. A pessoa escolhe por `/folder`, e o nome dela aparece no rodapé. Um Bot filho nasce com a Pasta do pai, ou com a Cópia dele.
 _Evitar_: Diretório de trabalho, projeto, cwd
 _Dono_: a regra, `apps/agent/src/computer/folder.ts` (`resolveFolder`, `workDir`); o estado, `apps/agent/src/bot/bot.ts` (`setFolder`); o Painel, `apps/mimo/src/panels/folder.ts`
+
+**Cópia**:
+Uma cópia isolada do projeto para um Bot filho, num git worktree com branch próprio, em `~/.mimo/worktrees/<id>`. Serve para duas frentes mexerem no mesmo repositório sem escrever uma por cima da outra. O pai pede no `create_bot`; a Cópia vira a Pasta daquele filho e dura o que ele dura. Apagar o filho apaga a Cópia e deixa o branch.
+_Evitar_: worktree, branch do bot
+_Dono_: `apps/agent/src/computer/worktree.ts` (`addWorktree`, `removeWorktree`)
 
 **Regras**:
 Os `AGENTS.md` que entram no prompt de todo Turno de um Bot: o geral, em `~/.agents/AGENTS.md`, e o do projeto, na raiz da Pasta. São os únicos arquivos tratados como instrução da pessoa, e não como dado. Lidos a cada Turno, então editar um vale no Turno seguinte, sem reiniciar. Quando as duas brigam, vale a do projeto, que vem depois.

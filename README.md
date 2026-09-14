@@ -111,6 +111,8 @@ Ao criar um filho, o pai escolhe o nome, a instrução permanente, os grupos de 
 
 As instruções do grupo `team` fazem do pai um gerente: ele divide o trabalho em frentes e cuida delas para você, que fala só com ele. Toda feature, todo bug e toda investigação é uma frente, e cada frente vira um filho, com o problema inteiro do começo ao fim. O filho vive enquanto a frente está aberta, então voltar ao assunto delega de novo para o mesmo bot, que já tem a memória dela. O pai conta o que o filho trouxe; ele não refaz o trabalho nem manda outro filho revisar.
 
+Duas frentes no mesmo repositório se atropelam, então o pai pode pedir `worktree` no `create_bot`: o filho nasce numa cópia isolada do projeto, num git worktree com branch próprio em `~/.mimo/worktrees/<id>`. A cópia vira a pasta daquele filho e dura o que ele dura; apagar o filho apaga a cópia e deixa o branch, para você juntar o trabalho quando quiser. O rail mostra o nome da cópia embaixo da task do filho.
+
 `delegate` começa o trabalho no filho e volta na hora: o turno do pai fecha e a pessoa continua conversando com ele. O filho não vê a conversa da pessoa, então o pedido precisa ser completo. Cada filho atende um trabalho por vez; vários filhos trabalham ao mesmo tempo. Um filho não delega e não cria bots, então a equipe tem um nível só.
 
 As tools que mexem na equipe não aparecem como `⚙ delegate`: viram uma linha de conversa com o nome do filho, `▌ created ana`, `▌ delegated to ana`, `▌ stopped ana` e `▌ deleted ana`. A linha sai quando a ação termina, então uma tool recusada na aprovação ou que falhou não deixa linha nenhuma. Elas são detalhe, então `Ctrl+O off` as esconde junto com as ferramentas, e o trabalho fica no transcript ao reabrir o bot.
