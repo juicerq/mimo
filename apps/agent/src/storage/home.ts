@@ -24,6 +24,10 @@ export function dataPath(...segments: string[]): string {
 	return join(dataDir(), ...segments);
 }
 
+export function homePath(...segments: string[]): string {
+	return join(mimoHome(), ...segments);
+}
+
 function envEntry(line: string): { key: string; value: string } | null {
 	const trimmed = line.trim();
 	const split = trimmed.indexOf("=");
@@ -34,7 +38,7 @@ function envEntry(line: string): { key: string; value: string } | null {
 }
 
 export function loadEnv(): void {
-	const text = readTextFileSync(join(mimoHome(), ENV_FILE));
+	const text = readTextFileSync(homePath(ENV_FILE));
 	if (text === null) {
 		return;
 	}

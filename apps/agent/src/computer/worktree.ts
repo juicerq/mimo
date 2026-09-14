@@ -26,6 +26,12 @@ export async function addWorktree(folder: string, botId: string, name: string): 
 	return worktree;
 }
 
+export async function uncommittedWork(botId: string): Promise<boolean> {
+	const path = dataPath("worktrees", botId);
+	const status = await run("git", ["-C", path, "status", "--porcelain"]).catch(() => null);
+	return status !== null && status.stdout.trim() !== "";
+}
+
 export async function removeWorktree(botId: string): Promise<void> {
 	const path = dataPath("worktrees", botId);
 	await run("git", ["-C", path, "worktree", "remove", "--force", path]).catch(() => null);

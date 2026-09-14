@@ -80,7 +80,7 @@ _Evitar_: Diretório de trabalho, projeto, cwd
 _Dono_: a regra, `apps/agent/src/computer/folder.ts` (`resolveFolder`, `workDir`); o estado, `apps/agent/src/bot/bot.ts` (`setFolder`); o Painel, `apps/mimo/src/panels/folder.ts`
 
 **Cópia**:
-Uma cópia isolada do projeto para um Bot filho, num git worktree com branch próprio, em `~/.mimo/worktrees/<id>`. Serve para duas frentes mexerem no mesmo repositório sem escrever uma por cima da outra. O pai pede no `create_bot`; a Cópia vira a Pasta daquele filho e dura o que ele dura. Apagar o filho apaga a Cópia e deixa o branch.
+Uma cópia isolada do projeto para um Bot filho, num git worktree com branch próprio, em `~/.mimo/worktrees/<id>`. Serve para duas frentes mexerem no mesmo repositório sem escrever uma por cima da outra. O pai pede no `create_bot`; a Cópia vira a Pasta daquele filho e dura o que ele dura. Apagar o filho apaga a Cópia e deixa o branch, e recusa enquanto houver trabalho sem commit.
 _Evitar_: worktree, branch do bot
 _Dono_: `apps/agent/src/computer/worktree.ts` (`addWorktree`, `removeWorktree`)
 
@@ -120,9 +120,9 @@ _Evitar_: Seletor, modal, picker
 _Dono_: `apps/mimo/src/panel.ts`; cada um, `apps/mimo/src/panels/`
 
 **Casa**:
-Onde o mimo guarda tudo: `~/.mimo`, com os bots, as rotinas, o registro de ações e as chaves em `.env`. Não depende da pasta de onde o mimo foi chamado. `MIMO_DATA_DIR` troca o lugar dos dados; as chaves seguem o `$HOME`, porque pertencem à pessoa e não ao Sandbox.
+Onde o mimo guarda tudo: `~/.mimo`, com os bots, as rotinas, o registro de ações, as chaves em `.env` e a credencial do Cline, em `providers.json`. Não depende da pasta de onde o mimo foi chamado. `MIMO_DATA_DIR` troca o lugar dos dados; as chaves e as credenciais seguem o `$HOME`, porque pertencem à pessoa e não ao Sandbox.
 _Evitar_: Diretório de dados, data dir, raiz
-_Dono_: `apps/agent/src/storage/home.ts` (`dataPath`, `loadEnv`)
+_Dono_: `apps/agent/src/storage/home.ts` (`dataPath`, `homePath`, `loadEnv`)
 
 **Sandbox**:
 Uma Casa separada (`MIMO_DATA_DIR`) usada para experimentar sem tocar nos dados reais.

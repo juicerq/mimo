@@ -65,7 +65,7 @@ bun run build
 bun start
 ```
 
-O painel oferece os modelos da assinatura OpenAI conectada no Codex e os modelos da OpenCode Go. Uma falha no catálogo de um provedor não esconde o outro. Cada modelo oferece os esforços que sua integração aceita.
+O painel oferece os modelos da assinatura OpenAI conectada no Codex, os modelos da OpenCode Go e os modelos do Cline. Uma falha no catálogo de um provedor não esconde o outro. Cada modelo oferece os esforços que sua integração aceita.
 
 Para definir GPT-5.6 Luna com esforço `max` como escolha inicial dos novos bots:
 
@@ -75,7 +75,9 @@ MIMO_MODEL=openai-codex/gpt-5.6-luna MIMO_REASONING=max bun run dev
 
 A integração OpenAI usa as credenciais locais do Codex em `~/.codex/auth.json`; a OpenCode Go usa `~/.local/share/opencode/auth.json`. O catálogo vem das mesmas contas. A assinatura tem seus próprios limites de uso, separados de uma chave de API.
 
-Use `/login` para conectar uma conta sem sair da TUI. O painel separa `providers` (OpenCode Go com chave de API, OpenAI com OAuth) de `plugins` (Gmail com OAuth), com numeração contínua. Na OpenAI, escolha login pelo navegador ou por código de dispositivo; a TUI mostra o link e `c` copia ele para a área de transferência. Cole o código de autorização no composer se o navegador não voltar sozinho. `/cancel` ou `Esc` aborta o login. `/logout` lista as contas de Gmail conectadas e desconecta pelo número. A credencial dos modelos é gravada nos mesmos arquivos do Codex e da OpenCode, e o token renovado é salvo a cada atualização. O Gmail segue o mesmo caminho e grava a conta em `~/.mimo/gmail/accounts.json`; a autorização volta sozinha do navegador.
+O Cline usa uma chave de API criada em `app.cline.bot`, em Settings › API Keys. Ela é gravada em `~/.mimo/providers.json`; `CLINE_API_KEY` em `~/.mimo/.env` vale como alternativa. O catálogo traz os modelos do mimo com essa chave — hoje o DeepSeek V4.1 Flash, o GLM-5.3 Flash e o Muse Spark 1.3 Contributor, que cobram créditos da conta. A assinatura ClinePass é outra lane, com ids `cline-pass/…`.
+
+Use `/login` para conectar uma conta sem sair da TUI. O painel separa `providers` (Cline com chave de API, OpenCode Go com chave de API, OpenAI com OAuth) de `plugins` (Gmail com OAuth), com numeração contínua. Na OpenAI, escolha login pelo navegador ou por código de dispositivo; a TUI mostra o link e `c` copia ele para a área de transferência. Cole o código de autorização no composer se o navegador não voltar sozinho. `/cancel` ou `Esc` aborta o login. `/logout` lista as contas de Gmail conectadas e desconecta pelo número. A credencial dos modelos é gravada nos mesmos arquivos do Codex e da OpenCode, e o token renovado é salvo a cada atualização. A do Cline é a única que nasce no mimo, em `~/.mimo/providers.json`. O Gmail segue o mesmo caminho e grava a conta em `~/.mimo/gmail/accounts.json`; a autorização volta sozinha do navegador.
 
 O modelo inicial padrão é `opencode-go/deepseek-v4-flash`. `MIMO_MODEL` e `MIMO_REASONING` definem apenas a configuração inicial de um bot novo. As escolhas salvas por bot prevalecem sobre o ambiente.
 
@@ -111,7 +113,7 @@ Ao criar um filho, o pai escolhe o nome, a instrução permanente, os grupos de 
 
 As instruções do grupo `team` fazem do pai um gerente: ele divide o trabalho em frentes e cuida delas para você, que fala só com ele. Toda feature, todo bug e toda investigação é uma frente, e cada frente vira um filho, com o problema inteiro do começo ao fim. O filho vive enquanto a frente está aberta, então voltar ao assunto delega de novo para o mesmo bot, que já tem a memória dela. O pai conta o que o filho trouxe; ele não refaz o trabalho nem manda outro filho revisar.
 
-Duas frentes no mesmo repositório se atropelam, então o pai pode pedir `worktree` no `create_bot`: o filho nasce numa cópia isolada do projeto, num git worktree com branch próprio em `~/.mimo/worktrees/<id>`. A cópia vira a pasta daquele filho e dura o que ele dura; apagar o filho apaga a cópia e deixa o branch, para você juntar o trabalho quando quiser. O rail mostra o nome da cópia embaixo da task do filho.
+Duas frentes no mesmo repositório se atropelam, então o pai pode pedir `worktree` no `create_bot`: o filho nasce numa cópia isolada do projeto, num git worktree com branch próprio em `~/.mimo/worktrees/<id>`. A cópia vira a pasta daquele filho e dura o que ele dura; apagar o filho apaga a cópia e deixa o branch, para você juntar o trabalho quando quiser. Só o que teve commit fica no branch, então `delete_bot` recusa fechar uma frente com trabalho sem commit e pede o commit primeiro; `discard` força o fechamento e joga fora. O rail mostra o nome da cópia embaixo da task do filho.
 
 `delegate` começa o trabalho no filho e volta na hora: o turno do pai fecha e a pessoa continua conversando com ele. O filho não vê a conversa da pessoa, então o pedido precisa ser completo. Cada filho atende um trabalho por vez; vários filhos trabalham ao mesmo tempo. Um filho não delega e não cria bots, então a equipe tem um nível só.
 

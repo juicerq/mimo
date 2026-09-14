@@ -196,9 +196,9 @@ export class Bot {
 		return updated;
 	}
 
-	async deleteChild(botId: string): Promise<void> {
+	async deleteChild(botId: string, discard: boolean): Promise<void> {
 		await this.child(botId);
-		await deleteBot(botId, "tool");
+		await deleteBot(botId, "tool", discard);
 	}
 
 	subscribe(listener: (event: BotEvent) => void): () => void {
