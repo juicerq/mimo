@@ -8,7 +8,7 @@ O conteúdo fica junto ao composer: mensagens, listas e opções começam embaix
 
 A conversa não tem cabeçalho: cada mensagem traz quem falou, `you:` na sua e `<nome do bot>:` na resposta. O cabeçalho só aparece nos painéis, com o nome do passo.
 
-Crie um bot com `/new <nome>`. Use `/bots` para ver a lista e digite o número para abrir uma conversa. `/delete` abre o painel com os bots: escolha o número e confirme com `1. Delete`; a conversa, a memória e as rotinas daquele bot são apagadas e a TUI volta para a lista. Não há limite de quantidade nem formulário de propósito. Ao reabrir um bot, o histórico e as aprovações pendentes voltam à tela. Trocar de bot não interrompe seu trabalho.
+Crie um bot com `/new <nome>`. Use `/bots` para ver a lista e digite o número para abrir uma conversa. `/delete` abre o painel com os bots: escolha o número e confirme com `1. Delete`; a conversa, a memória e as rotinas daquele bot são apagadas e a TUI volta para a lista. Toda exclusão entra no `actions.jsonl` com a hora, o nome e a origem — o painel, a tool de um bot pai ou a cascata que leva os filhos junto. Não há limite de quantidade nem formulário de propósito. Ao reabrir um bot, o histórico e as aprovações pendentes voltam à tela. Trocar de bot não interrompe seu trabalho.
 
 Use `/model` dentro da conversa para escolher o provedor, o modelo e o esforço pelo número. `Ctrl+P` abre o mesmo painel preservando o rascunho. `/effort` pula direto para o esforço do modelo atual. A conversa continua recebendo respostas enquanto o painel está aberto. Antes de confirmar a escolha, `/cancel` ou `Esc` volta à conversa sem alterar o modelo. A configuração pertence ao bot e permanece salva ao reiniciar.
 

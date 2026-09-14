@@ -273,7 +273,7 @@ export class MimoApp {
 	};
 
 	private readonly removeBot = async (bot: BotInfo): Promise<void> => {
-		await deleteBot(bot.id);
+		await deleteBot(bot.id, "panel");
 	};
 
 	private readonly refreshPanels = (): void => {
