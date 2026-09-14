@@ -12,6 +12,7 @@ import { Panels, type Panel, type PanelResult } from "./panel";
 import { Rail } from "./rail";
 import { Screen } from "./screen";
 import { deletePanel } from "./panels/delete";
+import { folderPanel } from "./panels/folder";
 import { accountsPanel, loginTargetsPanel } from "./panels/login";
 import { effortPanel, modelPanel } from "./panels/model";
 import { toolsPanel } from "./panels/tools";
@@ -215,6 +216,9 @@ export class MimoApp {
 			["/tools", () => {
 				this.showBotPanel("Open a bot to choose its tools.", (info) => toolsPanel(info, this.saveTools));
 			}],
+			["/folder", () => {
+				this.showBotPanel("Open a bot to choose its folder.", (info) => folderPanel(info, this.saveFolder));
+			}],
 			["/effort", () => {
 				this.showBotPanel("Open a bot to choose its effort.", (info) => effortPanel(modelOption(info.model), this.saveModel));
 			}],
@@ -260,6 +264,10 @@ export class MimoApp {
 		return await this.screen.require().setTools(tools);
 	};
 
+	private readonly saveFolder = async (folder: string | undefined): Promise<BotInfo> => {
+		return await this.screen.require().setFolder(folder);
+	};
+
 	private readonly saveModel = async (selection: ModelSelection): Promise<BotInfo> => {
 		return await this.screen.require().selectModel(selection);
 	};
@@ -281,6 +289,7 @@ export class MimoApp {
 		}
 		if (result.bot) {
 			this.footer.model(result.bot.model);
+			this.footer.folder(result.bot.folder);
 		}
 		this.input.placeholder = this.screen.placeholder;
 		if (result.message) {

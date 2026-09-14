@@ -1,6 +1,7 @@
 import { BoxRenderable, TextRenderable, type CliRenderer } from "@opentui/core";
 import type { BotInfo, BotMode } from "@agent/bot/types";
 import type { ModelInfo } from "@agent/model/types";
+import { basename } from "node:path";
 import { T4 } from "./theme";
 import type { TeamView } from "./bar";
 import type { PanelState } from "./panel";
@@ -13,6 +14,7 @@ export class Footer {
 	private readonly line: TextRenderable;
 	private contextTokens: number | null = null;
 	private selectedModel: ModelInfo | null = null;
+	private folderName: string | null = null;
 	private botMode: BotMode = "normal";
 	private detailLevel: Detail = "brief";
 	private teamView: TeamView = "bar";
@@ -36,9 +38,10 @@ export class Footer {
 		this.box.add(this.line);
 	}
 
-	reset(bot: Pick<BotInfo, "model" | "mode"> | null): void {
+	reset(bot: Pick<BotInfo, "model" | "mode" | "folder"> | null): void {
 		this.contextTokens = null;
 		this.selectedModel = bot?.model ?? null;
+		this.folderName = bot?.folder === undefined ? null : basename(bot.folder);
 		this.botMode = bot?.mode ?? "normal";
 		this.draw();
 	}
@@ -50,6 +53,11 @@ export class Footer {
 
 	model(info: ModelInfo): void {
 		this.selectedModel = info;
+		this.draw();
+	}
+
+	folder(path: string | undefined): void {
+		this.folderName = path === undefined ? null : basename(path);
 		this.draw();
 	}
 
@@ -89,6 +97,7 @@ export class Footer {
 		const capacity = contextWindow === undefined ? "—" : formatTokens(contextWindow);
 		const parts = [
 			`context: ${used}/${capacity}`,
+			...this.folderName === null ? [] : [`dir: ${this.folderName}`],
 			`model: ${this.selectedModel?.name ?? "—"} (${this.selectedModel?.reasoning ?? "default"})`,
 		];
 		if (this.flashed.has("mode")) {

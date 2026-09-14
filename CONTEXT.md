@@ -74,6 +74,11 @@ Um conjunto de tools que um Bot tem ou não tem: `computer`, `web`, `gmail`, `ro
 _Evitar_: Permissão, capacidade, plugin
 _Dono_: `apps/agent/src/tools/index.ts` (`botTools`, `botInstructions`); o Painel, `apps/mimo/src/panels/tools.ts`
 
+**Pasta**:
+A pasta em que as tools do grupo `computer` de um Bot rodam — o projeto dele. É opcional: sem Pasta, elas rodam a partir de `$HOME`, como sempre. A pessoa escolhe por `/folder`, e o nome dela aparece no rodapé. Um Bot filho nasce com a Pasta do pai.
+_Evitar_: Diretório de trabalho, projeto, cwd
+_Dono_: a regra, `apps/agent/src/computer/folder.ts` (`resolveFolder`, `workDir`); o estado, `apps/agent/src/bot/bot.ts` (`setFolder`); o Painel, `apps/mimo/src/panels/folder.ts`
+
 **Modo normal**:
 O Bot executa o trabalho e pede Aprovação para as ações que a exigem, como enviar e-mails, apagar Rotinas e ativar o Modo autônomo.
 _Evitar_: Padrão, cauteloso

@@ -11,17 +11,18 @@ import {
 	type ExecutionToolContext,
 } from "@earendil-works/pi-agent-core";
 import { NodeExecutionEnv } from "@earendil-works/pi-agent-core/harness/env/nodejs";
-import { homedir } from "node:os";
 import instructions from "./instructions.md" with { type: "text" };
+import { workDir } from "./folder";
 
 const NO_UPDATE = () => {};
 
-export function computerInstructions(): string {
-	return `${instructions}\nAs tools do computador rodam a partir de ${homedir()}. Use caminhos absolutos; \`~\` só funciona dentro de um comando do \`bash\`.`;
+export function computerInstructions(folder: string | undefined): string {
+	const place = folder === undefined ? "" : ", a pasta deste bot";
+	return `${instructions}\nAs tools do computador rodam a partir de ${workDir(folder)}${place}. Use caminhos absolutos; \`~\` só funciona dentro de um comando do \`bash\`.`;
 }
 
-function toolContext(): ExecutionToolContext {
-	return { env: new NodeExecutionEnv({ cwd: homedir() }) };
+function toolContext(folder: string | undefined): ExecutionToolContext {
+	return { env: new NodeExecutionEnv({ cwd: workDir(folder) }) };
 }
 
 function stubInvocation(toolCallId: string): AgentHarnessToolInvocation {
@@ -50,8 +51,8 @@ function adapt(harnessTool: AgentHarnessTool<ExecutionToolContext>, context: Exe
 	};
 }
 
-export function computerTools(): AgentTool[] {
-	const context = toolContext();
+export function computerTools(folder: string | undefined): AgentTool[] {
+	const context = toolContext(folder);
 
 	return [createBashTool(), createReadTool(), createWriteTool(), createEditTool()].map((harnessTool) => adapt(harnessTool, context));
 }
