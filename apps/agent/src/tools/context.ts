@@ -4,7 +4,6 @@ import type { BotInfo, BotMode, Delegation, TeamMember, ToolGroup } from "../bot
 
 export interface ToolContext {
 	readonly botId: string;
-	readonly sessionId: string;
 	readonly mode: BotMode;
 	readonly parentId?: string;
 	readonly tools: ToolGroup[];

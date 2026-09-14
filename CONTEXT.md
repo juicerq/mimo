@@ -117,7 +117,7 @@ O dispatcher de Rotinas vive **dentro do processo da TUI** e faz um tick por min
 
 Um Grupo de tools pode carregar um bloco de instruções, em `apps/agent/src/<grupo>/instructions.md`. Hoje `gmail`, `routines`, `computer` e `team` têm um; `web` não tem. `botInstructions` em `apps/agent/src/tools/index.ts` monta o texto, então desligar o grupo tira as tools e também o bloco.
 
-Tudo o que dura fica no diretório de dados (`MIMO_DATA_DIR`, padrão `.data`): `bots/<id>.json`, `bots/<id>/messages.json`, `bots/<id>/sessions/`, `routines.json` e `actions.jsonl`.
+Tudo o que dura fica no diretório de dados (`MIMO_DATA_DIR`, padrão `.data`): `bots/<id>.json`, `bots/<id>/messages.json`, `routines.json` e `actions.jsonl`.
 
 Quem está aberto agora mora em `apps/agent/src/bot/registry.ts`: ele guarda o mapa dos Bots vivos, responde o que a barra e o trilho mostram (`activity`) e apaga um Bot com os filhos (`deleteBot`).
 

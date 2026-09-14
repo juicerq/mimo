@@ -7,12 +7,12 @@ export function actionTools(context: ToolContext) {
 	return [
 		tool({
 			name: "list_actions",
-			description: "Lê o registro de ações (envios e exclusões de rotina), do mais recente para o mais antigo.",
+			description: "Lê as ações que este bot já fez (envios e exclusões de rotina), da mais recente para a mais antiga. O registro dura: ele sobrevive a reinícios.",
 			input: z.object({
 				limit: z.number().int().min(1).max(50).default(10).describe("Quantas ações listar."),
 			}),
 			async execute({ limit }) {
-				return { actions: await listActions({ limit, sessionId: context.sessionId }) };
+				return { actions: await listActions({ limit, botId: context.botId }) };
 			},
 		}),
 	];
