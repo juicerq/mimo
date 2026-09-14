@@ -172,6 +172,33 @@ async function teamApp() {
   }
 }
 
+test("mover de Projeto leva o time junto, solta o Integrante que muda sozinho, e editar ou excluir o Projeto preserva os Bots", async () => {
+  const app = await teamApp()
+  const editorial = await app.projects.create({ name: "Editorial", defaultWorkingDirectory: app.directory })
+  const vendas = await app.projects.create({ name: "Vendas" })
+  const leader = await app.bots.create({ name: "Editora", projectId: editorial.id })
+  const member = await app.bots.create({ name: "Pesquisador", leaderBotId: leader.id, function: { outcome: "Reunir fontes" } })
+  const loner = await app.bots.create({ name: "Revisor" })
+
+  expect(app.bots.updateProject({ id: leader.id, projectId: vendas.id }).projectId).toBe(vendas.id)
+  expect(app.bots.get(member.id)?.projectId).toBe(vendas.id)
+  expect(app.projects.list().projects.map((project) => project.bots.map((bot) => bot.id))).toEqual([[], [leader.id]])
+
+  expect(app.bots.updateProject({ id: member.id, projectId: editorial.id })).toMatchObject({ projectId: editorial.id, leaderBotId: null })
+  expect(app.bots.updateProject({ id: loner.id, projectId: null }).projectId).toBeNull()
+  expect(() => app.bots.updateProject({ id: loner.id, projectId: "inexistente" })).toThrow("Project not found")
+
+  expect(await app.projects.update({ id: vendas.id, name: "Comercial", defaultWorkingDirectory: app.directory })).toEqual({ ...vendas, name: "Comercial", defaultWorkingDirectory: app.directory })
+  expect(app.bots.get(leader.id)?.effectiveWorkingDirectory).toBe(app.directory)
+  await rejects(app.projects.update({ id: "inexistente", name: "Nada", defaultWorkingDirectory: null }), "Projeto não encontrado")
+
+  app.projects.remove(vendas.id)
+  expect(app.projects.list().projects.map((project) => project.id)).toEqual([editorial.id])
+  expect(app.bots.get(leader.id)).toMatchObject({ projectId: null, effectiveWorkingDirectory: join(app.directory, "bots", leader.id) })
+  expect(app.projects.list().unassignedBots.map((bot) => bot.id)).toEqual([leader.id, loner.id])
+  expect(() => app.projects.remove(vendas.id)).toThrow("Projeto não encontrado")
+})
+
 test("desvincular preserva o Bot e seus dados, permite novo vínculo e protege da exclusão do antigo Líder", async () => {
   const app = await teamApp()
   const project = await app.projects.create({ name: "Editorial", defaultWorkingDirectory: app.directory })

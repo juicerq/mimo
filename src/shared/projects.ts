@@ -14,6 +14,7 @@ const groupedList = z.strictObject({ projects: z.array(projectWithBots), unassig
 
 export const projectSchemas = {
   createInput: z.strictObject({ name: id, defaultWorkingDirectory: workingDirectory.optional() }),
+  updateInput: z.strictObject({ id, name: id, defaultWorkingDirectory: workingDirectory.nullable() }),
   project,
   projectList: z.array(project),
   groupedList,
@@ -22,3 +23,4 @@ export const projectSchemas = {
 export type Project = z.infer<typeof project>
 export type ProjectGroups = z.infer<typeof groupedList>
 export type CreateProjectInput = z.infer<typeof projectSchemas.createInput>
+export type UpdateProjectInput = z.infer<typeof projectSchemas.updateInput>

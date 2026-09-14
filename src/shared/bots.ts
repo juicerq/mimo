@@ -40,6 +40,7 @@ const updateExecutionInput = z.discriminatedUnion("setting", [
   z.strictObject({ id, setting: z.literal("permissionMode"), value: botPermissionMode }),
 ])
 const updatePinnedInput = z.strictObject({ id, pinned: z.boolean() })
+const updateProjectInput = z.strictObject({ id, projectId: optionalId })
 
 const memberSettings = z.strictObject({
   provider: providerName.optional(),
@@ -59,6 +60,7 @@ export const botSchemas = {
   updateInput: z.strictObject({ id, name: id, function: botFunction, projectId: optionalId, workingDirectoryOverride: workingDirectory.nullable(), memoryEnabled: z.boolean(), effort: botEffort, model: optionalId, permissionMode: botPermissionMode, inheritMemberPermissions: z.boolean().optional() }),
   updateExecutionInput,
   updatePinnedInput,
+  updateProjectInput,
   storedBot,
   storedBotList: z.array(storedBot),
   bot,
@@ -76,3 +78,4 @@ export type BotExecutionSettingChange = BotExecutionSettingInput extends infer C
   : never
 export type AddMemberInput = z.infer<typeof botSchemas.addMemberInput>
 export type UpdateBotInput = z.infer<typeof botSchemas.updateInput>
+export type UpdateBotProjectInput = z.infer<typeof updateProjectInput>

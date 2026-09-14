@@ -1,7 +1,7 @@
 import { mkdir, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { defaultBotAvatarSeed } from "@src/shared/bot-avatar"
-import { botSchemas, type AddMemberInput, type Bot, type BotExecutionSettingInput, type Colleague, type CreateBotInput, type StoredBot, type UpdateBotInput } from "@src/shared/bots"
+import { botSchemas, type AddMemberInput, type Bot, type BotExecutionSettingInput, type Colleague, type CreateBotInput, type StoredBot, type UpdateBotInput, type UpdateBotProjectInput } from "@src/shared/bots"
 import { botPermissionModes } from "@src/shared/bot-permissions"
 import type { ProviderAvailability, ProviderModels } from "@src/shared/providers"
 import type { Observability } from "../observability/observability"
@@ -398,6 +398,39 @@ export function createBots({ database, observability, privateBotsDirectory, prov
       conversations.setPermissionMode(updated.id, updated.permissionMode)
 
       return present(updated)
+    },
+    /** Moves a root Bot with its Integrantes; an Integrante leaves its time to move alone. */
+    updateProject(input: UpdateBotProjectInput) {
+      const storedBot = database.bots.get(input.id)
+
+      if (!storedBot) {
+        throw new Error("Bot não encontrado. Atualize a lista e tente novamente.")
+      }
+
+      if (storedBot.temporary) {
+        throw new Error("Integrantes temporários permanecem ligados à sua Tarefa e não mudam de Projeto.")
+      }
+
+      if (input.projectId) {
+        projectWorkingDirectory(input.projectId)
+      }
+
+      if (storedBot.leaderBotId) {
+        assertTeamIdle(storedBot)
+      }
+
+      return observability.span(
+        { name: "bots.projectupdate", context: { botId: storedBot.id, ...(input.projectId ? { projectId: input.projectId } : {}) } },
+        () => {
+          const updated = database.bots.updateProject(storedBot.id, input.projectId)
+
+          if (!updated) {
+            throw new Error("Bot não encontrado.")
+          }
+
+          return present(updated)
+        },
+      )
     },
     updatePinned(rawInput: unknown) {
       const input = parse(botSchemas.updatePinnedInput, rawInput)

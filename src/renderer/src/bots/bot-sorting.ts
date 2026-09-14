@@ -24,6 +24,32 @@ interface Drag {
   frame: number
 }
 
+function projectPreviewDestination(drop: BotDrop | null, list: HTMLUListElement) {
+  if (drop?.kind !== "project") {
+    return { target: null, before: null }
+  }
+
+  const destination = drop.target?.querySelector<HTMLElement>(".sortable-bots") ?? drop.target
+
+  if (!destination || destination === list) {
+    return { target: null, before: null }
+  }
+
+  const before = [...destination.children].find((row) => row.querySelector<HTMLElement>("button[data-bot-id]")?.dataset.botId === drop.beforeBotId) ?? null
+
+  return { target: destination, before }
+}
+
+function projectPreviewPositions(elements: Set<Element>, source: HTMLElement) {
+  return [...elements].flatMap((element) => {
+    if (!(element instanceof HTMLElement) || !element.querySelector("button[data-bot-id]") || element === source) {
+      return []
+    }
+
+    return [{ element, bounds: element.getBoundingClientRect() }]
+  })
+}
+
 export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], name: string, position: number) => void, getDrop: () => ReturnType<typeof useBotDrop>) {
   const scroller = list.closest("nav") ?? list
   const listeners = new AbortController()
@@ -34,6 +60,7 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
   let dropSince = 0
   let hint: HTMLDivElement | null = null
   let preview: HTMLElement | null = null
+  let placeholder: HTMLElement | null = null
 
   function rows() {
     const measured = [...list.children].flatMap((element) => {
@@ -56,12 +83,15 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
 
     cancelAnimationFrame(drag.frame)
     list.classList.remove("is-sorting")
-    drop?.target?.classList.remove("bot-team-target")
+    scroller.classList.remove("is-dragging")
+    list.closest("[data-project-drop]")?.classList.remove("bot-drop-source")
+    drop?.target?.classList.remove("bot-drop-target")
     hint?.remove()
     hint = null
     preview?.remove()
     preview = null
     drop = null
+    updateProjectPreview(drag)
     drag.rows.forEach(({ element }) => {
       element.style.removeProperty("transform")
       element.classList.remove("bot-lifted", "bot-making-room")
@@ -112,7 +142,7 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
   }
 
   function dropReady() {
-    return !!drop?.target?.hasAttribute("data-bot-team") || performance.now() - dropSince >= 450
+    return !!drop?.target?.hasAttribute("data-bot-team") || !!drop?.target?.hasAttribute("data-project-drop") || performance.now() - dropSince >= 450
   }
 
   function resolveDrop(current: Drag, hit: Element | null) {
@@ -124,6 +154,7 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
       botId: current.row.id,
       button: hit.closest<HTMLElement>("button[data-bot-id]"),
       team: hit.closest<HTMLElement>("[data-bot-team]"),
+      project: hit.closest<HTMLElement>("[data-project-drop]"),
       x: current.x,
       y: current.y,
     }) ?? null
@@ -132,8 +163,8 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
   function updateDrop(current: Drag, hit: Element | null) {
     const candidate = resolveDrop(current, hit)
 
-    if (candidate?.leaderBotId !== drop?.leaderBotId || candidate?.target !== drop?.target) {
-      drop?.target?.classList.remove("bot-team-target")
+    if (candidate?.label !== drop?.label || candidate?.target !== drop?.target) {
+      drop?.target?.classList.remove("bot-drop-target")
       dropSince = performance.now()
     }
 
@@ -145,13 +176,39 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
       hint.textContent = drop.label
       hint.style.left = `${Math.max(8, Math.min(current.x + 16, window.innerWidth - hint.offsetWidth - 8))}px`
       hint.style.top = `${Math.max(8, Math.min(current.y + 20, window.innerHeight - hint.offsetHeight - 8))}px`
-      drop.target?.classList.toggle("bot-team-target", dropReady())
+      drop.target?.classList.toggle("bot-drop-target", dropReady())
       hint.dataset.ready = String(dropReady())
     } else {
       hint?.remove()
       hint = null
     }
 
+  }
+
+  function updateProjectPreview(current: Drag) {
+    const { target, before } = projectPreviewDestination(drop, list)
+
+    if ((!target && !placeholder) || (target && placeholder?.parentElement === target && placeholder.nextElementSibling === before)) {
+      return
+    }
+
+    const affected = new Set([...placeholder?.parentElement?.children ?? [], ...target?.children ?? []])
+    const positions = projectPreviewPositions(affected, current.row.element)
+
+    positions.forEach(({ element }) => element.getAnimations().forEach((animation) => animation.cancel()))
+    placeholder?.remove()
+    placeholder = null
+
+    if (target) {
+      // Reserve the landing slot without moving React's Bot rows between lists.
+      placeholder = document.createElement(target.tagName === "UL" ? "li" : "div")
+      placeholder.setAttribute("aria-hidden", "true")
+      placeholder.style.height = `${current.row.height}px`
+      placeholder.style.pointerEvents = "none"
+      target.insertBefore(placeholder, before)
+    }
+
+    positions.forEach(({ element, bounds }) => animateBotPlacement(element, bounds, false))
   }
 
   function paint() {
@@ -169,6 +226,7 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
 
     const hit = document.elementFromPoint(current.x, current.y)
     updateDrop(current, hit)
+    updateProjectPreview(current)
 
     const bounds = scroller.getBoundingClientRect()
     const edge = 36
@@ -181,7 +239,7 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
     const dy = current.y - current.startY + scroller.scrollTop - current.scrollTop
     const center = current.row.top + current.row.height / 2 + dy
     const others = current.rows.filter((row) => row !== current.row)
-    if (!drop && hit?.closest(".sortable-bots") === list) {
+    if ((!drop || !dropReady()) && hit?.closest(".sortable-bots") === list) {
       current.target = others.filter((row) => center > row.top + row.height / 2).length
     }
 
@@ -193,7 +251,13 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
       preview.style.transform = `translate(${dx}px, ${dy}px)`
     }
     const next = [...others]
-    next.splice(current.target, 0, current.row)
+
+    if (drop?.kind !== "project") {
+      next.splice(current.target, 0, current.row)
+    } else {
+      current.row.element.style.removeProperty("transform")
+    }
+
     let top = current.rows[0].top
 
     next.forEach((row) => {
@@ -248,6 +312,8 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
     drag.rows.forEach(({ element }) => element.getAnimations().forEach((animation) => animation.cancel()))
     list.setPointerCapture(event.pointerId)
     list.classList.add("is-sorting")
+    scroller.classList.add("is-dragging")
+    list.closest("[data-project-drop]")?.classList.add("bot-drop-source")
     drag.row.element.classList.add("bot-lifted")
     const previewOrigin = drag.row.button.getBoundingClientRect()
     preview = document.createElement("div")
@@ -265,6 +331,11 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
   }, options)
   window.addEventListener("pointerup", (event) => {
     if (drag?.pointerId === event.pointerId) {
+      drag.x = event.clientX
+      drag.y = event.clientY
+      cancelAnimationFrame(drag.frame)
+      paint()
+
       const bounds = scroller.getBoundingClientRect()
       finish(event.clientX < bounds.left - 24 || event.clientX > bounds.right + 24 || event.clientY < bounds.top - 24 || event.clientY > bounds.bottom + 24)
     }

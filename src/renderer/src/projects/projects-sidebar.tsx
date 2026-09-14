@@ -1,4 +1,4 @@
-import { ArrowPathIcon, BookmarkIcon, LinkSlashIcon, TrashIcon, ChevronDownIcon, Cog6ToothIcon, FolderIcon, MagnifyingGlassIcon, PlusIcon, PuzzlePieceIcon, UserPlusIcon } from "@heroicons/react/24/outline"
+import { ArrowPathIcon, BookmarkIcon, EllipsisHorizontalIcon, LinkSlashIcon, PencilIcon, TrashIcon, ChevronDownIcon, Cog6ToothIcon, FolderIcon, MagnifyingGlassIcon, PlusIcon, PuzzlePieceIcon, UserPlusIcon } from "@heroicons/react/24/outline"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
 import { type ReactNode, type Ref, useId, useState } from "react"
@@ -9,7 +9,7 @@ import { botRouteActions } from "../bots/bot-route-actions"
 import { BotDetachDialog } from "../bots/bot-detach-member"
 import { teamOf } from "../bots/team"
 import { BotRemovalDialog } from "../bots/bot-removal-dialog"
-import { BotDropProvider } from "../bots/bot-drop"
+import { BotDropProvider, unassignedProjectDrop } from "../bots/bot-drop"
 import { SortableBots } from "../bots/sortable-bots"
 import { BotFace } from "../bots/bot-face"
 import { groupMembers } from "../bots/bot-members"
@@ -25,6 +25,8 @@ import { IconButton } from "../ui/icon-button"
 import { InlineAction } from "../ui/inline-action"
 import { menuCardClassName, MenuOption } from "../ui/menu"
 import { Tooltip, useTooltip } from "../ui/tooltip"
+import { ProjectDialog } from "./project-dialog"
+import { ProjectRemovalDialog } from "./project-removal-dialog"
 import { SidebarLayoutMenu } from "./sidebar-layout-menu"
 
 const teamAvatarFaceClassName = "shrink-0 text-support font-extrabold text-focus transition-transform duration-[160ms] ease-out motion-reduce:transition-none"
@@ -145,14 +147,16 @@ function SidebarProjectList({ client, pinnedBots, projects, unassignedBots, sele
         </section>
       )}
       {projects.map((project) => <ProjectSection client={client} key={project.id} project={project} selectedBotId={selectedBotId} statuses={statuses} pinningBotId={pinningBotId} onTogglePinned={onTogglePinned} onRemove={onRemove} onDetach={onDetach} />)}
-      {unassignedBots.length > 0 && (
-        <section className="[&+&]:mt-5 [&+&]:border-t [&+&]:border-outline [&+&]:pt-4" aria-label="Sem projeto">
+      {(unassignedBots.length > 0 || projects.length > 0 || pinnedBots.length > 0) && (
+        <section data-project-drop={unassignedProjectDrop} data-empty={unassignedBots.length === 0} className="[&+&]:mt-5 [&+&]:border-t [&+&]:border-outline [&+&]:pt-4" aria-label="Sem projeto">
           {(projects.length > 0 || pinnedBots.length > 0) && <ProjectHeading id="unassigned-bots">Sem projeto</ProjectHeading>}
-          <SortableBots group="unassigned" items={unassignedBots}>
-            {(bot) => (
-              <BotGroup bot={bot} client={client} key={bot.id} selectedBotId={selectedBotId} statuses={statuses} pinningBotId={pinningBotId} onTogglePinned={onTogglePinned} onRemove={onRemove} onDetach={onDetach} />
-            )}
-          </SortableBots>
+          {unassignedBots.length === 0 ? <ProjectEmpty /> : (
+            <SortableBots group="unassigned" items={unassignedBots}>
+              {(bot) => (
+                <BotGroup bot={bot} client={client} key={bot.id} selectedBotId={selectedBotId} statuses={statuses} pinningBotId={pinningBotId} onTogglePinned={onTogglePinned} onRemove={onRemove} onDetach={onDetach} />
+              )}
+            </SortableBots>
+          )}
         </section>
       )}
     </nav>
@@ -160,11 +164,25 @@ function SidebarProjectList({ client, pinnedBots, projects, unassignedBots, sele
 }
 
 function ProjectSection({ client, project, selectedBotId, statuses, pinningBotId, onTogglePinned, onRemove, onDetach }: { client: EngineClient; project: ProjectGroups["projects"][number]; selectedBotId: string | null; statuses: Record<string, ChatStatus | undefined>; pinningBotId?: string; onTogglePinned: TogglePinned; onRemove: (bot: Bot) => void; onDetach: (bot: Bot) => void }) {
+  const [dialog, setDialog] = useState<"edit" | "remove" | null>(null)
+  const actions = [
+    { label: "Editar Projeto", icon: <PencilIcon />, onSelect: () => setDialog("edit") },
+    { label: "Excluir Projeto", icon: <TrashIcon />, separatorBefore: true, danger: true, onSelect: () => setDialog("remove") },
+  ]
+
   return (
-    <section className="[&+&]:mt-5" aria-labelledby={`project-${project.id}`}>
-      <ProjectHeading id={`project-${project.id}`}>{project.name}</ProjectHeading>
+    <section data-project-drop={project.id} className="group/project [&+&]:mt-5" aria-labelledby={`project-${project.id}`}>
+      <ContextMenu label={`Ações de ${project.name}`} actions={actions}>{(open) => (
+        <ProjectHeading id={`project-${project.id}`} action={(
+          <IconButton className="opacity-0 transition-opacity duration-[120ms] group-hover/project:opacity-100 focus-visible:opacity-100 max-md:opacity-100 group-data-[compact=true]/sidebar:opacity-100" iconSize={14} size={24} type="button" label={`Ações de ${project.name}`} onClick={open}>
+            <EllipsisHorizontalIcon aria-hidden="true" />
+          </IconButton>
+        )}>{project.name}</ProjectHeading>
+      )}</ContextMenu>
+      {dialog === "edit" && <ProjectDialog client={client} project={project} onClose={() => setDialog(null)} />}
+      {dialog === "remove" && <ProjectRemovalDialog client={client} project={project} onClose={() => setDialog(null)} />}
       {project.bots.length === 0 ? (
-        <p className="m-0 px-2.5 pt-[7px] pb-[9px] text-support text-muted">Nenhum Bot</p>
+        <ProjectEmpty />
       ) : (
         <SortableBots group={project.id} items={project.bots}>
           {(bot) => (
@@ -249,14 +267,20 @@ function SidebarEmpty({ children, title }: { children: ReactNode; title: string 
   )
 }
 
-function ProjectHeading({ children, id }: { children: string; id: string }) {
+function ProjectHeading({ children, id, action }: { children: string; id: string; action?: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-2 px-2.5 pb-1.5">
       <h3 className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-metadata font-semibold tracking-[0.08em] text-muted uppercase group-data-[compact=true]/sidebar:tracking-normal" id={id} title={children}>
         {children}
       </h3>
+      {action}
     </div>
   )
+}
+
+/** Reads "Nenhum Bot" at rest and "Solte aqui" while a Bot is carried; see `[data-project-drop]` in styles.css. */
+function ProjectEmpty() {
+  return <p className="bot-project-empty m-0 px-2.5 pt-[7px] pb-[9px] text-support text-muted"><span>Nenhum Bot</span></p>
 }
 
 export function BotSearch({ value, onChange, ref }: { value: string; onChange: (value: string) => void; ref?: Ref<HTMLInputElement> }) {
@@ -314,15 +338,7 @@ function splitPinnedBots(data: ProjectGroups) {
 
     return [{ ...bot, members: bot.members.filter((member) => !member.pinned) }]
   })
-  const projects = data.projects.flatMap((project) => {
-    const bots = split(project.bots)
-
-    if (project.bots.length > 0 && bots.length === 0) {
-      return []
-    }
-
-    return [{ ...project, bots }]
-  })
+  const projects = data.projects.map((project) => ({ ...project, bots: split(project.bots) }))
 
   return { pinnedBots, projects, unassignedBots: split(data.unassignedBots) }
 }
@@ -373,7 +389,7 @@ function BotGroup({ bot, client, selectedBotId, statuses, pinningBotId, onToggle
           <ul className={memberListClassName} id={closedListId}>
             {groups.closed.length > 0 && (
               <li className={`${memberItemClassName} group/closed relative`}>
-                <button className="mb-0.5 flex w-full cursor-pointer items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 pr-9.5 text-left text-metadata font-medium text-muted hover:text-primary focus-visible:border-focus focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-data-[compact=true]/sidebar:flex-col group-data-[compact=true]/sidebar:items-start group-data-[compact=true]/sidebar:gap-0 group-data-[compact=true]/sidebar:px-1" type="button" aria-expanded={closedShown} aria-controls={closedListId} onClick={() => setClosedShown((current) => !current)}>
+                <button className="mb-0.5 flex w-full cursor-pointer items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 pr-9.5 text-left text-metadata font-medium text-muted hover:text-primary focus-visible:border-focus focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-data-[compact=true]/sidebar:gap-1 group-data-[compact=true]/sidebar:px-1 group-data-[compact=true]/sidebar:pr-7" type="button" aria-expanded={closedShown} aria-controls={closedListId} onClick={() => setClosedShown((current) => !current)}>
                   Encerrados
                   <ChevronDownIcon className={`size-3 transition-transform duration-150 ease-out motion-reduce:transition-none ${closedShown ? "rotate-180" : "rotate-0"}`} aria-hidden="true" />
                 </button>
@@ -412,7 +428,7 @@ function ClosedMembersCleanup({ client, leaderName, members }: { client: EngineC
 
   return (
     <>
-      <IconButton className="top-1/2 right-2 z-20 -translate-y-1/2" iconSize={13} position="absolute" size={24} type="button" label="Excluir encerrados" disabled={removing} onClick={() => setConfirming(true)}>
+      <IconButton className="top-1/2 right-2 z-20 -translate-y-1/2 group-data-[compact=true]/sidebar:right-0" iconSize={13} position="absolute" size={24} type="button" label="Excluir encerrados" disabled={removing} onClick={() => setConfirming(true)}>
         <TrashIcon aria-hidden="true" />
       </IconButton>
       {confirming && (
@@ -484,7 +500,7 @@ function BotRow({ bot, member = false, members, selected, status, teamLeader = f
         </span>
         {status && <Tooltip {...tooltip.popoverProps}>{chatStatusLabels[status]}</Tooltip>}
         <span className="flex min-w-0 flex-1 flex-col gap-1 overflow-hidden group-data-[compact=true]/sidebar:w-full group-data-[compact=true]/sidebar:flex-none">
-          <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-control font-semibold text-primary">{bot.name}</strong>
+          <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-control font-semibold text-primary group-data-[compact=true]/sidebar:text-metadata">{bot.name}</strong>
           <small className="overflow-hidden text-ellipsis whitespace-nowrap text-metadata font-medium text-muted group-data-[compact=true]/sidebar:hidden">{describeMember(bot)}</small>
         </span>
       </button>

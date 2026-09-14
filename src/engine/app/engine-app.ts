@@ -85,6 +85,8 @@ export function createEngineRouter({ startedAt, observability, diagnostics, rece
     projects: {
       create: operations.projects.create.handler(({ input }) => projects.create(input)),
       list: operations.projects.list.handler(() => projects.list()),
+      update: operations.projects.update.handler(({ input }) => projects.update(input)),
+      remove: operations.projects.remove.handler(({ input }) => projects.remove(input.id)),
     },
     bots: {
       skills: operations.bots.skills.handler(({ input }) => bots.skills(input.botId)),
@@ -103,6 +105,7 @@ export function createEngineRouter({ startedAt, observability, diagnostics, rece
       }),
       update: operations.bots.update.handler(({ input }) => bots.update(input)),
       updatePinned: operations.bots.updatePinned.handler(({ input }) => bots.updatePinned(input)),
+      updateProject: operations.bots.updateProject.handler(({ input }) => bots.updateProject(input)),
       updateExecution: operations.bots.updateExecution.handler(({ input }) => bots.updateExecution(input)),
       remove: operations.bots.remove.handler(({ input }) => bots.remove(input.id)),
       removeColleague: operations.bots.removeColleague.handler(({ input }) => bots.removeColleague(input)),

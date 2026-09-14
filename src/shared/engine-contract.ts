@@ -43,6 +43,8 @@ export const engineContract = {
   projects: {
     create: oc.input(projectSchemas.createInput).output(projectSchemas.project).route({ method: "POST", path: "/projects" }),
     list: oc.output(projectSchemas.groupedList).route({ method: "GET", path: "/projects" }),
+    update: oc.input(projectSchemas.updateInput).output(projectSchemas.project).route({ method: "POST", path: "/projects/{id}/update" }),
+    remove: oc.input(idInput).route({ method: "POST", path: "/projects/{id}/remove" }),
   },
   bots: {
     skills: oc.input(botInput).output(skillList).route({ method: "GET", path: "/bots/{botId}/skills" }),
@@ -53,6 +55,7 @@ export const engineContract = {
     get: oc.input(idInput).output(botSchemas.bot).route({ method: "GET", path: "/bots/{id}" }),
     update: oc.input(botSchemas.updateInput).output(botSchemas.bot).route({ method: "POST", path: "/bots/{id}/update" }),
     updatePinned: oc.input(botSchemas.updatePinnedInput).output(botSchemas.bot).route({ method: "POST", path: "/bots/{id}/pinned" }),
+    updateProject: oc.input(botSchemas.updateProjectInput).output(botSchemas.bot).route({ method: "POST", path: "/bots/{id}/project" }),
     updateExecution: oc.input(botSchemas.updateExecutionInput).output(botSchemas.bot).route({ method: "POST", path: "/bots/{id}/execution" }),
     remove: oc.input(idInput).route({ method: "POST", path: "/bots/{id}/remove" }),
     removeColleague: oc.input(botSchemas.colleagueInput).route({ method: "POST", path: "/bots/{botId}/colleagues/{colleagueBotId}/remove" }),

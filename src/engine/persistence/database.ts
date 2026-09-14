@@ -203,6 +203,16 @@ export function openDatabase(path: string, observability: Observability) {
           return parseOptional(projectSchemas.project, row)
         })
       },
+      update(id: string, changes: Pick<Project, "name" | "defaultWorkingDirectory">) {
+        return observability.span({ name: "database.projectupdate", context: { projectId: id } }, () => {
+          const row = database.update(projects).set(changes).where(eq(projects.id, id)).returning().get()
+
+          return parseOptional(projectSchemas.project, row)
+        })
+      },
+      remove(id: string) {
+        return observability.span({ name: "database.projectremove", context: { projectId: id } }, () => database.delete(projects).where(eq(projects.id, id)).run().changes)
+      },
     },
     bots: {
       detachMember(id: string) {
@@ -266,6 +276,23 @@ export function openDatabase(path: string, observability: Observability) {
       updateExecution(id: string, changes: Partial<Pick<StoredBot, "effort" | "provider" | "model" | "permissionMode" | "workingDirectoryOverride">>) {
         return observability.span({ name: "database.botexecutionupdate", context: { botId: id } }, () => {
           const row = database.update(bots).set(changes).where(eq(bots.id, id)).returning().get()
+
+          return parseOptional(botSchemas.storedBot, row)
+        })
+      },
+      updateProject(id: string, projectId: string | null) {
+        return observability.span({ name: "database.botprojectupdate", context: { botId: id, ...(projectId ? { projectId } : {}) } }, () => {
+          const row = database.transaction((transaction) => {
+            const updated = transaction.update(bots).set({ projectId, leaderBotId: null }).where(eq(bots.id, id)).returning().get()
+
+            if (!updated) {
+              return
+            }
+
+            transaction.update(bots).set({ projectId }).where(eq(bots.leaderBotId, id)).run()
+
+            return updated
+          })
 
           return parseOptional(botSchemas.storedBot, row)
         })

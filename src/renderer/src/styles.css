@@ -674,13 +674,33 @@
 .bot-drop-hint { pointer-events: none; color: var(--color-secondary); }
 .bot-drop-hint[data-ready="true"] { color: var(--color-primary); }
 .bot-drop-notice { bottom: 24px; left: 24px; max-width: calc(100vw - 48px); }
-.bot-team-target {
+.bot-drop-target {
   border-radius: var(--radius-lg);
   outline: 1px solid var(--color-focus);
   outline-offset: -1px;
   background: color-mix(in srgb, var(--color-surface-active) 65%, transparent);
 }
-[data-bot-team].bot-team-target::after {
+/* Every Projeto section shows where a Bot can land while one is being carried. */
+[data-project-drop] {
+  position: relative;
+  border-radius: var(--radius-lg);
+  transition: outline-color 120ms ease-out, background-color 120ms ease-out;
+}
+[data-project-drop][data-empty="true"] { display: none; }
+nav.is-dragging [data-project-drop][data-empty="true"] { display: block; }
+nav.is-dragging [data-project-drop]:not(.bot-drop-source) {
+  outline: 1px dashed var(--color-outline-strong);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--color-surface-raised) 50%, transparent);
+}
+nav.is-dragging [data-project-drop]:not(.bot-drop-source) .bot-project-empty::after { content: "Solte aqui"; }
+nav.is-dragging [data-project-drop]:not(.bot-drop-source) .bot-project-empty > span { display: none; }
+nav.is-dragging [data-project-drop].bot-drop-target {
+  outline-style: solid;
+  outline-color: var(--color-focus);
+  background: color-mix(in srgb, var(--color-surface-active) 65%, transparent);
+}
+[data-bot-team].bot-drop-target::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -693,7 +713,7 @@
   .bot-making-room > :is(span, button, div) .bot-face {
     animation: bot-sidestep 260ms ease-out;
   }
-  .bot-team-target .bot-face { animation: bot-welcome 500ms ease-in-out infinite alternate; }
+  .bot-drop-target:not([data-project-drop]) .bot-face { animation: bot-welcome 500ms ease-in-out infinite alternate; }
 }
 @media (prefers-reduced-motion: reduce) {
   .sortable-bots.is-sorting > li { transition: none; }

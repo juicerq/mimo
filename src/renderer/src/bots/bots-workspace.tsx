@@ -8,12 +8,12 @@ import { MobileMenu } from "../projects/mobile-menu"
 import { MobileBots } from "../projects/mobile-bots"
 import { useIsMobile } from "../ui/use-is-mobile"
 import { ConnectionBanner } from "../connection"
-import { CreateProjectDialog } from "../projects/create-project-dialog"
+import { ProjectDialog } from "../projects/project-dialog"
 import { ProjectsSidebar } from "../projects/projects-sidebar"
 import { SettingsScreen } from "../settings/settings-screen"
 import type { EngineClient } from "../engine-client"
 import { BotChat } from "./bot-chat"
-import { botsStore, openMobileMenu } from "./bots-store"
+import { botsStore, closeDialog, openMobileMenu } from "./bots-store"
 import { NewBot } from "./new-bot"
 import { WorkspaceTopBar } from "./workspace-top-bar"
 
@@ -26,7 +26,7 @@ export function BotsWorkspace({ client }: { client: EngineClient }) {
   const mobile = useIsMobile()
   const sidebarMode = useSelector(appSettingsStore, (state) => state.sidebarMode)
   const menuOpen = useSelector(botsStore, (state) => state.mobileMenuOpen)
-  const columns = { traditional: "md:grid-cols-[286px_minmax(0,1fr)]", compact: "md:grid-cols-[112px_minmax(0,1fr)]", hidden: "md:grid-cols-1 md:pl-3" }
+  const columns = { traditional: "md:grid-cols-[286px_minmax(0,1fr)]", compact: "md:grid-cols-[128px_minmax(0,1fr)]", hidden: "md:grid-cols-1 md:pl-3" }
 
   function workspaceContent() {
     if (screen === "plugins") {
@@ -59,7 +59,7 @@ export function BotsWorkspace({ client }: { client: EngineClient }) {
           <div className="relative min-h-0 min-w-0 flex-1">{workspaceContent()}</div>
         </>}
       </div>
-      {dialog === "create-project" && <CreateProjectDialog client={client} />}
+      {dialog === "create-project" && <ProjectDialog client={client} onClose={closeDialog} />}
     </section>
   )
 }

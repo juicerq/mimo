@@ -1,4 +1,4 @@
-import type { CreateProjectInput, Project } from "@src/shared/projects"
+import type { CreateProjectInput, Project, UpdateProjectInput } from "@src/shared/projects"
 import type { Observability } from "../observability/observability"
 import type { AppDatabase } from "../persistence/database"
 import type { createBots } from "../bots/bots"
@@ -33,6 +33,31 @@ export function createProjects({ database, observability, bots }: ProjectsDepend
       return {
         projects: database.projects.list().map((project) => ({ ...project, bots: botsByProject.get(project.id) ?? [] })),
         unassignedBots: botsByProject.get(null) ?? [],
+      }
+    },
+    async update(input: UpdateProjectInput) {
+      const { id, ...changes } = input
+
+      if (changes.defaultWorkingDirectory) {
+        await assertAccessibleWorkingDirectory(changes.defaultWorkingDirectory)
+      }
+
+      return observability.span({ name: "projects.update", context: { projectId: id } }, () => {
+        const updated = database.projects.update(id, changes)
+
+        if (!updated) {
+          throw new Error("Projeto não encontrado. Atualize a lista e tente novamente.")
+        }
+
+        return updated
+      })
+    },
+    /** Bots keep their data and become unassigned; the schema sets their projectId to null. */
+    remove(id: string) {
+      const removed = observability.span({ name: "projects.remove", context: { projectId: id } }, () => database.projects.remove(id))
+
+      if (removed === 0) {
+        throw new Error("Projeto não encontrado. Atualize a lista e tente novamente.")
       }
     },
   }

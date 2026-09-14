@@ -2,7 +2,7 @@ import { Bars3Icon, Cog6ToothIcon, ComputerDesktopIcon, PuzzlePieceIcon } from "
 import { useQuery } from "@tanstack/react-query"
 import { Store, useSelector } from "@tanstack/react-store"
 import type { Bot } from "@src/shared/bots"
-import { BotDropProvider } from "../bots/bot-drop"
+import { BotDropProvider, unassignedProjectDrop } from "../bots/bot-drop"
 import { SortableBots } from "../bots/sortable-bots"
 import { BotFace } from "../bots/bot-face"
 import { openMobileMenu, openPlugins, openSettings, selectBot, toggleBrowserSidebar } from "../bots/bots-store"
@@ -24,9 +24,11 @@ export function MobileBots({ client }: { client: EngineClient }) {
   const leaders = teamLeaders(data)
   const pending = leaders.flatMap((bot) => [bot, ...bot.members]).filter((bot) => !bot.closed && needsResponse(overview.status(bot.id))).length
   const query = search.trim().toLocaleLowerCase("pt-BR")
-  const groups = [...(data?.projects ?? []), { id: "unassigned", name: "Sem Projeto", bots: data?.unassignedBots ?? [] }]
+  const groups = [...(data?.projects ?? []).map((project) => ({ ...project, drop: project.id })), { id: "unassigned", name: "Sem Projeto", bots: data?.unassignedBots ?? [], drop: unassignedProjectDrop }]
   const matches = (bot: Bot) => (!pendingOnly || needsResponse(overview.status(bot.id))) && `${bot.name} ${bot.function.outcome}`.toLocaleLowerCase("pt-BR").includes(query)
-  const visible = groups.map((group) => ({ ...group, bots: group.bots.filter((bot) => matches(bot) || bot.members.some(matches)) })).filter((group) => group.bots.length > 0)
+  // Empty groups stay in the DOM as drop targets and only show while a Bot is carried.
+  const visible = groups.map((group) => ({ ...group, bots: group.bots.filter((bot) => matches(bot) || bot.members.some(matches)) }))
+  const visibleBots = visible.reduce((total, group) => total + group.bots.length, 0)
 
   return <BotDropProvider client={client} data={data}><div className="flex min-h-0 flex-1 flex-col bg-canvas pb-[var(--safe-bottom)]">
     <header className="flex items-center justify-between px-5 pt-4 pb-3"><h1 className="m-0 text-title font-semibold">Seus Bots</h1><div className="flex gap-1"><IconButton label="Mostrar navegadores" onClick={toggleBrowserSidebar}><ComputerDesktopIcon /></IconButton><CreateMenu size={34} /></div></header>
@@ -38,9 +40,10 @@ export function MobileBots({ client }: { client: EngineClient }) {
     <nav ref={(node) => { if (node) { node.scrollTop = mobileListStore.state.scrollTop } }} onScroll={(event) => { const scrollTop = event.currentTarget.scrollTop; mobileListStore.setState((state) => ({ ...state, scrollTop })) }} className="min-h-0 flex-1 overflow-y-auto px-4" aria-label="Projetos e Bots">
       {(error || overview.error) && <p className="text-support text-status-error" role="alert">Não foi possível atualizar os Bots. Tentaremos ao reconectar.</p>}
       {(isPending || overview.isPending) && <p className="text-support text-secondary">Carregando seus Bots…</p>}
-      {!isPending && !error && visible.length === 0 && <p className="px-1 text-body text-secondary">{pendingOnly ? "Nenhum Bot precisa de uma resposta agora." : "Nenhum Bot encontrado. Use o botão Criar para começar."}</p>}
-      {visible.map((group) => <section key={group.id} className="mb-6" aria-label={group.name}>
+      {!isPending && !error && visibleBots === 0 && <p className="px-1 text-body text-secondary">{pendingOnly ? "Nenhum Bot precisa de uma resposta agora." : "Nenhum Bot encontrado. Use o botão Criar para começar."}</p>}
+      {visible.map((group) => <section key={group.id} data-project-drop={group.drop} data-empty={group.bots.length === 0} className="mb-6" aria-label={group.name}>
         <h2 className="m-0 px-2 pb-2 text-support font-medium text-muted">{group.name}</h2>
+        {group.bots.length === 0 && <p className="bot-project-empty m-0 px-2 pb-2 text-support text-muted"><span>Nenhum Bot</span></p>}
         <SortableBots group={group.id} items={group.bots}>{(bot) => {
           const members = bot.members.filter((member) => (!member.closed || query) && (matches(bot) || matches(member)))
           const waiting = bot.members.filter((member) => !member.closed && needsResponse(overview.status(member.id))).length

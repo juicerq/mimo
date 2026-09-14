@@ -26,10 +26,6 @@ function readRoute(params: URLSearchParams): BotRoute {
 }
 
 export function subscribeWorkspaceNavigation() {
-  if (!window.desktop.remote) {
-    return
-  }
-
   let restoring = false
 
   function restore() {

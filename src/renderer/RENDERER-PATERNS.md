@@ -33,7 +33,7 @@ Um `className` longo repetido em centenas de elementos custa na abertura da conv
 
 O breakpoint é o `md` do Tailwind, 48rem. Estilo que muda no celular usa `max-md:`. Estrutura que muda, como a lista em tela cheia, a navegação do Bot e a sheet do composer, lê `useIsMobile()` de `ui/use-is-mobile.ts`, uma assinatura em `matchMedia` via `useSyncExternalStore`. O bloco `@media (width < 48rem)` no fim de `styles.css` fica fora de `@layer` de propósito: ele reestiliza primitivos que já carregam utilities, como `.chat-control-popover`, `.mobile-sheet` e `.mobile-screen`, e utilities vencem qualquer layer.
 
-Rascunhos ficam no `chatStore` e são persistidos pelo `chat-draft-storage`. A lista mobile combina o resumo persistido de `conversations.overview` com os estados vivos do `chatStore`; não carrega cada histórico para descobrir pendências. `workspace-navigation` sincroniza destinos remotos com o histórico do navegador, e `chat-reading-position` preserva a leitura durante a sessão.
+Rascunhos ficam no `chatStore` e são persistidos pelo `chat-draft-storage`. A lista mobile combina o resumo persistido de `conversations.overview` com os estados vivos do `chatStore`; não carrega cada histórico para descobrir pendências. `workspace-navigation` sincroniza o `botsStore` com o histórico do navegador no computador e no celular; o Chromium do Electron já navega nesse histórico com os botões voltar e avançar do mouse, então o Renderer não trata esses botões.  `chat-reading-position` preserva a leitura durante a sessão.
 
 ## Navegador do Bot
 
