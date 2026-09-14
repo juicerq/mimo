@@ -13,7 +13,7 @@ import { botInstructions, botTools, needsApproval } from "../tools";
 import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
 import { Queue } from "./queue";
-import { entryEvent, entryMessage, replayMessage, resultEvent, toolErrorText, toolResultText, usageEvent, type Entry } from "./events";
+import { entryEvent, entryMessage, replayMessage, resultEvent, summaryStart, toolErrorText, toolResultText, usageEvent, type Entry } from "./events";
 import { deleteBot, runningBot, trackBot } from "./registry";
 import { readBot, readTranscript, writeBot, writeTranscript, type BotPatch } from "./store";
 import type { Approval, BotEvent, BotInfo, BotMode, Delegation, TeamMember, ToolGroup } from "./types";
@@ -35,14 +35,19 @@ export class Bot {
 	private readonly running = new Map<string, string>();
 	private record: BotInfo;
 	private session = uuidv7();
+	private archive: AgentMessage[];
 	private host: Bot | null = null;
 	private cancelled = false;
 	private draining = false;
 	private reply = "";
 	private failure: string | null = null;
 
-	private constructor(record: BotInfo, messages: AgentMessage[]) {
+	private constructor(record: BotInfo, log: AgentMessage[]) {
+		const start = summaryStart(log);
+		const messages = log.slice(start);
+
 		this.record = record;
+		this.archive = log.slice(0, start);
 		this.agent = new Agent({
 			streamFn: (model, context, options) => models().streamSimple(model, context, options),
 			initialState: {
@@ -86,6 +91,10 @@ export class Bot {
 
 	get mode(): BotMode {
 		return this.host?.mode ?? this.record.mode;
+	}
+
+	private get log(): AgentMessage[] {
+		return [...this.archive, ...this.agent.state.messages];
 	}
 
 	get busy(): boolean {
@@ -194,7 +203,7 @@ export class Bot {
 	}
 
 	transcript(): BotEvent[] {
-		return this.agent.state.messages.flatMap(replayMessage);
+		return this.log.flatMap(replayMessage);
 	}
 
 	async selectModel(selection: ModelSelection): Promise<BotInfo> {
@@ -428,10 +437,11 @@ export class Bot {
 			.catch(() => null);
 		if (compacted) {
 			await archiveSession({ botId: this.record.id, sessionId: this.session, messages: this.agent.state.messages });
-			this.agent.state.messages = compacted;
+			this.archive = [...this.archive, ...compacted.dropped];
+			this.agent.state.messages = compacted.messages;
 			this.session = uuidv7();
 		}
-		await writeTranscript(this.record.id, this.agent.state.messages).catch((error: unknown) => {
+		await writeTranscript(this.record.id, this.log).catch((error: unknown) => {
 			throw new Error(`A conversa não foi gravada: ${errorText(error)}`);
 		});
 	}

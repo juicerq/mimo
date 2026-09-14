@@ -59,6 +59,16 @@ function entryOf(text: string): Entry {
 	return { kind: "user", text };
 }
 
+export function summaryStart(messages: AgentMessage[]): number {
+	for (let index = messages.length - 1; index >= 0; index -= 1) {
+		const message = messages[index];
+		if (isLlmMessage(message) && message.role === "user" && entryOf(contentText(message.content)).kind === "summary") {
+			return index;
+		}
+	}
+	return 0;
+}
+
 export function resultEvent(toolName: string, output: string): BotEvent[] {
 	const call = teamCall(toolName, output);
 	if (call) {
