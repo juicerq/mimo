@@ -24,7 +24,7 @@ interface Drag {
   frame: number
 }
 
-function projectPreviewDestination(drop: BotDrop | null, list: HTMLUListElement) {
+function projectPreviewDestination(drop: BotDrop | null, list: HTMLElement) {
   if (drop?.kind !== "project") {
     return { target: null, before: null }
   }
@@ -50,7 +50,10 @@ function projectPreviewPositions(elements: Set<Element>, source: HTMLElement) {
   })
 }
 
-export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], name: string, position: number) => void, getDrop: () => ReturnType<typeof useBotDrop>) {
+export function bindBotSorting(list: HTMLElement, commit: (ids: string[], name: string, position: number) => void, getDrop: () => ReturnType<typeof useBotDrop>, kind: "bot" | "project" = "bot") {
+  const buttonSelector = kind === "project" ? "button[data-project-sort-id]" : "button[data-bot-id]"
+  const listSelector = kind === "project" ? ".sortable-projects" : ".sortable-bots"
+  const draggingClass = kind === "project" ? "is-dragging-project" : "is-dragging"
   const scroller = list.closest("nav") ?? list
   const listeners = new AbortController()
   const options = { signal: listeners.signal }
@@ -61,16 +64,19 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
   let hint: HTMLDivElement | null = null
   let preview: HTMLElement | null = null
   let placeholder: HTMLElement | null = null
+  let projectSlot: HTMLDivElement | null = null
 
   function rows() {
     const measured = [...list.children].flatMap((element) => {
-      const button = element.querySelector<HTMLButtonElement>("button[data-bot-id]")
+      const button = element.querySelector<HTMLButtonElement>(buttonSelector)
 
-      if (!(element instanceof HTMLElement) || !button?.dataset.botId) {
+      const id = kind === "project" ? button?.dataset.projectSortId : button?.dataset.botId
+
+      if (!(element instanceof HTMLElement) || !button || !id || element.getBoundingClientRect().height === 0) {
         return []
       }
 
-      return [{ element, button, id: button.dataset.botId, top: element.offsetTop, height: element.getBoundingClientRect().height }]
+      return [{ element, button, id, top: element.offsetTop, height: element.getBoundingClientRect().height }]
     })
 
     return measured.map((row, index) => ({ ...row, height: (measured[index + 1]?.top ?? list.scrollHeight) - row.top }))
@@ -83,13 +89,15 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
 
     cancelAnimationFrame(drag.frame)
     list.classList.remove("is-sorting")
-    scroller.classList.remove("is-dragging")
+    scroller.classList.remove(draggingClass)
     list.closest("[data-project-drop]")?.classList.remove("bot-drop-source")
     drop?.target?.classList.remove("bot-drop-target")
     hint?.remove()
     hint = null
     preview?.remove()
     preview = null
+    projectSlot?.remove()
+    projectSlot = null
     drop = null
     updateProjectPreview(drag)
     drag.rows.forEach(({ element }) => {
@@ -122,14 +130,14 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
 
     suppressClick = current.pointerId !== -1
 
-    if (list.hasPointerCapture(current.pointerId)) {
+    if (current.pointerId !== -1 && list.hasPointerCapture(current.pointerId)) {
       list.releasePointerCapture(current.pointerId)
     }
 
     if (!cancelled && destination) {
       getDrop()?.apply({ ...destination, origin: before.get(current.row.id) })
     } else if (!cancelled) {
-      flushSync(() => commit(next.map((row) => row.id), current.row.button.querySelector("strong")?.textContent ?? "Bot", current.target + 1))
+      flushSync(() => commit(next.map((row) => row.id), current.row.button.querySelector("strong")?.textContent ?? current.row.button.textContent ?? "Item", current.target + 1))
     }
 
     current.rows.forEach(({ id, element }) => {
@@ -211,6 +219,46 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
     positions.forEach(({ element, bounds }) => animateBotPlacement(element, bounds, false))
   }
 
+  function movePreview(current: Drag) {
+    if (!preview) {
+      return
+    }
+
+    const left = Number.parseFloat(preview.style.left)
+    const top = Number.parseFloat(preview.style.top)
+    const dx = Math.max(8 - left, Math.min(window.innerWidth - preview.offsetWidth - left - 8, current.x - current.startX))
+    const dy = Math.max(8 - top, Math.min(window.innerHeight - preview.offsetHeight - top - 8, current.y - current.startY))
+    preview.style.transform = `translate(${dx}px, ${dy}px)`
+  }
+
+  function updateProjectHint(current: Drag, others: SortRow[], bounds: DOMRect) {
+    if (kind !== "project" || !hint) {
+      return
+    }
+
+    const following = others[current.target]
+    const previous = others[current.target - 1]
+    const destination = following ? `Antes de ${following.button.textContent}` : `Depois de ${previous?.button.textContent ?? current.row.button.textContent}`
+    const label = `${current.row.button.textContent} · ${current.target + 1} de ${current.rows.length}${others.length > 0 ? ` · ${destination}` : ""}`
+
+    if (hint.textContent !== label) {
+      hint.textContent = label
+    }
+
+    hint.style.left = `${Math.max(8, Math.min(bounds.left, window.innerWidth - hint.offsetWidth - 8))}px`
+    hint.style.top = `${Math.min(window.innerHeight - hint.offsetHeight - 16, bounds.bottom - hint.offsetHeight - 8)}px`
+  }
+
+  function scrollTowardPointer(y: number, bounds: DOMRect) {
+    const edge = 36
+
+    if (y > bounds.bottom - edge) {
+      scroller.scrollTop += Math.min(12, y - (bounds.bottom - edge))
+    } else if (y < bounds.top + edge) {
+      scroller.scrollTop += Math.max(-12, y - (bounds.top + edge))
+    }
+  }
+
   function paint() {
     const current = drag
 
@@ -218,38 +266,29 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
       return
     }
 
-    if (current.rows.some((row) => !row.element.isConnected) || list.children.length !== current.rows.length) {
+    if (current.rows.some((row) => !row.element.isConnected) || (kind === "project" ? rows().length : list.children.length) !== current.rows.length) {
       finish(true)
 
       return
     }
 
     const hit = document.elementFromPoint(current.x, current.y)
-    updateDrop(current, hit)
-    updateProjectPreview(current)
-
-    const bounds = scroller.getBoundingClientRect()
-    const edge = 36
-    if (current.y > bounds.bottom - edge) {
-      scroller.scrollTop += Math.min(12, current.y - (bounds.bottom - edge))
-    } else if (current.y < bounds.top + edge) {
-      scroller.scrollTop += Math.max(-12, current.y - (bounds.top + edge))
+    if (kind === "bot") {
+      updateDrop(current, hit)
+      updateProjectPreview(current)
     }
 
+    const bounds = scroller.getBoundingClientRect()
+    scrollTowardPointer(current.y, bounds)
+
     const dy = current.y - current.startY + scroller.scrollTop - current.scrollTop
-    const center = current.row.top + current.row.height / 2 + dy
+    const center = kind === "project" ? current.y - list.getBoundingClientRect().top : current.row.top + current.row.height / 2 + dy
     const others = current.rows.filter((row) => row !== current.row)
-    if ((!drop || !dropReady()) && hit?.closest(".sortable-bots") === list) {
+    if ((!drop || !dropReady()) && hit?.closest(listSelector) === list) {
       current.target = others.filter((row) => center > row.top + row.height / 2).length
     }
 
-    if (preview) {
-      const left = Number.parseFloat(preview.style.left)
-      const top = Number.parseFloat(preview.style.top)
-      const dx = Math.max(8 - left, Math.min(window.innerWidth - preview.offsetWidth - left - 8, current.x - current.startX))
-      const dy = Math.max(8 - top, Math.min(window.innerHeight - preview.offsetHeight - top - 8, current.y - current.startY))
-      preview.style.transform = `translate(${dx}px, ${dy}px)`
-    }
+    movePreview(current)
     const next = [...others]
 
     if (drop?.kind !== "project") {
@@ -262,6 +301,10 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
 
     next.forEach((row) => {
       if (row === current.row) {
+        if (projectSlot) {
+          projectSlot.style.transform = `translateY(${top}px)`
+        }
+
         row.element.style.transform = `translate(${Math.max(-14, Math.min(14, current.x - current.startX))}px, ${dy}px)`
       } else {
         row.element.style.transform = `translateY(${top - row.top}px)`
@@ -270,6 +313,8 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
 
       top += row.height
     })
+    updateProjectHint(current, others, bounds)
+
     current.frame = requestAnimationFrame(paint)
   }
 
@@ -278,16 +323,16 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
       return
     }
 
-    const button = event.target instanceof Element ? event.target.closest("button[data-bot-id]") : null
+    const button = event.target instanceof Element ? event.target.closest(buttonSelector) : null
     const siblings = rows()
     const row = siblings.find((row) => row.button === button)
 
-    if (!row || button?.closest(".sortable-bots") !== list) {
+    if (!row || button?.closest(listSelector) !== list) {
       return
     }
 
     // Touch starts on the face so vertical swipes on the rest of the row still scroll.
-    if (event.pointerType === "touch" && !(event.target instanceof Element && event.target.closest(".bot-face"))) {
+    if (kind === "bot" && event.pointerType === "touch" && !(event.target instanceof Element && event.target.closest(".bot-face"))) {
       return
     }
 
@@ -312,10 +357,11 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
     drag.rows.forEach(({ element }) => element.getAnimations().forEach((animation) => animation.cancel()))
     list.setPointerCapture(event.pointerId)
     list.classList.add("is-sorting")
-    scroller.classList.add("is-dragging")
+    scroller.classList.add(draggingClass)
     list.closest("[data-project-drop]")?.classList.add("bot-drop-source")
     drag.row.element.classList.add("bot-lifted")
-    const previewOrigin = drag.row.button.getBoundingClientRect()
+    const previewSource = kind === "project" ? drag.row.element : drag.row.button
+    const previewOrigin = previewSource.getBoundingClientRect()
     preview = document.createElement("div")
     preview.className = "bot-drag-preview"
     preview.inert = true
@@ -323,7 +369,33 @@ export function bindBotSorting(list: HTMLUListElement, commit: (ids: string[], n
     preview.style.left = `${previewOrigin.left}px`
     preview.style.top = `${previewOrigin.top}px`
     preview.style.width = `${previewOrigin.width}px`
-    preview.appendChild(drag.row.button.cloneNode(true))
+    if (kind === "project") {
+      preview.classList.add("project-drag-preview", "group/sidebar")
+      preview.dataset.compact = list.closest<HTMLElement>("[data-compact]")?.dataset.compact ?? "false"
+      preview.style.maxHeight = `${Math.max(80, window.innerHeight - 96)}px`
+      preview.dataset.overflow = String(previewOrigin.height > Math.max(80, window.innerHeight - 96))
+      projectSlot = document.createElement("div")
+      projectSlot.className = "project-sort-slot"
+      projectSlot.setAttribute("aria-hidden", "true")
+      projectSlot.style.height = `${Math.max(0, Math.min(previewOrigin.height, drag.row.height - 24))}px`
+      // Mount at the source slot so the first layout cannot animate from the list's top.
+      projectSlot.style.transform = `translateY(${drag.row.top}px)`
+      projectSlot.textContent = `Soltar ${drag.row.button.textContent} aqui`
+      list.appendChild(projectSlot)
+      hint = document.body.appendChild(document.createElement("div"))
+      hint.className = "bot-drop-hint project-sort-hint"
+      hint.setAttribute("role", "status")
+    }
+
+    const cloned = previewSource.cloneNode(true)
+
+    if (cloned instanceof HTMLElement) {
+      cloned.classList.remove("bot-lifted")
+      cloned.style.removeProperty("transform")
+      cloned.style.margin = "0"
+    }
+
+    preview.appendChild(cloned)
     preview.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"))
     preview.querySelectorAll("[popover]").forEach((element) => element.remove())
     document.body.appendChild(preview)

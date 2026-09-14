@@ -748,3 +748,63 @@ nav.is-dragging [data-project-drop].bot-drop-target {
     transform-origin: 50% 15%;
   }
 }
+
+.sortable-projects { position: relative; }
+.sortable-projects:empty { display: none; }
+section + .sortable-projects:not(:empty) { margin-top: 20px; }
+.project-sort-handle {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: left;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  border-radius: var(--radius-sm);
+}
+.project-sort-handle:hover { color: var(--color-secondary); }
+.project-sort-handle:focus-visible { outline: 1px solid var(--color-focus); outline-offset: -1px; }
+.project-sort-handle:active { cursor: grabbing; color: var(--color-primary); }
+.sortable-projects.is-sorting { isolation: isolate; }
+.sortable-projects.is-sorting > section { transition: transform 200ms cubic-bezier(.2, .8, .2, 1); }
+.sortable-projects.is-sorting > .bot-lifted { visibility: hidden; pointer-events: none; transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sortable-projects.is-sorting > section { transition: none; }
+}
+
+.project-drag-preview {
+  overflow: hidden;
+  outline: 1px solid var(--color-outline-strong);
+  opacity: .92;
+}
+.project-drag-preview[data-overflow="true"] {
+  mask-image: linear-gradient(to bottom, black calc(100% - 32px), transparent);
+}
+.project-drag-preview > section { padding-top: 8px; padding-bottom: 8px; }
+.project-sort-slot {
+  position: absolute;
+  inset: 12px 0 auto;
+  display: flex;
+  align-items: flex-start;
+  padding: 8px 12px;
+  border: 1px dashed var(--color-focus);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface-active) 45%, transparent);
+  color: var(--color-secondary);
+  font-size: var(--text-support);
+  pointer-events: none;
+  transition: transform 180ms cubic-bezier(.2, .8, .2, 1);
+}
+.project-sort-hint { z-index: 91; max-width: calc(100vw - 16px); }
+.sortable-projects.is-sorting > .bot-making-room {
+  background: var(--color-surface-hover);
+  outline: 1px solid var(--color-outline);
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-sort-slot { transition: none; }
+}

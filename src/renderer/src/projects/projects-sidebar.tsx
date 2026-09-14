@@ -1,3 +1,4 @@
+import { ProjectSortHandle, SortableProjects } from "./sortable-projects"
 import { ArrowPathIcon, BookmarkIcon, EllipsisHorizontalIcon, LinkSlashIcon, PencilIcon, TrashIcon, ChevronDownIcon, Cog6ToothIcon, FolderIcon, MagnifyingGlassIcon, PlusIcon, PuzzlePieceIcon, UserPlusIcon } from "@heroicons/react/24/outline"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
@@ -146,9 +147,9 @@ function SidebarProjectList({ client, pinnedBots, projects, unassignedBots, sele
           </SortableBots>
         </section>
       )}
-      {projects.map((project) => <ProjectSection client={client} key={project.id} project={project} selectedBotId={selectedBotId} statuses={statuses} pinningBotId={pinningBotId} onTogglePinned={onTogglePinned} onRemove={onRemove} onDetach={onDetach} />)}
+      <SortableProjects items={projects}>{(project) => <ProjectSection client={client} key={project.id} project={project} selectedBotId={selectedBotId} statuses={statuses} pinningBotId={pinningBotId} onTogglePinned={onTogglePinned} onRemove={onRemove} onDetach={onDetach} />}</SortableProjects>
       {(unassignedBots.length > 0 || projects.length > 0 || pinnedBots.length > 0) && (
-        <section data-project-drop={unassignedProjectDrop} data-empty={unassignedBots.length === 0} className="[&+&]:mt-5 [&+&]:border-t [&+&]:border-outline [&+&]:pt-4" aria-label="Sem projeto">
+        <section data-project-drop={unassignedProjectDrop} data-empty={unassignedBots.length === 0} className={projects.length > 0 || pinnedBots.length > 0 ? "mt-5 border-t border-outline pt-4" : ""} aria-label="Sem projeto">
           {(projects.length > 0 || pinnedBots.length > 0) && <ProjectHeading id="unassigned-bots">Sem projeto</ProjectHeading>}
           {unassignedBots.length === 0 ? <ProjectEmpty /> : (
             <SortableBots group="unassigned" items={unassignedBots}>
@@ -173,7 +174,7 @@ function ProjectSection({ client, project, selectedBotId, statuses, pinningBotId
   return (
     <section data-project-drop={project.id} className="group/project [&+&]:mt-5" aria-labelledby={`project-${project.id}`}>
       <ContextMenu label={`Ações de ${project.name}`} actions={actions}>{(open) => (
-        <ProjectHeading id={`project-${project.id}`} action={(
+        <ProjectHeading id={`project-${project.id}`} projectId={project.id} action={(
           <IconButton className="opacity-0 transition-opacity duration-[120ms] group-hover/project:opacity-100 focus-visible:opacity-100 max-md:opacity-100 group-data-[compact=true]/sidebar:opacity-100" iconSize={14} size={24} type="button" label={`Ações de ${project.name}`} onClick={open}>
             <EllipsisHorizontalIcon aria-hidden="true" />
           </IconButton>
@@ -267,11 +268,11 @@ function SidebarEmpty({ children, title }: { children: ReactNode; title: string 
   )
 }
 
-function ProjectHeading({ children, id, action }: { children: string; id: string; action?: ReactNode }) {
+function ProjectHeading({ children, id, action, projectId }: { children: string; id: string; action?: ReactNode; projectId?: string }) {
   return (
     <div className="flex items-center justify-between gap-2 px-2.5 pb-1.5">
       <h3 className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-metadata font-semibold tracking-[0.08em] text-muted uppercase group-data-[compact=true]/sidebar:tracking-normal" id={id} title={children}>
-        {children}
+        {projectId ? <ProjectSortHandle id={projectId} name={children} /> : children}
       </h3>
       {action}
     </div>
