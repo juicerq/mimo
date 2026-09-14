@@ -1,12 +1,8 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import { readdir } from "node:fs/promises";
-import { z } from "zod";
-import { MessageSchema } from "../bot/types";
+import { summaryStart } from "../bot/events";
+import { readTranscript } from "../bot/store";
 import { contentText, isLlmMessage } from "../messages";
-import { dataPath } from "../storage/data";
-import { readJsonFile, writeTextFile } from "../storage/files";
 
-const ArchiveSchema = z.object({ messages: z.array(MessageSchema) });
 const HISTORY_RESPONSE_CHARACTERS = 12_000;
 const SNIPPET_CHARACTERS = 600;
 const SNIPPET_LEAD = 120;
@@ -15,28 +11,6 @@ interface HistoryMessage {
 	messageId: number;
 	kind: string;
 	text: string;
-}
-
-function sessionPath(botId: string, sessionId: string) {
-	return dataPath("bots", botId, "sessions", `${encodeURIComponent(sessionId)}.json`);
-}
-
-export async function archiveSession(input: { botId: string; sessionId: string; messages: AgentMessage[] }): Promise<string> {
-	const path = sessionPath(input.botId, input.sessionId);
-	const archive = { sessionId: input.sessionId, archivedAt: new Date().toISOString(), messages: input.messages };
-	await writeTextFile(path, `${JSON.stringify(archive, null, "\t")}\n`, 0o600);
-	return path;
-}
-
-async function listSessionArchives(botId: string): Promise<string[]> {
-	const entries = await readdir(dataPath("bots", botId, "sessions")).catch((error: unknown) => {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			return [];
-		}
-		throw error;
-	});
-	return entries.filter((entry) => entry.endsWith(".json")).sort().reverse()
-		.map((entry) => decodeURIComponent(entry.slice(0, -5)));
 }
 
 function projectMessage(message: AgentMessage): { kind: string; text: string }[] {
@@ -56,12 +30,9 @@ function projectMessage(message: AgentMessage): { kind: string; text: string }[]
 	return [...(text ? [{ kind: "assistant", text }] : []), ...calls];
 }
 
-async function readArchive(botId: string, sessionId: string): Promise<HistoryMessage[]> {
-	const archive = await readJsonFile(sessionPath(botId, sessionId), ArchiveSchema);
-	if (!archive) {
-		throw new Error("This session is not archived for this bot. Use search_history to find its sessions.");
-	}
-	return archive.messages
+async function beforeWindow(botId: string): Promise<HistoryMessage[]> {
+	const log = await readTranscript(botId);
+	return log.slice(0, summaryStart(log))
 		.flatMap(projectMessage)
 		.map((message, messageId) => ({ ...message, messageId }));
 }
@@ -72,30 +43,24 @@ function normalizeSearch(text: string) {
 
 export async function searchHistory(input: { botId: string; query: string; offset: number; limit: number }) {
 	const terms = normalizeSearch(input.query).split(/\s+/u).filter(Boolean);
-	const matches: { sessionId: string; messageId: number; kind: string; snippet: string }[] = [];
-	for (const sessionId of await listSessionArchives(input.botId)) {
-		const messages = await readArchive(input.botId, sessionId);
-		for (const message of messages) {
-			const text = normalizeSearch(message.text);
-			if (terms.length === 0 && message.kind !== "user") {
-				continue;
-			}
-			if (!terms.every((term) => text.includes(term))) {
-				continue;
-			}
-			const start = Math.max(0, (terms.length ? text.indexOf(terms[0]) : 0) - SNIPPET_LEAD);
-			matches.push({ sessionId, messageId: message.messageId, kind: message.kind, snippet: message.text.slice(start, start + SNIPPET_CHARACTERS) });
-			if (terms.length === 0) {
-				break;
-			}
+	const matches: { messageId: number; kind: string; snippet: string }[] = [];
+	for (const message of await beforeWindow(input.botId)) {
+		const text = normalizeSearch(message.text);
+		if (terms.length === 0 && message.kind !== "user") {
+			continue;
 		}
+		if (!terms.every((term) => text.includes(term))) {
+			continue;
+		}
+		const start = Math.max(0, (terms.length ? text.indexOf(terms[0]) : 0) - SNIPPET_LEAD);
+		matches.push({ messageId: message.messageId, kind: message.kind, snippet: message.text.slice(start, start + SNIPPET_CHARACTERS) });
 	}
 	const end = Math.min(input.offset + input.limit, matches.length);
 	return { matches: matches.slice(input.offset, end), nextOffset: end < matches.length ? end : null, total: matches.length };
 }
 
-export async function readHistory(input: { botId: string; sessionId: string; messageId: number; offset: number; limit: number }) {
-	const history = await readArchive(input.botId, input.sessionId);
+export async function readHistory(input: { botId: string; messageId: number; offset: number; limit: number }) {
+	const history = await beforeWindow(input.botId);
 	const messages: HistoryMessage[] = [];
 	let remaining = HISTORY_RESPONSE_CHARACTERS;
 	for (const message of history.slice(input.messageId, input.messageId + input.limit)) {
@@ -104,9 +69,9 @@ export async function readHistory(input: { botId: string; sessionId: string; mes
 		messages.push({ ...message, text });
 		remaining -= text.length;
 		if (offset + text.length < message.text.length) {
-			return { sessionId: input.sessionId, messages, next: { messageId: message.messageId, offset: offset + text.length }, totalMessages: history.length };
+			return { messages, next: { messageId: message.messageId, offset: offset + text.length }, totalMessages: history.length };
 		}
 	}
 	const nextMessageId = input.messageId + messages.length;
-	return { sessionId: input.sessionId, messages, next: nextMessageId < history.length ? { messageId: nextMessageId, offset: 0 } : null, totalMessages: history.length };
+	return { messages, next: nextMessageId < history.length ? { messageId: nextMessageId, offset: 0 } : null, totalMessages: history.length };
 }
