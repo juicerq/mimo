@@ -2,6 +2,7 @@ import { estimateContextTokens, type AgentMessage } from "@earendil-works/pi-age
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { isLlmMessage } from "../messages";
 import { models } from "../model/models";
+import { entryMessage } from "./events";
 
 const COMPACT_AT = 0.8;
 const KEEP_RECENT_MESSAGES = 8;
@@ -32,8 +33,6 @@ export async function compactTranscript(input: { messages: AgentMessage[]; model
 	if (!text) {
 		return null;
 	}
-	return [
-		{ role: "user", content: `Resumo da conversa anterior, compactada para caber no contexto:\n\n${text}`, timestamp: Date.now() },
-		...input.messages.slice(cut),
-	];
+	const message = entryMessage({ kind: "summary", text: `Resumo da conversa anterior, compactada para caber no contexto:\n\n${text}` });
+	return [message, ...input.messages.slice(cut)];
 }

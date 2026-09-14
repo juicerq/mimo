@@ -12,7 +12,7 @@ _Dono_: `apps/agent/src/bot/bot.ts` (classe `Bot`); em disco, `apps/agent/src/bo
 **Sessão**:
 A conversa durável atual de um Bot, que sobrevive a reinícios e à troca de Bot. Quando o contexto é compactado, a Sessão atual é arquivada e outra começa com um resumo, preservando a Memória e o acesso às Sessões anteriores.
 _Evitar_: Chat, conversa nova
-_Dono_: `apps/agent/src/bot/bot.ts` (`session`, `saveTranscript`); as arquivadas, `apps/agent/src/history/history.ts`
+_Dono_: `apps/agent/src/bot/bot.ts` (`session`, `saveTranscript`); o corte e o resumo, `apps/agent/src/bot/compaction.ts`; as arquivadas, `apps/agent/src/history/history.ts`
 
 **Turno**:
 Uma entrega da pessoa ou um disparo de Rotina e todo o trabalho que ela provoca até a resposta.

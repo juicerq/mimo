@@ -8,9 +8,11 @@ import type { BotEvent } from "./types";
 export type Entry =
 	| { kind: "user"; text: string }
 	| { kind: "note"; text: string }
-	| { kind: "routine"; name: string; text: string };
+	| { kind: "routine"; name: string; text: string }
+	| { kind: "summary"; text: string };
 
 const NOTE_MARK = "[equipe]";
+const SUMMARY_MARK = "[resumo]";
 const ROUTINE_MARK = /^\[rotina(?:: (?<name>[^\]\n]+))?\]\n/u;
 
 export function entryMessage(entry: Entry): AgentMessage {
@@ -24,6 +26,9 @@ function entryContent(entry: Entry): string {
 	if (entry.kind === "note") {
 		return `${NOTE_MARK}\n${entry.text}`;
 	}
+	if (entry.kind === "summary") {
+		return `${SUMMARY_MARK}\n${entry.text}`;
+	}
 	return entry.text;
 }
 
@@ -33,6 +38,9 @@ export function entryEvent(entry: Entry): BotEvent {
 	}
 	if (entry.kind === "note") {
 		return { type: "note", text: entry.text };
+	}
+	if (entry.kind === "summary") {
+		return { type: "summary", text: entry.text };
 	}
 	return { type: "user", text: entry.text };
 }
@@ -44,6 +52,9 @@ function entryOf(text: string): Entry {
 	}
 	if (text.startsWith(`${NOTE_MARK}\n`)) {
 		return { kind: "note", text: text.slice(NOTE_MARK.length + 1) };
+	}
+	if (text.startsWith(`${SUMMARY_MARK}\n`)) {
+		return { kind: "summary", text: text.slice(SUMMARY_MARK.length + 1) };
 	}
 	return { kind: "user", text };
 }
