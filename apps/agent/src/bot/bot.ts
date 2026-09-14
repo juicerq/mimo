@@ -7,7 +7,8 @@ import { models } from "../model/models";
 import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
 import { isTeamCall } from "../team/tools";
-import { projectRules, resolveFolder } from "../computer/folder";
+import { resolveFolder } from "../computer/folder";
+import { botRules } from "../rules/rules";
 import { botInstructions, botTools, needsApproval } from "../tools";
 import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
@@ -351,7 +352,7 @@ export class Bot {
 	}
 
 	private async systemPrompt(): Promise<string> {
-		const rules = await projectRules(this.record.folder);
+		const rules = await botRules(this.record.folder);
 		return [this.basePrompt(), rules, await recallMemory(this.record.id)].filter(Boolean).join("\n\n");
 	}
 
