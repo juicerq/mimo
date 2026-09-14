@@ -31,6 +31,10 @@ const UpdateBotInput = z.object({
 
 const DeleteBotInput = z.object({ bot: NameInput });
 
+const CloseBotInput = DeleteBotInput.extend({
+	discard: z.boolean().optional().describe("Joga fora o que não teve commit na cópia isolada deste filho. Só use depois de a pessoa dizer que aquele trabalho não serve."),
+});
+
 const DelegateInput = z.object({
 	bot: NameInput,
 	task: z.string().trim().min(1).max(48).describe("O trabalho em poucas palavras, para a pessoa ler na tela. Diga o que este filho carrega, não o que a equipe faz."),
@@ -193,11 +197,11 @@ export function teamTools(context: ToolContext): AgentTool[] {
 		}),
 		tool({
 			name: "delete_bot",
-			description: "Apaga um filho com a memória e as rotinas dele.",
-			input: DeleteBotInput,
+			description: "Apaga um filho com a memória e as rotinas dele. Recusa quando a cópia isolada tem trabalho sem commit.",
+			input: CloseBotInput,
 			async execute(input) {
 				const target = await child(context, input.bot);
-				await context.deleteChild(target.id);
+				await context.deleteChild(target.id, input.discard === true);
 				return { bot: target.name, status: "deleted" };
 			},
 		}),

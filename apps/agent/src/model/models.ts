@@ -5,6 +5,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { readTextFile, writeTextFile } from "../storage/files";
+import { homePath } from "../storage/home";
+import { clineProvider } from "./cline";
 import { withCatalog } from "./overlay";
 import { ProviderSchema, type Provider } from "./types";
 
@@ -21,6 +23,10 @@ const CodexAuthSchema = z.looseObject({
 
 const OpencodeAuthSchema = z.looseObject({
 	"opencode-go": z.looseObject({ key: z.string().min(1) }),
+});
+
+const ClineAuthSchema = z.looseObject({
+	cline: z.looseObject({ key: z.string().min(1) }),
 });
 
 interface AuthFile {
@@ -71,6 +77,19 @@ const AUTH_FILES: Record<Provider, AuthFile> = {
 			}
 			const auth = OpencodeAuthSchema.partial().parse(raw ?? {});
 			return { ...auth, "opencode-go": { ...auth["opencode-go"], type: "api", key: credential.key } };
+		},
+	},
+	cline: {
+		path: homePath("providers.json"),
+		parse(raw) {
+			return { type: "api_key", key: ClineAuthSchema.parse(raw).cline.key };
+		},
+		serialize(raw, credential) {
+			if (credential.type !== "api_key") {
+				return raw;
+			}
+			const auth = ClineAuthSchema.partial().parse(raw ?? {});
+			return { ...auth, cline: { ...auth.cline, type: "api", key: credential.key } };
 		},
 	},
 };
@@ -148,6 +167,7 @@ export function models(): Models {
 	const created = createModels({ credentials });
 	created.setProvider(withCatalog(opencodeGoProvider()));
 	created.setProvider(openaiCodexProvider());
+	created.setProvider(clineProvider());
 	registry = created;
 	return created;
 }

@@ -3,13 +3,14 @@ import { connectGmail } from "../gmail/connect";
 import { models } from "../model/models";
 import type { Provider } from "../model/types";
 
-const AUTH_TYPES: Record<Provider, AuthType> = { "opencode-go": "api_key", "openai-codex": "oauth" };
+const AUTH_TYPES: Record<Provider, AuthType> = { "opencode-go": "api_key", "openai-codex": "oauth", cline: "api_key" };
 
 export const LOGIN_GROUP_NAMES = { provider: "providers", plugin: "plugins" } as const;
 
 export const LOGIN_TARGETS = [
 	{ id: "opencode-go", name: "OpenCode Go", how: "API key", group: "provider" },
 	{ id: "openai-codex", name: "OpenAI", how: "OAuth", group: "provider" },
+	{ id: "cline", name: "Cline", how: "API key", group: "provider" },
 	{ id: "gmail", name: "Gmail", how: "OAuth", group: "plugin" },
 ] as const;
 

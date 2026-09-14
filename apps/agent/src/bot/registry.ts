@@ -1,5 +1,5 @@
 import { recordAction } from "../actions/actions";
-import { removeWorktree } from "../computer/worktree";
+import { removeWorktree, uncommittedWork } from "../computer/worktree";
 import { deleteBotRoutines } from "../routines/routines";
 import type { Bot } from "./bot";
 import { listChildren, readBot, removeBot } from "./store";
@@ -36,8 +36,20 @@ export function activity(): BotActivity[] {
 	return bots;
 }
 
-export async function deleteBot(id: string, origin: DeleteOrigin): Promise<void> {
+async function guardWork(id: string, name: string, origin: DeleteOrigin, discard: boolean): Promise<void> {
+	if (origin !== "tool" || discard) {
+		return;
+	}
+	if (await uncommittedWork(id)) {
+		throw new Error(`A frente ${name} tem trabalho sem commit na cópia isolada. Commite antes de fechar, ou peça de novo com discard para jogar fora.`);
+	}
+}
+
+export async function deleteBot(id: string, origin: DeleteOrigin, discard = false): Promise<void> {
 	const record = await readBot(id);
+	if (record) {
+		await guardWork(id, record.name, origin, discard);
+	}
 	for (const child of await listChildren(id)) {
 		await deleteBot(child.id, "cascade");
 	}

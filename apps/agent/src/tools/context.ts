@@ -15,5 +15,5 @@ export interface ToolContext {
 	stopChild(botId: string): string;
 	readonly team: TeamMember[];
 	updateChild(botId: string, patch: BotPatch): Promise<BotInfo>;
-	deleteChild(botId: string): Promise<void>;
+	deleteChild(botId: string, discard: boolean): Promise<void>;
 }
