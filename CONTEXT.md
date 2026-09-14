@@ -75,9 +75,14 @@ _Evitar_: Permissão, capacidade, plugin
 _Dono_: `apps/agent/src/tools/index.ts` (`botTools`, `botInstructions`); o Painel, `apps/mimo/src/panels/tools.ts`
 
 **Pasta**:
-A pasta em que as tools do grupo `computer` de um Bot rodam — o projeto dele. É opcional: sem Pasta, elas rodam a partir de `$HOME`, como sempre. A pessoa escolhe por `/folder`, e o nome dela aparece no rodapé. Um Bot filho nasce com a Pasta do pai. O `AGENTS.md` da Pasta entra no prompt do Bot a cada Turno, então editar o arquivo já vale no Turno seguinte; ele é o único arquivo tratado como instrução, e não como dado.
+A pasta em que as tools do grupo `computer` de um Bot rodam — o projeto dele. É opcional: sem Pasta, elas rodam a partir de `$HOME`, como sempre. A pessoa escolhe por `/folder`, e o nome dela aparece no rodapé. Um Bot filho nasce com a Pasta do pai.
 _Evitar_: Diretório de trabalho, projeto, cwd
-_Dono_: a regra, `apps/agent/src/computer/folder.ts` (`resolveFolder`, `workDir`, `projectRules`); o estado, `apps/agent/src/bot/bot.ts` (`setFolder`, `systemPrompt`); o Painel, `apps/mimo/src/panels/folder.ts`
+_Dono_: a regra, `apps/agent/src/computer/folder.ts` (`resolveFolder`, `workDir`); o estado, `apps/agent/src/bot/bot.ts` (`setFolder`); o Painel, `apps/mimo/src/panels/folder.ts`
+
+**Regras**:
+Os `AGENTS.md` que entram no prompt de todo Turno de um Bot: o geral, em `~/.agents/AGENTS.md`, e o do projeto, na raiz da Pasta. São os únicos arquivos tratados como instrução da pessoa, e não como dado. Lidos a cada Turno, então editar um vale no Turno seguinte, sem reiniciar. Quando as duas brigam, vale a do projeto, que vem depois.
+_Evitar_: Configuração, perfil, memória
+_Dono_: `apps/agent/src/rules/rules.ts` (`botRules`); no prompt, `apps/agent/src/bot/bot.ts` (`systemPrompt`)
 
 **Modo normal**:
 O Bot executa o trabalho e pede Aprovação para as ações que a exigem, como enviar e-mails, apagar Rotinas e mexer no computador. A pessoa escolhe este modo pedindo ao Bot; nenhum Bot nasce nele.
