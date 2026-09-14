@@ -7,6 +7,7 @@ import { entryMessage } from "./events";
 export interface Compaction {
 	dropped: AgentMessage[];
 	messages: AgentMessage[];
+	summary: string;
 }
 
 const COMPACT_AT = 0.8;
@@ -49,15 +50,16 @@ export async function compactTranscript(input: { messages: AgentMessage[]; model
 		messages: earlier.filter(isLlmMessage),
 	});
 	if (summary.stopReason !== "stop") {
-		return null;
+		throw new Error("O resumo da conversa não terminou.");
 	}
 	const text = summary.content.filter((part) => part.type === "text").map((part) => part.text).join("").trim();
 	if (!text) {
-		return null;
+		throw new Error("O modelo não devolveu um resumo da conversa.");
 	}
-	const message = entryMessage({ kind: "summary", text: `Resumo da conversa anterior, compactada para caber no contexto:\n\n${text}` });
+	const summaryText = `Resumo da conversa anterior, compactada para caber no contexto:\n\n${text}`;
+	const message = entryMessage({ kind: "summary", text: summaryText });
 	if (estimateTokens(message) >= earlier.reduce((total, entry) => total + estimateTokens(entry), 0)) {
-		return null;
+		throw new Error("O resumo ficou maior que a conversa que ele substitui.");
 	}
-	return { dropped: earlier, messages: [message, ...input.messages.slice(cut)] };
+	return { dropped: earlier, messages: [message, ...input.messages.slice(cut)], summary: summaryText };
 }

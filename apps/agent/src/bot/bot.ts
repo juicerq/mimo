@@ -289,6 +289,7 @@ export class Bot {
 				this.announce(entry);
 			}
 			this.emit({ type: "turn-started" });
+			await this.compact();
 			this.agent.state.systemPrompt = `${this.basePrompt()}\n\n${await recallMemory(this.record.id)}`;
 			const run = this.agent.prompt(batch.map(entryMessage));
 			this.draining = false;
@@ -300,7 +301,7 @@ export class Bot {
 	}
 
 	private async finish(): Promise<void> {
-		await this.saveTranscript();
+		await this.writeLog();
 		await this.drain();
 	}
 
@@ -432,15 +433,24 @@ export class Bot {
 		}
 	}
 
-	private async saveTranscript(): Promise<void> {
+	private async compact(): Promise<void> {
 		const compacted = await compactTranscript({ messages: this.agent.state.messages, model: this.agent.state.model })
-			.catch(() => null);
-		if (compacted) {
-			await archiveSession({ botId: this.record.id, sessionId: this.session, messages: this.agent.state.messages });
-			this.archive = [...this.archive, ...compacted.dropped];
-			this.agent.state.messages = compacted.messages;
-			this.session = uuidv7();
+			.catch((error: unknown) => {
+				this.emit({ type: "warning", text: `A conversa não foi resumida: ${errorText(error)}` });
+				return null;
+			});
+		if (!compacted) {
+			return;
 		}
+		await archiveSession({ botId: this.record.id, sessionId: this.session, messages: this.agent.state.messages });
+		this.archive = [...this.archive, ...compacted.dropped];
+		this.agent.state.messages = compacted.messages;
+		this.session = uuidv7();
+		this.emit(entryEvent({ kind: "summary", text: compacted.summary }));
+		await this.writeLog();
+	}
+
+	private async writeLog(): Promise<void> {
 		await writeTranscript(this.record.id, this.log).catch((error: unknown) => {
 			throw new Error(`A conversa não foi gravada: ${errorText(error)}`);
 		});
