@@ -50,6 +50,7 @@ export class Sidebar {
 	private rows: Entry[] = [];
 	private cursor = 0;
 	private focused = false;
+	private searching = false;
 	private current: string | null = null;
 	private timer: ReturnType<typeof setInterval> | null = null;
 
@@ -81,9 +82,6 @@ export class Sidebar {
 		this.search.on(InputRenderableEvents.INPUT, () => {
 			this.cursor = 0;
 			this.draw();
-		});
-		this.search.on(InputRenderableEvents.ENTER, () => {
-			this.choose();
 		});
 		this.box.add(this.search);
 		const list = new BoxRenderable(renderer, {
@@ -126,8 +124,13 @@ export class Sidebar {
 		return this.focused;
 	}
 
+	get typing(): boolean {
+		return this.searching;
+	}
+
 	focus(): void {
 		this.focused = true;
+		this.searching = true;
 		this.search.visible = true;
 		this.search.value = "";
 		this.search.focus();
@@ -138,6 +141,7 @@ export class Sidebar {
 
 	blur(): void {
 		this.focused = false;
+		this.searching = false;
 		this.search.blur();
 		this.search.value = "";
 		this.search.visible = false;
@@ -150,13 +154,19 @@ export class Sidebar {
 		if (count === 0) {
 			return;
 		}
-		this.cursor = Math.min(count - 1, Math.max(0, this.cursor + step));
+		if (this.searching) {
+			this.searching = false;
+			this.search.blur();
+		} else {
+			this.cursor = Math.min(count - 1, Math.max(0, this.cursor + step));
+		}
 		this.draw();
+		this.choose();
 	}
 
 	choose(): void {
 		const entry = this.visible()[this.cursor];
-		if (entry) {
+		if (entry && entry.bot.id !== this.current) {
 			this.open(entry.bot);
 		}
 	}
@@ -175,19 +185,31 @@ export class Sidebar {
 
 	private resize(): void {
 		this.box.width = this.narrow ? NARROW_COLS : WIDE_COLS;
-		this.hint.content = this.narrow ? "" : "ctrl+e";
+		this.hint.content = this.hintText();
 		this.title.content = this.narrow ? "" : "bots";
 	}
 
+	private hintText(): string {
+		if (this.narrow) {
+			return "";
+		}
+		if (this.focused) {
+			return "↑↓ abre · enter fica";
+		}
+		return "ctrl+e";
+	}
+
 	private row(entry: Entry, index: number, inner: number): Line {
-		const here = entry.bot.id === this.current;
 		const tail = entry.fronts > 0 ? ` ·${entry.fronts}` : "";
 		const name = cut(entry.bot.name, Math.max(0, inner - 2 - tail.length));
-		const text = `${entry.mark}${here ? "›" : " "}${name}${tail}`;
+		const text = `${entry.mark} ${name}${tail}`;
 		if (this.focused && index === this.cursor) {
 			return { text, fg: T1 };
 		}
-		return { text, fg: here ? T1 : T2 };
+		if (entry.bot.id === this.current) {
+			return { text, fg: T1 };
+		}
+		return { text, fg: T2 };
 	}
 
 	private draw(): void {

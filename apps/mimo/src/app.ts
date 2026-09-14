@@ -90,8 +90,6 @@ export class MimoApp {
 		this.bar = new Bar(renderer);
 		this.rail = new Rail(renderer);
 		this.sidebar = new Sidebar(renderer, (bot) => {
-			this.sidebar.blur();
-			this.input.focus();
 			void this.openBot(bot);
 		});
 		this.view = new View({
@@ -178,9 +176,11 @@ export class MimoApp {
 		if (key.ctrl && this.controlKey(key.name)) {
 			return;
 		}
-		if (this.sidebar.active && this.sidebarKey(key.name)) {
-			key.preventDefault();
-			return;
+		if (this.sidebar.active) {
+			if (this.sidebarKey(key.name) || !this.sidebar.typing) {
+				key.preventDefault();
+				return;
+			}
 		}
 		if (key.name === "c" && !key.ctrl && !key.meta && this.input.value.length === 0 && this.panels.copyLink()) {
 			key.preventDefault();
@@ -223,6 +223,12 @@ export class MimoApp {
 		this.sidebar.focus();
 	}
 
+	private leaveSidebar(): void {
+		this.sidebar.choose();
+		this.sidebar.blur();
+		this.input.focus();
+	}
+
 	private sidebarKey(name: string | undefined): boolean {
 		if (name === "up") {
 			this.sidebar.move(-1);
@@ -230,6 +236,10 @@ export class MimoApp {
 		}
 		if (name === "down") {
 			this.sidebar.move(1);
+			return true;
+		}
+		if (name === "return" || name === "enter") {
+			this.leaveSidebar();
 			return true;
 		}
 		if (name === "escape") {
