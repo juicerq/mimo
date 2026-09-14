@@ -72,6 +72,7 @@ export type BotEvent =
 	| { type: "queue"; items: readonly string[] }
 	| { type: "note"; text: string }
 	| { type: "summary"; text: string }
+	| { type: "warning"; text: string }
 	| { type: "routine"; name: string; prompt: string }
 	| { type: "reply-delta"; delta: string }
 	| { type: "reply"; text: string }
