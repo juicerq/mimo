@@ -4,7 +4,7 @@ import { readdir, rm } from "node:fs/promises";
 import { z } from "zod";
 import { initialModel, selectModel } from "../model/catalog";
 import { ModelSelectionSchema, type ModelInfo } from "../model/types";
-import { dataPath } from "../storage/data";
+import { dataPath } from "../storage/home";
 import { readJsonFile, writeTextFile } from "../storage/files";
 import { BotModeSchema, BotNameSchema, BotPromptSchema, CHILD_GROUPS, TOOL_GROUPS, MessageSchema, ToolGroupSchema, type BotInfo, type ToolGroup } from "./types";
 

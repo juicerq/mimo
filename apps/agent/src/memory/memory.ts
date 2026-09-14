@@ -1,4 +1,4 @@
-import { dataPath } from "../storage/data";
+import { dataPath } from "../storage/home";
 import { readTextFile, writeTextFile } from "../storage/files";
 
 const MAX_ENTRY_CHARACTERS = 2_000;

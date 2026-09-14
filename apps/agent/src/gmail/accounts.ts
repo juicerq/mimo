@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dataPath } from "../storage/data";
+import { dataPath } from "../storage/home";
 import { readJsonFile, writeTextFile } from "../storage/files";
 
 const STORE_PATH = dataPath("gmail", "accounts.json");
@@ -52,7 +52,7 @@ function requiredEnv(name: string): string {
 	const value = process.env[name];
 	if (!value) {
 		throw new Error(
-			`Gmail não está configurado: defina ${name} no .env.local da raiz. Veja .env.example.`,
+			`Gmail não está configurado: defina ${name} em ~/.mimo/.env. Veja .env.example.`,
 		);
 	}
 	return value;
