@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { readTextFile, writeTextFile } from "../storage/files";
+import { withCatalog } from "./overlay";
 import { ProviderSchema, type Provider } from "./types";
 
 const CODEX_TOKEN_LIFETIME_MS = 3_600_000;
@@ -145,7 +146,7 @@ export function models(): Models {
 		return registry;
 	}
 	const created = createModels({ credentials });
-	created.setProvider(opencodeGoProvider());
+	created.setProvider(withCatalog(opencodeGoProvider()));
 	created.setProvider(openaiCodexProvider());
 	registry = created;
 	return created;
