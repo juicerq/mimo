@@ -80,14 +80,14 @@ _Evitar_: Diretório de trabalho, projeto, cwd
 _Dono_: a regra, `apps/agent/src/computer/folder.ts` (`resolveFolder`, `workDir`); o estado, `apps/agent/src/bot/bot.ts` (`setFolder`); o Painel, `apps/mimo/src/panels/folder.ts`
 
 **Modo normal**:
-O Bot executa o trabalho e pede Aprovação para as ações que a exigem, como enviar e-mails, apagar Rotinas e ativar o Modo autônomo.
+O Bot executa o trabalho e pede Aprovação para as ações que a exigem, como enviar e-mails, apagar Rotinas e mexer no computador. A pessoa escolhe este modo pedindo ao Bot; nenhum Bot nasce nele.
 _Evitar_: Padrão, cauteloso
 _Dono_: quem decide, `apps/agent/src/tools/index.ts` (`needsApproval`); o estado, `apps/agent/src/bot/bot.ts` (`setMode`)
 
 **Modo autônomo**:
-Todas as ações acontecem sem aprovação e a pessoa revisa o registro depois.
+O modo em que todo Bot nasce: as ações acontecem sem Aprovação e a pessoa revisa o registro de ações depois. Voltar ao Modo normal não pede Aprovação; sair dele pede.
 _Evitar_: Automático, férias
-_Dono_: a troca, `apps/agent/src/tools/index.ts` (`set_mode`); ela pede Aprovação em `needsApproval`
+_Dono_: o padrão, `apps/agent/src/bot/store.ts` (`createBot`); a troca, `apps/agent/src/tools/index.ts` (`set_mode`)
 
 **Memória**:
 Fatos, preferências e decisões duráveis que um Bot guarda para os próximos turnos, inclusive depois de uma compactação. Pertence ao Bot e não é compartilhada automaticamente com outros Bots.

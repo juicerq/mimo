@@ -17,7 +17,7 @@ const StoredBotSchema = z.object({
 	id: z.uuid(),
 	name: BotNameSchema,
 	createdAt: z.iso.datetime(),
-	mode: BotModeSchema.default("normal"),
+	mode: BotModeSchema.default("autonomous"),
 	model: z.looseObject({ provider: z.string(), id: z.string(), reasoning: z.string() }).optional(),
 	tools: z.array(ToolGroupSchema).default([...TOOL_GROUPS]),
 	parentId: z.uuid().optional(),
@@ -108,7 +108,7 @@ export async function createBot(draft: BotDraft): Promise<BotInfo> {
 		...draft,
 		id: randomUUID(),
 		createdAt: new Date().toISOString(),
-		mode: "normal",
+		mode: "autonomous",
 		model: draft.model ?? initialModel(),
 		tools: draft.tools ?? defaultTools(draft.parentId),
 	};

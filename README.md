@@ -16,11 +16,13 @@ Use `/tools` para escolher os grupos de tools do bot. O painel lista `computer`,
 
 Use `/folder` para dar uma pasta ao bot — o projeto dele. Digite o caminho inteiro; `~` vale e `-` tira a pasta. A partir daí `bash`, `read`, `write` e `edit` rodam de lá, e o bot sabe disso pelas instruções do grupo `computer`. O nome da pasta aparece no rodapé como `dir:`. Sem pasta, as tools rodam do seu `$HOME`, como antes. Um bot filho nasce com a pasta do pai. A pasta precisa existir na hora de salvar; se ela sumir depois, o `bash` falha apontando para ela.
 
+Um bot nasce no **modo autônomo**: `bash`, `write`, `edit` e os envios de e-mail acontecem sem perguntar, e cada ação fica registrada em `actions.jsonl` — `list_actions` lê de volta. Peça "entre no modo normal" e ele passa a esperar aprovação no terminal para essas ações. O rodapé mostra `mode:` com o modo do bot aberto, e a escolha permanece salva.
+
 `Ctrl+O` alterna quanto detalhe a conversa mostra. Detalhe é tudo que não é sua mensagem nem a resposta do bot: a ferramenta, o disparo de uma rotina, a ação de equipe e a troca de grupos de tools. `brief` mostra uma linha por item, como `⚙ list_unread` ou `routine: check_emails started` (padrão); `full` acrescenta o detalhe cortado em 600 caracteres, como a entrada da ferramenta e o prompt da rotina; `off` esconde todos eles. O rodapé mostra `detail:` com a escolha por 2 segundos e a conversa é redesenhada inteira, então os turnos antigos acompanham.
 
 Depois de enviar, a conversa mostra uma linha viva com o que o bot faz: `⠙ thinking · 3s · esc esc to stop` antes da primeira ferramenta e `working` depois dela. A linha some quando o texto da resposta começa a chegar e dá lugar ao streaming. Abrir um bot mostra `loading` no mesmo lugar.
 
-O rodapé mostra contexto e o modelo com o esforço. Modo e `detail` aparecem por 2 segundos quando você os muda, e depois somem. O estado do turno não fica no rodapé: fica na conversa. Dentro dos painéis, o rodapé mostra `status:` enquanto carrega ou grava. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
+O rodapé mostra contexto, a pasta, o modo e o modelo com o esforço. `detail` e `team` aparecem por 2 segundos quando você os muda, e depois somem. O estado do turno não fica no rodapé: fica na conversa. Dentro dos painéis, o rodapé mostra `status:` enquanto carrega ou grava. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
 
 Enquanto os filhos trabalham, cada um aparece acima do composer como `team: <nome> · <tempo> · <tool>`, com a ferramenta do momento. A linha some quando o filho entrega o trabalho.
 
@@ -108,7 +110,7 @@ O filho não tem tela. Quando uma ação dele precisa de aprovação, ela sobe p
 
 ## Gmail
 
-Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão de uma conta pelo próprio bot: o link aparece no terminal e a pessoa autoriza no navegador. A tool `disconnect_gmail` apaga a conta guardada e revoga o acesso no Google; no modo normal ela espera aprovação. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria rascunhos, `send_draft` envia um rascunho e `send_email` inicia um e-mail novo, ambos com aprovação no terminal. Cada conta conectada guarda o refresh token em `.data/gmail/accounts.json`; o client id e o client secret ficam em `.env.local` na raiz.
+Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão de uma conta pelo próprio bot: o link aparece no terminal e a pessoa autoriza no navegador. A tool `disconnect_gmail` apaga a conta guardada e revoga o acesso no Google; no modo normal ela espera aprovação. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria rascunhos, `send_draft` envia um rascunho e `send_email` inicia um e-mail novo; no modo normal, ambos esperam aprovação. Cada conta conectada guarda o refresh token em `.data/gmail/accounts.json`; o client id e o client secret ficam em `.env.local` na raiz.
 
 1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto e ative a Gmail API.
 2. Configure a tela de consentimento OAuth (tipo External, com você como usuário de teste).
@@ -123,7 +125,7 @@ Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dia
 
 O bot alcança a máquina pelas tools do próprio Pi: `bash` roda um comando, `read` lê um arquivo (texto ou imagem, com `offset` e `limit`), `write` grava o arquivo inteiro e `edit` troca trechos e mostra o diff. O Pi corta a saída longa e guarda o resto num arquivo temporário.
 
-As tools partem da pasta pessoal e caminhos absolutos valem. Não há pasta proibida: o bot alcança o que o seu usuário alcança. No modo normal, `bash`, `write` e `edit` esperam aprovação no terminal; no modo autônomo, rodam direto.
+As tools partem da pasta do bot, ou da pasta pessoal quando ele não tem uma; caminhos absolutos valem. Não há pasta proibida: o bot alcança o que o seu usuário alcança. No modo normal, `bash`, `write` e `edit` esperam aprovação no terminal; no modo autônomo, rodam direto.
 
 ## Busca na web
 

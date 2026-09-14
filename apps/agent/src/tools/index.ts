@@ -1,7 +1,7 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
 import { actionTools } from "../actions/tools";
-import { BotModeSchema, ToolGroupSchema } from "../bot/types";
+import { BotModeSchema, ToolGroupSchema, type BotMode } from "../bot/types";
 import { computerInstructions, computerTools } from "../computer/tools";
 import { gmailTools } from "../gmail/tools";
 import { historyTools } from "../history/tools";
@@ -68,11 +68,19 @@ function setTools(context: ToolContext): AgentTool {
 	});
 }
 
+function modeInstructions(mode: BotMode): string {
+	if (mode === "autonomous") {
+		return "Você está no modo autônomo: nenhuma ação pede aprovação no terminal. Nunca diga que vai esperar confirmação; faça o trabalho e diga o que fez.";
+	}
+	return "Você está no modo normal: as ações que mexem no computador ou enviam e-mail param para a pessoa aprovar no terminal antes de acontecer.";
+}
+
 export function botInstructions(context: ToolContext): string {
 	const groups = new Set(context.tools);
 
 	return [
 		instructions,
+		modeInstructions(context.mode),
 		...groups.has("gmail") ? [gmailInstructions] : [],
 		...groups.has("routines") ? [routineInstructions] : [],
 		...groups.has("computer") ? [computerInstructions(context.folder)] : [],
