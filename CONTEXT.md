@@ -15,7 +15,7 @@ _Evitar_: Sessão, chat, conversa nova, histórico arquivado
 _Dono_: `apps/agent/src/bot/bot.ts` (`log`, `writeLog`); em disco, `apps/agent/src/bot/store.ts` (`messages.json`); o trecho fora da Janela, `apps/agent/src/history/history.ts`
 
 **Janela**:
-O trecho do Registro que vai para o modelo. Começa no Resumo mais novo. Quando o Registro passa do teto do modelo, a Compactação anexa outro Resumo e a Janela encolhe; o resto do Registro continua no lugar, e o Bot alcança ele por `search_history`.
+O trecho do Registro que vai para o modelo. Começa no Resumo mais novo. O prompt de sistema ocupa um piso dentro da janela que a Compactação não corta, então ela mede o que guardar pelo espaço que sobra e avisa quando esse piso passa da metade. Quando o Registro passa do teto do modelo, a Compactação anexa outro Resumo e a Janela encolhe; o resto do Registro continua no lugar, e o Bot alcança ele por `search_history`.
 _Evitar_: Contexto, sessão
 _Dono_: `apps/agent/src/bot/events.ts` (`summaryStart`); o corte e o Resumo, `apps/agent/src/bot/compaction.ts`; quando roda, `apps/agent/src/bot/bot.ts` (`compact`)
 
@@ -75,9 +75,9 @@ _Evitar_: Permissão, capacidade, plugin
 _Dono_: `apps/agent/src/tools/index.ts` (`botTools`, `botInstructions`); o Painel, `apps/mimo/src/panels/tools.ts`
 
 **Pasta**:
-A pasta em que as tools do grupo `computer` de um Bot rodam — o projeto dele. É opcional: sem Pasta, elas rodam a partir de `$HOME`, como sempre. A pessoa escolhe por `/folder`, e o nome dela aparece no rodapé. Um Bot filho nasce com a Pasta do pai.
+A pasta em que as tools do grupo `computer` de um Bot rodam — o projeto dele. É opcional: sem Pasta, elas rodam a partir de `$HOME`, como sempre. A pessoa escolhe por `/folder`, e o nome dela aparece no rodapé. Um Bot filho nasce com a Pasta do pai. O `AGENTS.md` da Pasta entra no prompt do Bot a cada Turno, então editar o arquivo já vale no Turno seguinte; ele é o único arquivo tratado como instrução, e não como dado.
 _Evitar_: Diretório de trabalho, projeto, cwd
-_Dono_: a regra, `apps/agent/src/computer/folder.ts` (`resolveFolder`, `workDir`); o estado, `apps/agent/src/bot/bot.ts` (`setFolder`); o Painel, `apps/mimo/src/panels/folder.ts`
+_Dono_: a regra, `apps/agent/src/computer/folder.ts` (`resolveFolder`, `workDir`, `projectRules`); o estado, `apps/agent/src/bot/bot.ts` (`setFolder`, `systemPrompt`); o Painel, `apps/mimo/src/panels/folder.ts`
 
 **Modo normal**:
 O Bot executa o trabalho e pede Aprovação para as ações que a exigem, como enviar e-mails, apagar Rotinas e mexer no computador. A pessoa escolhe este modo pedindo ao Bot; nenhum Bot nasce nele.

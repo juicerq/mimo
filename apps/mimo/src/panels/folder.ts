@@ -1,7 +1,19 @@
 import type { BotInfo } from "@agent/bot/types";
+import { projectRules } from "@agent/computer/folder";
 import { CANCEL_HINT, type Panel } from "../panel";
 
 export type SaveFolder = (folder: string | undefined) => Promise<BotInfo>;
+
+async function savedMessage(bot: BotInfo): Promise<string> {
+	if (bot.folder === undefined) {
+		return `"${bot.name}" works from your home again.`;
+	}
+	const rules = await projectRules(bot.folder);
+	if (!rules) {
+		return `"${bot.name}" works in ${bot.folder}. No AGENTS.md there, so it starts with no project rules.`;
+	}
+	return `"${bot.name}" works in ${bot.folder}, and follows the AGENTS.md it found there.`;
+}
 
 export function folderPanel(bot: BotInfo, save: SaveFolder): Panel {
 	return {
@@ -16,7 +28,7 @@ export function folderPanel(bot: BotInfo, save: SaveFolder): Panel {
 		submit(text, view) {
 			view.saving(async () => {
 				const saved = await save(text === "-" ? undefined : text);
-				view.close({ bot: saved, message: saved.folder === undefined ? `"${saved.name}" works from your home again.` : `"${saved.name}" works in ${saved.folder}.` });
+				view.close({ bot: saved, message: await savedMessage(saved) });
 			});
 		},
 	};
