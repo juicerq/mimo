@@ -12,6 +12,7 @@ const open = new Map<string, Bot>();
 export interface BotActivity {
 	id: string;
 	name: string;
+	busy: boolean;
 	team: TeamMember[];
 	waiting: string | null;
 	failed: string | null;
@@ -31,7 +32,7 @@ export function activity(): BotActivity[] {
 		if (bot.parentId !== undefined) {
 			continue;
 		}
-		bots.push({ id: bot.botId, name: bot.info.name, team: bot.team, waiting: bot.approval?.toolName ?? null, failed: bot.failed });
+		bots.push({ id: bot.botId, name: bot.info.name, busy: bot.busy, team: bot.team, waiting: bot.approval?.toolName ?? null, failed: bot.failed });
 	}
 	return bots;
 }
