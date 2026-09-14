@@ -62,6 +62,10 @@ export class View {
 				this.transcript.seal();
 				this.transcript.note(`▌ ${event.text}`, T4);
 				return;
+			case "summary":
+				this.transcript.seal();
+				this.transcript.detailed("─ resumo do que veio antes ─", T4, event.text);
+				return;
 			case "routine":
 				this.showRoutine(event.name, event.prompt);
 				return;
