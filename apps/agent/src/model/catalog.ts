@@ -1,5 +1,6 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { models } from "./models";
+import { loadCatalog } from "./overlay";
 import {
 	PROVIDER_NAMES,
 	ProviderSchema,
@@ -38,6 +39,10 @@ function toOption(provider: Provider, model: Model<Api>): ModelOption {
 }
 
 async function providerOptions(provider: Provider): Promise<ModelOption[]> {
+	const registered = models().getProvider(provider);
+	if (registered) {
+		await loadCatalog(registered);
+	}
 	const available = await models().getAvailable(provider);
 	if (available.length === 0) {
 		throw new Error(`${PROVIDER_NAMES[provider]} is not connected. Log in and try /model again.`);
