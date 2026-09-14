@@ -1,4 +1,4 @@
-import { BoxRenderable, InputRenderable, InputRenderableEvents, RenderableEvents, type CliRenderer } from "@opentui/core";
+import { BoxRenderable, InputRenderable, InputRenderableEvents, RenderableEvents, type CliRenderer, type KeyEvent } from "@opentui/core";
 import { Bot } from "@agent/bot/bot";
 import { activity, deleteBot, type BotActivity } from "@agent/bot/registry";
 import { createBot, listBots } from "@agent/bot/store";
@@ -11,6 +11,7 @@ import { Footer } from "./footer";
 import { Panels, type Panel, type PanelResult } from "./panel";
 import { Rail } from "./rail";
 import { Screen } from "./screen";
+import { Sidebar } from "./sidebar";
 import { deletePanel } from "./panels/delete";
 import { folderPanel } from "./panels/folder";
 import { accountsPanel, loginTargetsPanel } from "./panels/login";
@@ -40,6 +41,7 @@ export class MimoApp {
 	private readonly panels: Panels;
 	private readonly bar: Bar;
 	private readonly rail: Rail;
+	private readonly sidebar: Sidebar;
 	private readonly view: View;
 	private readonly screen = new Screen();
 	private readonly turn = new Turn(() => {
@@ -64,20 +66,7 @@ export class MimoApp {
 		});
 		this.panels = new Panels(renderer, { input: this.input, refresh: this.refreshPanels, finish: this.closePanel });
 		renderer.keyInput.on("keypress", (key) => {
-			if (key.ctrl && key.name === "p" && this.screen.conversation) {
-				this.showModels();
-			} else if (key.ctrl && key.name === "t") {
-				this.cycleTeamView();
-			} else if (key.ctrl && key.name === "o") {
-				this.cycleDetail();
-			} else if (key.name === "c" && !key.ctrl && !key.meta && this.input.value.length === 0 && this.panels.copyLink()) {
-				key.preventDefault();
-				this.lastEscapeAt = null;
-			} else if (key.name === "escape") {
-				this.handleEscape();
-			} else {
-				this.lastEscapeAt = null;
-			}
+			this.handleKey(key);
 		});
 
 		const composer = new BoxRenderable(renderer, {
@@ -100,6 +89,11 @@ export class MimoApp {
 
 		this.bar = new Bar(renderer);
 		this.rail = new Rail(renderer);
+		this.sidebar = new Sidebar(renderer, (bot) => {
+			this.sidebar.blur();
+			this.input.focus();
+			void this.openBot(bot);
+		});
 		this.view = new View({
 			transcript: this.transcript,
 			footer: this.footer,
@@ -130,6 +124,7 @@ export class MimoApp {
 			height: "100%",
 			flexDirection: "row",
 		});
+		row.add(this.sidebar.box);
 		row.add(container);
 		row.add(this.rail.box);
 		renderer.root.add(row);
@@ -137,6 +132,7 @@ export class MimoApp {
 
 	async start(): Promise<void> {
 		this.input.focus();
+		this.sidebar.start();
 		const draft = this.input.value;
 		const loading = this.showBots();
 		this.input.value = draft;
@@ -176,6 +172,71 @@ export class MimoApp {
 			return;
 		}
 		void this.dispatch(async () => await conversation.deliver(text));
+	}
+
+	private handleKey(key: KeyEvent): void {
+		if (key.ctrl && this.controlKey(key.name)) {
+			return;
+		}
+		if (this.sidebar.active && this.sidebarKey(key.name)) {
+			key.preventDefault();
+			return;
+		}
+		if (key.name === "c" && !key.ctrl && !key.meta && this.input.value.length === 0 && this.panels.copyLink()) {
+			key.preventDefault();
+			this.lastEscapeAt = null;
+			return;
+		}
+		if (key.name === "escape") {
+			this.handleEscape();
+			return;
+		}
+		this.lastEscapeAt = null;
+	}
+
+	private controlKey(name: string | undefined): boolean {
+		if (name === "e") {
+			this.toggleSidebar();
+			return true;
+		}
+		if (name === "p" && this.screen.conversation) {
+			this.showModels();
+			return true;
+		}
+		if (name === "t") {
+			this.cycleTeamView();
+			return true;
+		}
+		if (name === "o") {
+			this.cycleDetail();
+			return true;
+		}
+		return false;
+	}
+
+	private toggleSidebar(): void {
+		if (this.sidebar.active) {
+			this.sidebar.blur();
+			this.input.focus();
+			return;
+		}
+		this.sidebar.focus();
+	}
+
+	private sidebarKey(name: string | undefined): boolean {
+		if (name === "up") {
+			this.sidebar.move(-1);
+			return true;
+		}
+		if (name === "down") {
+			this.sidebar.move(1);
+			return true;
+		}
+		if (name === "escape") {
+			this.toggleSidebar();
+			return true;
+		}
+		return false;
 	}
 
 	private handleEscape() {
@@ -274,6 +335,7 @@ export class MimoApp {
 
 	private readonly removeBot = async (bot: BotInfo): Promise<void> => {
 		await deleteBot(bot.id, "panel");
+		await this.sidebar.reload();
 	};
 
 	private readonly refreshPanels = (): void => {
@@ -306,6 +368,7 @@ export class MimoApp {
 		this.input.value = "";
 		this.input.placeholder = this.screen.placeholder;
 		this.footer.reset(bot);
+		this.sidebar.show(bot);
 		this.view.forget();
 		this.lastEscapeAt = null;
 		this.bar.stop();
@@ -348,6 +411,7 @@ export class MimoApp {
 		this.turn.enter("loading");
 		try {
 			const bot = await createBot({ name: parsed.data });
+			await this.sidebar.reload();
 			if (!signal.aborted) {
 				await this.openBot(bot);
 			}
