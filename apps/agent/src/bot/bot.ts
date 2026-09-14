@@ -7,6 +7,7 @@ import { models } from "../model/models";
 import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
 import { isTeamCall } from "../team/tools";
+import { resolveFolder } from "../computer/folder";
 import { botInstructions, botTools, needsApproval } from "../tools";
 import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
@@ -102,6 +103,10 @@ export class Bot {
 		return this.record.tools;
 	}
 
+	get folder(): string | undefined {
+		return this.record.folder;
+	}
+
 	get queue(): string[] {
 		return this.entries.texts;
 	}
@@ -149,6 +154,12 @@ export class Bot {
 		const record = await this.save({ tools });
 		this.agent.state.tools = botTools(this);
 		this.emit({ type: "tools", tools });
+		return record;
+	}
+
+	async setFolder(folder: string | undefined): Promise<BotInfo> {
+		const record = await this.save({ folder: folder === undefined ? undefined : await resolveFolder(folder) });
+		this.agent.state.tools = botTools(this);
 		return record;
 	}
 

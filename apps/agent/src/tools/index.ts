@@ -75,7 +75,7 @@ export function botInstructions(context: ToolContext): string {
 		instructions,
 		...groups.has("gmail") ? [gmailInstructions] : [],
 		...groups.has("routines") ? [routineInstructions] : [],
-		...groups.has("computer") ? [computerInstructions()] : [],
+		...groups.has("computer") ? [computerInstructions(context.folder)] : [],
 		...groups.has("team") ? [teamInstructions] : [],
 	].join("\n\n");
 }
@@ -91,7 +91,7 @@ export function botTools(context: ToolContext): AgentTool[] {
 		...groups.has("gmail") ? gmailTools(context) : [],
 		...groups.has("routines") ? routineTools(context) : [],
 		...groups.has("web") ? webTools() : [],
-		...groups.has("computer") ? computerTools() : [],
+		...groups.has("computer") ? computerTools(context.folder) : [],
 		...groups.has("team") ? teamTools(context) : [],
 		...context.parentId === undefined ? [setMode(context), setTools(context)] : [],
 	];

@@ -35,6 +35,7 @@ export interface BotInfo {
 	tools: ToolGroup[];
 	parentId?: string;
 	prompt?: string;
+	folder?: string;
 }
 
 export interface Approval {

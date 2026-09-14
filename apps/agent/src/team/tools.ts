@@ -113,6 +113,7 @@ export function teamTools(context: ToolContext): AgentTool[] {
 				return botView(await createBot({
 					...draft,
 					parentId: context.botId,
+					...context.folder !== undefined && { folder: context.folder },
 					...model && { model: selectModel(model) },
 				}));
 			},

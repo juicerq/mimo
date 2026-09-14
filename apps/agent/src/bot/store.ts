@@ -22,6 +22,7 @@ const StoredBotSchema = z.object({
 	tools: z.array(ToolGroupSchema).default([...TOOL_GROUPS]),
 	parentId: z.uuid().optional(),
 	prompt: BotPromptSchema.optional(),
+	folder: z.string().optional(),
 	version: z.number().optional(),
 });
 
@@ -93,7 +94,7 @@ export async function listChildren(parentId: string): Promise<BotInfo[]> {
 }
 
 export type BotPatch = Partial<Pick<BotInfo, "name" | "prompt" | "tools" | "model">>;
-export type BotDraft = Pick<BotInfo, "name"> & Partial<Pick<BotInfo, "model" | "tools" | "parentId" | "prompt">>;
+export type BotDraft = Pick<BotInfo, "name"> & Partial<Pick<BotInfo, "model" | "tools" | "parentId" | "prompt" | "folder">>;
 
 function defaultTools(parentId: string | undefined): ToolGroup[] {
 	if (parentId === undefined) {
