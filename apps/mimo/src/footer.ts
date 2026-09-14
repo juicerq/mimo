@@ -15,7 +15,7 @@ export class Footer {
 	private contextTokens: number | null = null;
 	private selectedModel: ModelInfo | null = null;
 	private folderName: string | null = null;
-	private botMode: BotMode = "normal";
+	private botMode: BotMode | null = null;
 	private detailLevel: Detail = "brief";
 	private teamView: TeamView = "bar";
 	private panelState: PanelState | undefined = undefined;
@@ -42,7 +42,7 @@ export class Footer {
 		this.contextTokens = null;
 		this.selectedModel = bot?.model ?? null;
 		this.folderName = bot?.folder === undefined ? null : basename(bot.folder);
-		this.botMode = bot?.mode ?? "normal";
+		this.botMode = bot?.mode ?? null;
 		this.draw();
 	}
 
@@ -63,7 +63,7 @@ export class Footer {
 
 	mode(mode: BotMode): void {
 		this.botMode = mode;
-		this.flash("mode");
+		this.draw();
 	}
 
 	detail(level: Detail): void {
@@ -98,11 +98,9 @@ export class Footer {
 		const parts = [
 			`context: ${used}/${capacity}`,
 			...this.folderName === null ? [] : [`dir: ${this.folderName}`],
+			...this.botMode === null ? [] : [`mode: ${this.botMode === "autonomous" ? "auto" : "normal"}`],
 			`model: ${this.selectedModel?.name ?? "—"} (${this.selectedModel?.reasoning ?? "default"})`,
 		];
-		if (this.flashed.has("mode")) {
-			parts.push(`mode: ${this.botMode === "autonomous" ? "auto" : "normal"}`);
-		}
 		if (this.flashed.has("detail")) {
 			parts.push(`detail: ${this.detailLevel}`);
 		}
