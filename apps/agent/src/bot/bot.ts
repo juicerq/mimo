@@ -1,6 +1,5 @@
 import { Agent, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
 import { uuidv7 } from "@earendil-works/pi-ai";
-import { archiveSession } from "../history/history";
 import { LoginSession, type LoginTarget } from "../login/login";
 import { contentText } from "../messages";
 import { resolveModel, selectModel } from "../model/catalog";
@@ -442,10 +441,8 @@ export class Bot {
 		if (!compacted) {
 			return;
 		}
-		await archiveSession({ botId: this.record.id, sessionId: this.session, messages: this.agent.state.messages });
 		this.archive = [...this.archive, ...compacted.dropped];
 		this.agent.state.messages = compacted.messages;
-		this.session = uuidv7();
 		this.emit(entryEvent({ kind: "summary", text: compacted.summary }));
 		await this.writeLog();
 	}

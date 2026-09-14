@@ -5,14 +5,24 @@ Este contexto define como uma pessoa cria e usa Bots pessoais pelo terminal.
 ## Linguagem
 
 **Bot**:
-Um agente pessoal criado e nomeado pela pessoa, com Memória própria e uma Sessão atual. Seu propósito se desenvolve pelo uso, sem especialidade predeterminada, e a pessoa pode criar quantos Bots quiser.
+Um agente pessoal criado e nomeado pela pessoa, com Memória e Registro próprios. Seu propósito se desenvolve pelo uso, sem especialidade predeterminada, e a pessoa pode criar quantos Bots quiser.
 _Evitar_: Assistente, agente
 _Dono_: `apps/agent/src/bot/bot.ts` (classe `Bot`); em disco, `apps/agent/src/bot/store.ts`; quem está aberto, `apps/agent/src/bot/registry.ts`
 
-**Sessão**:
-A conversa durável atual de um Bot, que sobrevive a reinícios e à troca de Bot. Quando o contexto é compactado, a Sessão atual é arquivada e outra começa com um resumo, preservando a Memória e o acesso às Sessões anteriores.
-_Evitar_: Chat, conversa nova
-_Dono_: `apps/agent/src/bot/bot.ts` (`session`, `saveTranscript`); o corte e o resumo, `apps/agent/src/bot/compaction.ts`; as arquivadas, `apps/agent/src/history/history.ts`
+**Registro**:
+A conversa inteira de um Bot, que só cresce e nunca perde nada. Sobrevive a reinícios e à troca de Bot, e é o que a pessoa rola na tela. A pessoa nunca começa outro Registro nem o compacta à mão.
+_Evitar_: Sessão, chat, conversa nova, histórico arquivado
+_Dono_: `apps/agent/src/bot/bot.ts` (`log`, `writeLog`); em disco, `apps/agent/src/bot/store.ts` (`messages.json`); o trecho fora da Janela, `apps/agent/src/history/history.ts`
+
+**Janela**:
+O trecho do Registro que vai para o modelo. Começa no Resumo mais novo. Quando o Registro passa do teto do modelo, a Compactação anexa outro Resumo e a Janela encolhe; o resto do Registro continua no lugar, e o Bot alcança ele por `search_history`.
+_Evitar_: Contexto, sessão
+_Dono_: `apps/agent/src/bot/events.ts` (`summaryStart`); o corte e o Resumo, `apps/agent/src/bot/compaction.ts`; quando roda, `apps/agent/src/bot/bot.ts` (`compact`)
+
+**Resumo**:
+O que a Compactação escreve no Registro quando a Janela chega a 80% do modelo: um texto que substitui o trecho antigo na Janela. Entra marcado com `[resumo]`, aparece na conversa como `─ resumo do que veio antes ─` e nunca como fala da pessoa. Uma Compactação que falha avisa e o Turno segue.
+_Evitar_: Sumário, compactação manual
+_Dono_: `apps/agent/src/bot/compaction.ts`; a marca, `apps/agent/src/bot/events.ts`; na tela, `apps/mimo/src/view.ts`
 
 **Turno**:
 Uma entrega da pessoa ou um disparo de Rotina e todo o trabalho que ela provoca até a resposta.
@@ -20,12 +30,12 @@ _Evitar_: Ciclo, execução
 _Dono_: `apps/agent/src/bot/bot.ts` (`drain`, `translate`); na tela, `apps/mimo/src/turn.ts`
 
 **Modelo do Bot**:
-A escolha de provedor, modelo e esforço para as próximas respostas de um Bot. Permanece salva e pode mudar sem abrir outra Sessão. Uma resposta em andamento mantém a escolha com que começou, inclusive enquanto espera Aprovação.
+A escolha de provedor, modelo e esforço para as próximas respostas de um Bot. Permanece salva e pode mudar a qualquer momento. Uma resposta em andamento mantém a escolha com que começou, inclusive enquanto espera Aprovação.
 _Evitar_: Modelo global, modelo da sessão
 _Dono_: `apps/agent/src/model/catalog.ts`; o Painel, `apps/mimo/src/panels/model.ts`
 
 **Bot filho**:
-Um Bot criado por outro Bot, com Memória e Sessão próprias. Pertence a quem o criou, não aparece na lista de Bots da pessoa e é apagado junto com o pai.
+Um Bot criado por outro Bot, com Memória e Registro próprios. Pertence a quem o criou, não aparece na lista de Bots da pessoa e é apagado junto com o pai.
 _Evitar_: Subagente, worker
 _Dono_: `apps/agent/src/team/tools.ts`; o registro, `apps/agent/src/bot/store.ts` (`parentId`)
 
@@ -40,17 +50,17 @@ _Evitar_: Chamada, mensagem entre bots
 _Dono_: `apps/agent/src/bot/bot.ts` (`delegate`, `work`)
 
 **Aviso**:
-A resposta de um Bot filho, entregue sozinha na Sessão de quem delegou quando o trabalho termina ou falha. Espera o fim do Turno em andamento e entra junto com a Fila.
+A resposta de um Bot filho, entregue sozinha no Registro de quem delegou quando o trabalho termina ou falha. Espera o fim do Turno em andamento e entra junto com a Fila.
 _Evitar_: Callback, notificação
 _Dono_: `apps/agent/src/bot/bot.ts` (`work`); a marca `[equipe]`, `apps/agent/src/bot/events.ts`
 
 **Fila**:
-As entregas que a pessoa escreve enquanto o Bot trabalha. Esperam acima do composer e entram na Sessão juntas e na ordem, num Turno só, assim que o Bot termina o passo atual. Interromper o Turno descarta a Fila.
+As entregas que a pessoa escreve enquanto o Bot trabalha. Esperam acima do composer e entram no Registro juntas e na ordem, num Turno só, assim que o Bot termina o passo atual. Interromper o Turno descarta a Fila.
 _Evitar_: Buffer, rascunho
 _Dono_: `apps/agent/src/bot/queue.ts` (as entradas e a promessa de cada uma); quando ela entra, `apps/agent/src/bot/bot.ts` (`push`, `drain`, `steerQueue`); na tela, `apps/mimo/src/bar.ts`
 
 **Rotina**:
-Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em sua Sessão atual. Tem um nome curto e único dentro do Bot, que as tools usam para tratá-la. Aparece na conversa como `routine: <nome> started`, nunca como entrega da pessoa. Continua pertencendo ao mesmo Bot quando a Sessão muda.
+Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em seu Registro. Tem um nome curto e único dentro do Bot, que as tools usam para tratá-la. Aparece na conversa como `routine: <nome> started`, nunca como entrega da pessoa. Continua pertencendo ao mesmo Bot depois de uma Compactação.
 _Evitar_: Agendamento, cron job, automação
 _Dono_: `apps/agent/src/routines/routines.ts`; o disparo, `apps/agent/src/routines/dispatcher.ts`; a marca `[rotina: <nome>]`, `apps/agent/src/bot/events.ts`
 
