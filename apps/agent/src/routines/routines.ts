@@ -14,7 +14,6 @@ const storedSchema = z.object({
 	prompt: z.string().min(1),
 	everyMinutes: z.number().int().min(1),
 	botId: z.uuid(),
-	sessionId: z.string().min(1),
 	createdAt: z.string(),
 	nextRunAt: z.string(),
 	lastRunAt: z.string().optional(),
@@ -59,7 +58,6 @@ export interface RoutineInput {
 	everyMinutes: number;
 	startInMinutes: number;
 	botId: string;
-	sessionId: string;
 }
 
 export interface RoutinePatch {
@@ -134,7 +132,6 @@ export async function createRoutine(input: RoutineInput): Promise<Routine> {
 			prompt: input.prompt,
 			everyMinutes: input.everyMinutes,
 			botId: input.botId,
-			sessionId: input.sessionId,
 			createdAt: now.toISOString(),
 			nextRunAt: minutesFrom(now, input.startInMinutes),
 			enabled: true,

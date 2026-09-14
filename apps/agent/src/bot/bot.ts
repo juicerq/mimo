@@ -1,5 +1,4 @@
 import { Agent, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
-import { uuidv7 } from "@earendil-works/pi-ai";
 import { LoginSession, type LoginTarget } from "../login/login";
 import { contentText } from "../messages";
 import { resolveModel, selectModel } from "../model/catalog";
@@ -33,7 +32,6 @@ export class Bot {
 	private readonly crew = new Map<Bot, Work>();
 	private readonly running = new Map<string, string>();
 	private record: BotInfo;
-	private session = uuidv7();
 	private archive: AgentMessage[];
 	private host: Bot | null = null;
 	private cancelled = false;
@@ -82,10 +80,6 @@ export class Bot {
 
 	get botId(): string {
 		return this.record.id;
-	}
-
-	get sessionId(): string {
-		return this.session;
 	}
 
 	get mode(): BotMode {

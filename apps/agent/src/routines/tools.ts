@@ -23,7 +23,6 @@ export function routineTools(context: ToolContext) {
 					everyMinutes,
 					startInMinutes: startInMinutes ?? everyMinutes,
 					botId: context.botId,
-					sessionId: context.sessionId,
 				}));
 			},
 		}),
@@ -60,7 +59,7 @@ export function routineTools(context: ToolContext) {
 				const base = {
 					kind: "delete_routine" as const,
 					mode: context.mode,
-					sessionId: context.sessionId,
+					botId: context.botId,
 					summary: `rotina ${routine}`,
 					detail: { routine },
 				};

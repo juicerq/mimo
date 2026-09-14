@@ -96,7 +96,7 @@ export function gmailTools(context: ToolContext) {
 				const base = {
 					kind: "send_draft" as const,
 					mode: context.mode,
-					sessionId: context.sessionId,
+					botId: context.botId,
 					account: resolved.email,
 				};
 				const sent = await sendDraft(resolved, draftId).catch(async (error: unknown) => {
@@ -130,7 +130,7 @@ export function gmailTools(context: ToolContext) {
 				const base = {
 					kind: "send_email" as const,
 					mode: context.mode,
-					sessionId: context.sessionId,
+					botId: context.botId,
 					account: resolved.email,
 					summary: `para ${email.to}: ${email.subject}`,
 				};

@@ -9,7 +9,7 @@ const actionSchema = z.object({
 	at: z.string(),
 	kind: z.enum(["send_email", "send_draft", "delete_routine"]),
 	mode: z.enum(["normal", "autonomous"]),
-	sessionId: z.string(),
+	botId: z.string(),
 	account: z.string().nullable(),
 	summary: z.string(),
 	result: z.enum(["ok", "failed"]),
@@ -22,7 +22,7 @@ export type ActionRecord = z.infer<typeof actionSchema>;
 export interface ActionInput {
 	kind: ActionRecord["kind"];
 	mode: BotMode;
-	sessionId: string;
+	botId: string;
 	account?: string;
 	summary: string;
 	detail?: Record<string, string>;
@@ -33,7 +33,7 @@ async function write(input: ActionInput, result: ActionRecord["result"], error: 
 		at: new Date().toISOString(),
 		kind: input.kind,
 		mode: input.mode,
-		sessionId: input.sessionId,
+		botId: input.botId,
 		account: input.account ?? null,
 		summary: input.summary,
 		result,
@@ -50,7 +50,7 @@ export async function recordFailure(input: ActionInput, error: unknown): Promise
 	await write(input, "failed", error instanceof Error ? error.message : String(error));
 }
 
-export async function listActions({ limit, sessionId }: { limit: number; sessionId: string }): Promise<ActionRecord[]> {
+export async function listActions({ limit, botId }: { limit: number; botId: string }): Promise<ActionRecord[]> {
 	const raw = await readTextFile(ACTIONS_PATH);
 	if (raw === null) {
 		return [];
@@ -61,7 +61,7 @@ export async function listActions({ limit, sessionId }: { limit: number; session
 			continue;
 		}
 		const parsed = actionSchema.safeParse(JSON.parse(line));
-		if (parsed.success && parsed.data.sessionId === sessionId) {
+		if (parsed.success && parsed.data.botId === botId) {
 			records.push(parsed.data);
 		}
 	}
