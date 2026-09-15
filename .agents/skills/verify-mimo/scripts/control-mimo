@@ -14,7 +14,7 @@ WAIT_DEFAULT_SECONDS=180
 SEND_BUSY_GRACE_SECONDS=6
 SEND_ACCEPT_SECONDS=10
 SEND_DEFAULT_SECONDS=300
-AUTH_PATHS=(".codex/auth.json" ".local/share/opencode/auth.json")
+AUTH_PATHS=(".codex/auth.json" ".local/share/opencode/auth.json" ".mimo/providers.json")
 
 usage() {
 	cat <<'EOF'

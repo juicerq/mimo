@@ -12,6 +12,7 @@ import { botRules } from "../rules/rules";
 import { botInstructions, botTools, needsApproval } from "../tools";
 import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
+import { sealTranscript } from "./seal";
 import { Queue } from "./queue";
 import { entryEvent, entryMessage, replayMessage, resultEvent, summaryStart, toolErrorText, toolResultText, usageEvent, type Entry } from "./events";
 import { deleteBot, runningBot, trackBot } from "./registry";
@@ -39,6 +40,7 @@ export class Bot {
 	private draining = false;
 	private reply = "";
 	private failure: string | null = null;
+	private writing: Promise<void> = Promise.resolve();
 
 	private constructor(record: BotInfo, log: AgentMessage[]) {
 		const start = summaryStart(log);
@@ -70,7 +72,7 @@ export class Bot {
 		if (!record) {
 			throw new Error("This bot no longer exists.");
 		}
-		const bot = new Bot(record, await readTranscript(id));
+		const bot = new Bot(record, sealTranscript(await readTranscript(id)));
 		trackBot(bot);
 		return bot;
 	}
@@ -387,6 +389,7 @@ export class Bot {
 		}
 		if (event.type === "message_end") {
 			this.finishMessage(event.message);
+			this.keepLog();
 			return;
 		}
 		if (event.type === "tool_execution_start") {
@@ -398,6 +401,7 @@ export class Bot {
 		}
 		if (event.type === "tool_execution_end") {
 			this.running.delete(event.toolCallId);
+			this.keepLog();
 			if (this.cancelled) {
 				return;
 			}
@@ -464,8 +468,15 @@ export class Bot {
 		await this.writeLog();
 	}
 
+	private keepLog(): void {
+		void this.writeLog().catch((error: unknown) => {
+			this.emit({ type: "warning", text: errorText(error) });
+		});
+	}
+
 	private async writeLog(): Promise<void> {
-		await writeTranscript(this.record.id, this.log).catch((error: unknown) => {
+		this.writing = this.writing.catch(() => {}).then(async () => await writeTranscript(this.record.id, this.log));
+		await this.writing.catch((error: unknown) => {
 			throw new Error(`A conversa não foi gravada: ${errorText(error)}`);
 		});
 	}
