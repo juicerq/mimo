@@ -3,6 +3,7 @@ import type { Api, Model } from "@earendil-works/pi-ai";
 import { isLlmMessage } from "../messages";
 import { models } from "../model/models";
 import { entryMessage } from "./events";
+import { withoutBorrowedReasoning } from "./reasoning";
 
 export interface Compaction {
 	crowded: string | null;
@@ -63,7 +64,7 @@ export async function compactTranscript(input: { messages: AgentMessage[]; model
 	const earlier = input.messages.slice(0, cut);
 	const summary = await models().completeSimple(input.model, {
 		systemPrompt: SUMMARY_PROMPT,
-		messages: earlier.filter(isLlmMessage),
+		messages: withoutBorrowedReasoning(earlier).filter(isLlmMessage),
 	}, { sessionId: input.sessionId });
 	if (summary.stopReason !== "stop") {
 		throw new Error("O resumo da conversa não terminou.");

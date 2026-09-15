@@ -14,6 +14,7 @@ import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
 import { sealTranscript } from "./seal";
 import { Queue } from "./queue";
+import { withoutBorrowedReasoning } from "./reasoning";
 import { entryEvent, entryMessage, replayMessage, resultEvent, summaryStart, toolErrorText, toolResultText, usageEvent, type Entry } from "./events";
 import { deleteBot, runningBot, trackBot } from "./registry";
 import { readBot, readTranscript, writeBot, writeTranscript, type BotPatch } from "./store";
@@ -50,6 +51,7 @@ export class Bot {
 		this.archive = log.slice(0, start);
 		this.agent = new Agent({
 			streamFn: (model, context, options) => models().streamSimple(model, context, { ...options, sessionId: record.id }),
+			transformContext: async (context) => withoutBorrowedReasoning(context),
 			initialState: {
 				systemPrompt: this.basePrompt(),
 				model: resolveModel(record.model),
