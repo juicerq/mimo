@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ProviderSchema = z.enum(["opencode-go", "openai-codex", "cline"]);
+export const ProviderSchema = z.enum(["opencode", "opencode-go", "openai-codex", "cline"]);
 export const ReasoningSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 
 export const ModelSelectionSchema = z.object({
@@ -9,7 +9,7 @@ export const ModelSelectionSchema = z.object({
 	reasoning: ReasoningSchema,
 });
 
-export const PROVIDER_NAMES: Record<Provider, string> = { "opencode-go": "OpenCode Go", "openai-codex": "OpenAI", cline: "Cline" };
+export const PROVIDER_NAMES: Record<Provider, string> = { opencode: "OpenCode Zen", "opencode-go": "OpenCode Go", "openai-codex": "OpenAI", cline: "Cline" };
 
 export type Provider = z.infer<typeof ProviderSchema>;
 export type Reasoning = z.infer<typeof ReasoningSchema>;

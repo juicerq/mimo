@@ -15,7 +15,7 @@ import {
 
 const EXPLICIT_LEVELS = new Set<Reasoning>(["xhigh", "max"]);
 const PREFERRED_DEFAULTS: Reasoning[] = ["medium", "high", "low", "minimal", "xhigh", "max", "off"];
-const DEFAULT_MODEL = "opencode-go/deepseek-v4-flash";
+const DEFAULT_MODEL = "opencode/muse-spark-1.3-contributor-free";
 
 function reasoningOptions(model: Model<Api>): Reasoning[] {
 	if (!model.reasoning) {

@@ -49,7 +49,7 @@ export class Bot {
 		this.record = record;
 		this.archive = log.slice(0, start);
 		this.agent = new Agent({
-			streamFn: (model, context, options) => models().streamSimple(model, context, options),
+			streamFn: (model, context, options) => models().streamSimple(model, context, { ...options, sessionId: record.id }),
 			initialState: {
 				systemPrompt: this.basePrompt(),
 				model: resolveModel(record.model),
@@ -451,6 +451,7 @@ export class Bot {
 			messages: this.agent.state.messages,
 			model: this.agent.state.model,
 			systemPrompt: this.agent.state.systemPrompt,
+			sessionId: this.record.id,
 		})
 			.catch((error: unknown) => {
 				this.emit({ type: "warning", text: `A conversa não foi resumida: ${errorText(error)}` });

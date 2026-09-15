@@ -1,5 +1,6 @@
 import { createModels, type Credential, type CredentialStore, type Models } from "@earendil-works/pi-ai";
 import { openaiCodexProvider } from "@earendil-works/pi-ai/providers/openai-codex";
+import { opencodeProvider } from "@earendil-works/pi-ai/providers/opencode";
 import { opencodeGoProvider } from "@earendil-works/pi-ai/providers/opencode-go";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +9,7 @@ import { readTextFile, writeTextFile } from "../storage/files";
 import { homePath } from "../storage/home";
 import { clineProvider } from "./cline";
 import { withCatalog } from "./overlay";
+import { withFreeTier } from "./zen";
 import { ProviderSchema, type Provider } from "./types";
 
 const CODEX_TOKEN_LIFETIME_MS = 3_600_000;
@@ -22,7 +24,8 @@ const CodexAuthSchema = z.looseObject({
 });
 
 const OpencodeAuthSchema = z.looseObject({
-	"opencode-go": z.looseObject({ key: z.string().min(1) }),
+	opencode: z.looseObject({ key: z.string().min(1) }).optional(),
+	"opencode-go": z.looseObject({ key: z.string().min(1) }).optional(),
 });
 
 const ClineAuthSchema = z.looseObject({
@@ -33,6 +36,29 @@ interface AuthFile {
 	path: string;
 	parse(raw: unknown): Credential;
 	serialize(raw: unknown, credential: Credential): unknown;
+}
+
+type OpencodeEntry = "opencode" | "opencode-go";
+
+function opencodeAuthFile(entry: OpencodeEntry, fallback: OpencodeEntry): AuthFile {
+	return {
+		path: join(homedir(), ".local", "share", "opencode", "auth.json"),
+		parse(raw) {
+			const auth = OpencodeAuthSchema.parse(raw);
+			const key = auth[entry]?.key ?? auth[fallback]?.key;
+			if (!key) {
+				throw new Error("OpenCode is not connected. Log in and try again.");
+			}
+			return { type: "api_key", key };
+		},
+		serialize(raw, credential) {
+			if (credential.type !== "api_key") {
+				return raw;
+			}
+			const auth = OpencodeAuthSchema.parse(raw ?? {});
+			return { ...auth, [entry]: { ...auth[entry], type: "api", key: credential.key } };
+		},
+	};
 }
 
 const AUTH_FILES: Record<Provider, AuthFile> = {
@@ -66,19 +92,8 @@ const AUTH_FILES: Record<Provider, AuthFile> = {
 			};
 		},
 	},
-	"opencode-go": {
-		path: join(homedir(), ".local", "share", "opencode", "auth.json"),
-		parse(raw) {
-			return { type: "api_key", key: OpencodeAuthSchema.parse(raw)["opencode-go"].key };
-		},
-		serialize(raw, credential) {
-			if (credential.type !== "api_key") {
-				return raw;
-			}
-			const auth = OpencodeAuthSchema.partial().parse(raw ?? {});
-			return { ...auth, "opencode-go": { ...auth["opencode-go"], type: "api", key: credential.key } };
-		},
-	},
+	opencode: opencodeAuthFile("opencode", "opencode-go"),
+	"opencode-go": opencodeAuthFile("opencode-go", "opencode"),
 	cline: {
 		path: homePath("providers.json"),
 		parse(raw) {
@@ -165,6 +180,7 @@ export function models(): Models {
 		return registry;
 	}
 	const created = createModels({ credentials });
+	created.setProvider(withFreeTier(opencodeProvider()));
 	created.setProvider(withCatalog(opencodeGoProvider()));
 	created.setProvider(openaiCodexProvider());
 	created.setProvider(clineProvider());
