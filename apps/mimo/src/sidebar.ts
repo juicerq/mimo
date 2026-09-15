@@ -4,7 +4,7 @@ import { listBots } from "@agent/bot/store";
 import type { BotInfo } from "@agent/bot/types";
 import { Lines, type Line } from "./lines";
 import { cut } from "./text";
-import { T1, T2, T3, T4, T5 } from "./theme";
+import { T1, T2, T5, T6, T8 } from "./theme";
 
 const TICK_MS = 1000;
 const WIDE_COLS = 24;
@@ -64,18 +64,18 @@ export class Sidebar {
 			flexShrink: 0,
 			flexDirection: "column",
 			border: ["right"],
-			borderColor: T5,
+			borderColor: T8,
 			paddingLeft: 1,
 			paddingRight: 1,
 		});
-		this.title = new TextRenderable(renderer, { id: "sidebar-title", content: "bots", fg: T3, width: "100%", flexShrink: 0 });
+		this.title = new TextRenderable(renderer, { id: "sidebar-title", content: "bots", fg: T5, width: "100%", flexShrink: 0 });
 		this.box.add(this.title);
 		this.search = new InputRenderable(renderer, {
 			id: "sidebar-search",
 			width: "100%",
 			placeholder: "filtrar…",
 			textColor: T2,
-			placeholderColor: T4,
+			placeholderColor: T6,
 			cursorColor: T1,
 			visible: false,
 			flexShrink: 0,
@@ -95,7 +95,7 @@ export class Sidebar {
 		});
 		this.box.add(list);
 		this.lines = new Lines(renderer, list);
-		this.hint = new TextRenderable(renderer, { id: "sidebar-hint", content: "ctrl+e", fg: T4, width: "100%", flexShrink: 0 });
+		this.hint = new TextRenderable(renderer, { id: "sidebar-hint", content: "ctrl+e", fg: T6, width: "100%", flexShrink: 0 });
 		this.box.add(this.hint);
 		renderer.on(CliRenderEvents.RESIZE, () => {
 			this.resize();
@@ -255,7 +255,7 @@ export class Sidebar {
 		const filter = this.filter();
 		const rows = this.visible();
 		if (rows.length === 0) {
-			this.lines.set([{ text: filter === "" ? "nenhum bot" : "nada p/ filtro", fg: T4, key: filter === "" ? "empty" : `empty|${filter}` }]);
+			this.lines.set([{ text: filter === "" ? "nenhum bot" : "nada p/ filtro", fg: T6, key: filter === "" ? "empty" : `empty|${filter}` }]);
 			return;
 		}
 		this.lines.set(rows.map((entry, index) => this.row(entry, index, inner, filter)));

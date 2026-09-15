@@ -3,7 +3,7 @@ import type { BotActivity } from "@agent/bot/registry";
 import type { TeamMember } from "@agent/bot/types";
 import { Lines } from "./lines";
 import { cols, pad } from "./text";
-import { T4 } from "./theme";
+import { T6 } from "./theme";
 
 const TEAM_MS = 1000;
 
@@ -67,7 +67,7 @@ export class Bar {
 
 	private draw(): void {
 		const texts = [...this.teamLines(), ...this.items.map((item) => `queue: ${item}`)];
-		this.lines.set(texts.map((text) => ({ text, fg: T4 })));
+		this.lines.set(texts.map((text) => ({ text, fg: T6 })));
 	}
 
 	private teamLines(): string[] {

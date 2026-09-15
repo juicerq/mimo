@@ -1,7 +1,7 @@
 import { BoxRenderable, ScrollBoxRenderable, TextRenderable, type CliRenderer, type TextareaRenderable } from "@opentui/core";
 import type { BotInfo } from "@agent/bot/types";
 import { describeError } from "./errors";
-import { T3, TONES, type Tone } from "./theme";
+import { T4, TONES, type Tone } from "./theme";
 export const CANCEL_HINT = "/cancel to return or press Esc";
 const NUMBER_PLACEHOLDER = "number or /cancel";
 
@@ -125,7 +125,7 @@ export class Panels {
 		this.refresh = options.refresh;
 		this.finish = options.finish;
 		this.syncComposer = options.syncComposer;
-		this.heading = new TextRenderable(renderer, { id: "heading", content: "", fg: T3 });
+		this.heading = new TextRenderable(renderer, { id: "heading", content: "", fg: T4 });
 		this.row = new BoxRenderable(renderer, { width: "100%", paddingLeft: 2, flexShrink: 0, visible: false });
 		this.row.add(this.heading);
 		this.box = new ScrollBoxRenderable(renderer, {

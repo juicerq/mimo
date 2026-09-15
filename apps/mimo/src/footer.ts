@@ -2,7 +2,7 @@ import { BoxRenderable, TextRenderable, type CliRenderer } from "@opentui/core";
 import type { BotInfo, BotMode } from "@agent/bot/types";
 import type { ModelInfo } from "@agent/model/types";
 import { basename } from "node:path";
-import { T4 } from "./theme";
+import { T6 } from "./theme";
 import type { TeamView } from "./bar";
 import type { PanelState } from "./panel";
 import type { Detail } from "./transcript";
@@ -26,7 +26,7 @@ export class Footer {
 		this.line = new TextRenderable(renderer, {
 			id: "status",
 			content: "",
-			fg: T4,
+			fg: T6,
 			width: "100%",
 		});
 		this.box = new BoxRenderable(renderer, {

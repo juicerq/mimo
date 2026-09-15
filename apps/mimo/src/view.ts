@@ -5,7 +5,7 @@ import type { Panel } from "./panel";
 import { loginPanel } from "./panels/login";
 import type { Transcript } from "./transcript";
 import type { Turn } from "./turn";
-import { T1, T3, T4 } from "./theme";
+import { T1, T3, T4, T6 } from "./theme";
 
 const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
 const TOOL_EVENT_TYPES = ["tool", "team-call", "tool-result", "tool-warned", "tool-failed"] as const;
@@ -60,11 +60,11 @@ export class View {
 				return;
 			case "note":
 				this.transcript.seal();
-				this.transcript.note(`▌ ${event.text}`, T4);
+				this.transcript.note(`▌ ${event.text}`, T6);
 				return;
 			case "summary":
 				this.transcript.seal();
-				this.transcript.detailed("─ resumo do que veio antes ─", T4, event.text);
+				this.transcript.detailed("─ resumo do que veio antes ─", T6, event.text);
 				return;
 			case "warning":
 				this.transcript.seal();
@@ -89,7 +89,7 @@ export class View {
 				this.showToolGroups(event.tools);
 				return;
 			case "approval-resolved":
-				this.transcript.note(`⏸ ${event.outcome}`, T4);
+				this.transcript.note(`⏸ ${event.outcome}`, T6);
 				this.turn.enter("thinking");
 				return;
 			default:
@@ -149,7 +149,7 @@ export class View {
 				return;
 			case "turn-cancelled":
 				this.transcript.seal();
-				this.transcript.note("Interrupted.", T3);
+				this.transcript.note("Interrupted.", T4);
 				this.turn.enter("cancelled");
 		}
 	}
@@ -162,17 +162,17 @@ export class View {
 	private showTeamCall(call: TeamCall): void {
 		this.transcript.seal();
 		const task = call.task === undefined ? "" : ` · ${call.task}`;
-		this.transcript.detailed(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}${task}`, T4);
+		this.transcript.detailed(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}${task}`, T6);
 	}
 
 	private showToolGroups(tools: readonly ToolGroup[]): void {
 		this.transcript.seal();
-		this.transcript.detailed(`tools: ${tools.length === 0 ? "none" : tools.join(", ")}`, T3);
+		this.transcript.detailed(`tools: ${tools.length === 0 ? "none" : tools.join(", ")}`, T4);
 	}
 
 	private showRoutine(name: string, prompt: string): void {
 		this.transcript.seal();
-		this.transcript.detailed(`routine: ${name} started`, T3, prompt.replaceAll("\n", " "));
+		this.transcript.detailed(`routine: ${name} started`, T4, prompt.replaceAll("\n", " "));
 	}
 
 	private showApproval(approval: Approval): void {
