@@ -1,4 +1,4 @@
-import { BoxRenderable, RenderableEvents, TextareaRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
+import { BoxRenderable, CliRenderEvents, RenderableEvents, TextareaRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
 import { Bot } from "@agent/bot/bot";
 import { activity, deleteBot, type BotActivity } from "@agent/bot/registry";
 import { createBot, listBots } from "@agent/bot/store";
@@ -79,6 +79,9 @@ export class MimoApp {
 		this.input.onContentChange = () => {
 			this.fitComposer();
 		};
+		renderer.on(CliRenderEvents.RESIZE, () => {
+			this.fitComposer();
+		});
 		this.panels = new Panels(renderer, { input: this.input, refresh: this.refreshPanels, finish: this.closePanel, syncComposer: () => {
 			this.fitComposer();
 		} });
@@ -559,8 +562,11 @@ export class MimoApp {
 	}
 
 	private fitComposer(): void {
-		const lines = Math.max(1, this.input.lineCount || 1, this.input.virtualLineCount || 1);
-		this.input.height = Math.min(COMPOSER_MAX_LINES, lines);
+		const lines = Math.max(1, this.input.lineCount || 1, this.input.editorView.getTotalVirtualLineCount() || 1);
+		const height = Math.min(COMPOSER_MAX_LINES, lines);
+		if (this.input.height !== height) {
+			this.input.height = height;
+		}
 	}
 
 	private spin(): void {
