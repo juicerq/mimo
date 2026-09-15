@@ -3,7 +3,7 @@ import { activity, type BotActivity } from "@agent/bot/registry";
 import { elapsed } from "./bar";
 import { Lines, type Line } from "./lines";
 import { cols, cut, pad } from "./text";
-import { T1, T2, T3, T4, T5 } from "./theme";
+import { T1, T2, T3, T5, T6, T8 } from "./theme";
 
 const RAIL_MS = 1000;
 const RAIL_COLS = 44;
@@ -25,7 +25,7 @@ export class Rail {
 			flexShrink: 0,
 			flexDirection: "column",
 			border: ["left"],
-			borderColor: T5,
+			borderColor: T8,
 			paddingLeft: 1,
 			paddingRight: 1,
 			visible: false,
@@ -43,7 +43,7 @@ export class Rail {
 		this.box.add(new TextRenderable(renderer, {
 			id: "rail-hint",
 			content: "Ctrl+T close",
-			fg: T4,
+			fg: T6,
 			width: "100%",
 			flexShrink: 0,
 		}));
@@ -82,12 +82,12 @@ export class Rail {
 	private read(): Line[] {
 		const bots = activity().filter((bot) => bot.team.length > 0 || bot.waiting !== null || bot.failed !== null);
 		if (bots.length === 0) {
-			return [{ text: "nothing running", fg: T4 }];
+			return [{ text: "nothing running", fg: T6 }];
 		}
 		const lines: Line[] = [];
 		const inner = Math.max(MIN_COLS, this.box.width - INSET);
 		for (const bot of bots) {
-			lines.push(...lines.length > 0 ? [{ text: "", fg: T4 }] : [], { text: head(bot), fg: T1 });
+			lines.push(...lines.length > 0 ? [{ text: "", fg: T6 }] : [], { text: head(bot), fg: T1 });
 			lines.push(...body(bot, inner));
 		}
 		return lines;
@@ -110,7 +110,7 @@ function body(bot: BotActivity, inner: number): Line[] {
 		lines.push({ text: `  ${pad(member.name, width)} ${elapsed(member.startedAt).padStart(4)}  ${member.tool ?? ""}`.trimEnd(), fg: T2 });
 		lines.push({ text: `  ${member.task}`, fg: T3 });
 		if (member.worktree !== null) {
-			lines.push({ text: `  ${member.worktree}`, fg: T4 });
+			lines.push({ text: `  ${member.worktree}`, fg: T5 });
 		}
 	}
 	if (bot.waiting !== null) {

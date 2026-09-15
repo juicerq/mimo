@@ -1,5 +1,5 @@
 import { MarkdownRenderable, ScrollBoxRenderable, SyntaxStyle, TextRenderable, type CliRenderer } from "@opentui/core";
-import { T1, T4 } from "./theme";
+import { T1, T6 } from "./theme";
 
 const DETAIL_LEVELS = ["off", "brief", "full"] as const;
 const DETAIL_CHARACTERS = 600;
@@ -20,8 +20,8 @@ export class Transcript {
 		"markup.italic": { italic: true },
 		"markup.heading": { bold: true },
 		"markup.raw": { fg: "#FFD479" },
-		"markup.list": { fg: T4 },
-		"markup.link.url": { fg: T4, underline: true },
+		"markup.list": { fg: T6 },
+		"markup.link.url": { fg: T6, underline: true },
 	});
 	private replyText = "";
 	private spinner: { line: TextRenderable; label: string; startedAt: number; timer: ReturnType<typeof setInterval> } | null = null;
@@ -67,11 +67,11 @@ export class Transcript {
 	}
 
 	indented(text: string): void {
-		this.append(`   ${truncate(text, INDENT_CHARACTERS)}`, T4);
+		this.append(`   ${truncate(text, INDENT_CHARACTERS)}`, T6);
 	}
 
 	tool(name: string, input: unknown): void {
-		this.brief(`⚙ ${name}`, T4, JSON.stringify(input), 0);
+		this.brief(`⚙ ${name}`, T6, JSON.stringify(input), 0);
 	}
 
 	detailed(brief: string, tone: string, detail?: string): void {
@@ -116,7 +116,7 @@ export class Transcript {
 			this.drawWorking();
 			return;
 		}
-		const line = this.append("", T4);
+		const line = this.append("", T6);
 		this.spinner = { line, label, startedAt: performance.now(), timer: setInterval(() => this.drawWorking(), SPINNER_MS) };
 		this.drawWorking();
 	}
@@ -139,7 +139,7 @@ export class Transcript {
 		if (!this.shows("full") || detail === undefined) {
 			return;
 		}
-		this.append(`   ${truncate(detail, DETAIL_CHARACTERS)}`, T4, marginBottom);
+		this.append(`   ${truncate(detail, DETAIL_CHARACTERS)}`, T6, marginBottom);
 	}
 
 	private ensureReply(): MarkdownRenderable {

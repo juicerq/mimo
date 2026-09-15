@@ -21,7 +21,7 @@ import { toolsPanel } from "./panels/tools";
 import { Transcript } from "./transcript";
 import { Turn } from "./turn";
 import { View } from "./view";
-import { T1, T2, T3, T4, T5 } from "./theme";
+import { T1, T2, T4, T6, T7, T8 } from "./theme";
 
 const DOUBLE_ESCAPE_MS = 400;
 const COMPOSER_MAX_LINES = 6;
@@ -100,15 +100,15 @@ export class MimoApp {
 			flexShrink: 0,
 			border: true,
 			borderStyle: "rounded",
-			borderColor: T5,
+			borderColor: T8,
 			paddingLeft: 1,
 			paddingRight: 1,
 		});
 		this.input.on(RenderableEvents.FOCUSED, () => {
-			composer.borderColor = T4;
+			composer.borderColor = T7;
 		});
 		this.input.on(RenderableEvents.BLURRED, () => {
-			composer.borderColor = T5;
+			composer.borderColor = T8;
 		});
 		composer.add(this.input);
 
@@ -190,7 +190,7 @@ export class MimoApp {
 			if (bot && /^[1-9]\d*$/.test(text)) {
 				void this.openBot(bot);
 			} else {
-				this.transcript.note("Choose a bot by number, or type /new <name>.", T3);
+				this.transcript.note("Choose a bot by number, or type /new <name>.", T4);
 			}
 			return;
 		}
@@ -354,7 +354,7 @@ export class MimoApp {
 	private showBotPanel(hint: string, build: (info: BotInfo) => Panel): void {
 		const conversation = this.screen.conversation;
 		if (!conversation) {
-			this.transcript.note(hint, T3);
+			this.transcript.note(hint, T4);
 			return;
 		}
 		try {
@@ -399,7 +399,7 @@ export class MimoApp {
 		}
 		this.input.placeholder = this.screen.placeholder;
 		if (result.message) {
-			this.transcript.note(result.message, T3);
+			this.transcript.note(result.message, T4);
 		}
 		this.refreshPanels();
 	};
@@ -434,9 +434,9 @@ export class MimoApp {
 				const entry = open.get(bot.id);
 				this.transcript.note(`${index + 1}. ${bot.name}${listMark(entry)}`, T2);
 			}
-			this.transcript.note(bots.length ? "/new <name> to create a bot, /delete to remove one" : "Create your first bot with /new <name>.", T4);
+			this.transcript.note(bots.length ? "/new <name> to create a bot, /delete to remove one" : "Create your first bot with /new <name>.", T6);
 			if (note) {
-				this.transcript.note(note, T3);
+				this.transcript.note(note, T4);
 			}
 			this.turn.enter("ready");
 		} catch (error) {
@@ -449,7 +449,7 @@ export class MimoApp {
 	private async createBot(name: string) {
 		const parsed = BotNameSchema.safeParse(name);
 		if (!parsed.success) {
-			this.transcript.note("Use /new <name> with 1–80 visible characters.", T3);
+			this.transcript.note("Use /new <name> with 1–80 visible characters.", T4);
 			return;
 		}
 		const signal = this.screen.signal;
