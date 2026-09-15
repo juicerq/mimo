@@ -76,6 +76,10 @@ export class Footer {
 		this.flash("team");
 	}
 
+	copied(): void {
+		this.flash("copied");
+	}
+
 	panel(state: PanelState | undefined): void {
 		this.panelState = state;
 		this.draw();
@@ -106,6 +110,9 @@ export class Footer {
 		}
 		if (this.flashed.has("team")) {
 			parts.push(`team: ${this.teamView}`);
+		}
+		if (this.flashed.has("copied")) {
+			parts.push("copied");
 		}
 		if (this.panelState !== undefined) {
 			parts.push(`status: ${this.panelState}`);

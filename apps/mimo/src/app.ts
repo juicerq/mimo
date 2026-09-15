@@ -6,6 +6,7 @@ import { BotNameSchema, type BotEvent, type BotInfo, type ToolGroup } from "@age
 import { modelOption } from "@agent/model/catalog";
 import type { ModelSelection } from "@agent/model/types";
 import { Bar, NEXT_TEAM_VIEW, type TeamView } from "./bar";
+import { copyToClipboard } from "./clipboard";
 import { describeError } from "./errors";
 import { Footer } from "./footer";
 import { Panels, type Panel, type PanelResult } from "./panel";
@@ -81,6 +82,9 @@ export class MimoApp {
 		};
 		renderer.on(CliRenderEvents.RESIZE, () => {
 			this.fitComposer();
+		});
+		renderer.on(CliRenderEvents.SELECTION, (selection) => {
+			this.copySelection(selection.getSelectedText());
 		});
 		this.panels = new Panels(renderer, { input: this.input, refresh: this.refreshPanels, finish: this.closePanel, syncComposer: () => {
 			this.fitComposer();
@@ -567,6 +571,17 @@ export class MimoApp {
 		if (this.input.height !== height) {
 			this.input.height = height;
 		}
+	}
+
+	private copySelection(text: string): void {
+		if (text.trim() === "") {
+			return;
+		}
+		void copyToClipboard(text).then(() => {
+			this.footer.copied();
+		}, (error: unknown) => {
+			this.transcript.note(describeError(error), T1);
+		});
 	}
 
 	private spin(): void {
