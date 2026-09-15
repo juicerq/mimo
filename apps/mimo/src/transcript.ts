@@ -1,4 +1,4 @@
-import { ScrollBoxRenderable, TextRenderable, type CliRenderer } from "@opentui/core";
+import { MarkdownRenderable, ScrollBoxRenderable, SyntaxStyle, TextRenderable, type CliRenderer } from "@opentui/core";
 import { T1, T4 } from "./theme";
 
 const DETAIL_LEVELS = ["off", "brief", "full"] as const;
@@ -14,7 +14,15 @@ export class Transcript {
 	private readonly renderer: CliRenderer;
 	private detail: Detail = "brief";
 	private speaker = "";
-	private replyLine: TextRenderable | null = null;
+	private replyLine: MarkdownRenderable | null = null;
+	private readonly syntaxStyle = SyntaxStyle.fromStyles({
+		"markup.strong": { bold: true },
+		"markup.italic": { italic: true },
+		"markup.heading": { bold: true },
+		"markup.raw": { fg: "#FFD479" },
+		"markup.list": { fg: T4 },
+		"markup.link.url": { fg: T4, underline: true },
+	});
 	private replyText = "";
 	private spinner: { line: TextRenderable; label: string; startedAt: number; timer: ReturnType<typeof setInterval> } | null = null;
 
@@ -77,19 +85,22 @@ export class Transcript {
 	replyDelta(delta: string): void {
 		const block = this.ensureReply();
 		this.replyText += delta;
-		block.content = `${this.speaker}: ${this.replyText}`;
+		block.content = this.replyMarkdown;
 	}
 
 	reply(text: string): void {
 		if (text !== "") {
 			const block = this.ensureReply();
 			this.replyText = text;
-			block.content = `${this.speaker}: ${text}`;
+			block.content = this.replyMarkdown;
 		}
 		this.seal();
 	}
 
 	seal(): void {
+		if (this.replyLine) {
+			this.replyLine.streaming = false;
+		}
 		this.replyLine = null;
 		this.replyText = "";
 	}
@@ -131,14 +142,28 @@ export class Transcript {
 		this.append(`   ${truncate(detail, DETAIL_CHARACTERS)}`, T4, marginBottom);
 	}
 
-	private ensureReply(): TextRenderable {
+	private ensureReply(): MarkdownRenderable {
 		if (this.replyLine) {
 			return this.replyLine;
 		}
 		this.stopWorking();
 		this.replyText = "";
-		this.replyLine = this.append(`${this.speaker}: `, T1);
-		return this.replyLine;
+		const block = new MarkdownRenderable(this.renderer, {
+			content: this.replyMarkdown,
+			syntaxStyle: this.syntaxStyle,
+			fg: T1,
+			width: "100%",
+			marginBottom: 1,
+			streaming: true,
+		});
+		this.box.add(block);
+		this.replyLine = block;
+		this.raiseWorking();
+		return block;
+	}
+
+	private get replyMarkdown(): string {
+		return `${this.speaker}:\n\n${this.replyText}`;
 	}
 
 	private append(content: string, fg: string, marginBottom = 1): TextRenderable {
