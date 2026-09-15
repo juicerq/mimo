@@ -51,6 +51,7 @@ export class MimoApp {
 	});
 	private lastEscapeAt: number | null = null;
 	private teamView: TeamView = "bar";
+	private composerDrafts = new Map<string, { text: string; cursor: number }>();
 
 	constructor(renderer: CliRenderer) {
 		this.transcript = new Transcript(renderer);
@@ -177,6 +178,10 @@ export class MimoApp {
 			return;
 		}
 		if (/^\/new(?: |$)/.test(text)) {
+			if (text.slice(4).trim() !== "") {
+				this.clearComposerDraft(this.screen.conversation?.info.id);
+				this.clearComposer();
+			}
 			void this.createBot(text.slice(4).trim());
 			return;
 		}
@@ -193,6 +198,7 @@ export class MimoApp {
 		if (!conversation) {
 			return;
 		}
+		this.clearComposerDraft(conversation.info.id);
 		void this.dispatch(async () => await conversation.deliver(text));
 	}
 
@@ -371,6 +377,7 @@ export class MimoApp {
 	};
 
 	private readonly removeBot = async (bot: BotInfo): Promise<void> => {
+		this.clearComposerDraft(bot.id);
 		await deleteBot(bot.id, "panel");
 		await this.sidebar.reload();
 	};
@@ -398,11 +405,12 @@ export class MimoApp {
 	};
 
 	private resetView(bot: BotInfo | null) {
+		this.stashComposerDraft();
 		this.panels.dismiss();
 		this.transcript.box.visible = true;
 		const signal = this.screen.show(bot);
 		this.transcript.clear(bot?.name ?? "");
-		this.clearComposer();
+		this.restoreComposerDraft(bot?.id ?? null);
 		this.input.placeholder = this.screen.placeholder;
 		this.footer.reset(bot);
 		this.sidebar.show(bot);
@@ -558,6 +566,32 @@ export class MimoApp {
 		if (worked) {
 			this.turn.ranTool();
 		}
+	}
+
+	private clearComposerDraft(id: string | undefined): void {
+		if (id) {
+			this.composerDrafts.delete(id);
+		}
+	}
+
+	private stashComposerDraft(): void {
+		const id = this.screen.conversation?.info.id;
+		if (!id) {
+			return;
+		}
+		const text = this.panels.active ? this.panels.composerDraft : this.input.plainText;
+		if (text) {
+			this.composerDrafts.set(id, { text, cursor: this.input.cursorOffset });
+		} else {
+			this.composerDrafts.delete(id);
+		}
+	}
+
+	private restoreComposerDraft(id: string | null): void {
+		const draft = id ? this.composerDrafts.get(id) : undefined;
+		this.input.setText(draft?.text ?? "");
+		this.input.cursorOffset = draft ? Math.min(draft.cursor, this.input.plainText.length) : 0;
+		this.fitComposer();
 	}
 
 	private clearComposer(): void {

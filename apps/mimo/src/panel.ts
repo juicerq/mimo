@@ -143,6 +143,10 @@ export class Panels {
 		return this.current;
 	}
 
+	get composerDraft(): string {
+		return this.draft;
+	}
+
 	show(panel: Panel): void {
 		if (this.panel === null) {
 			this.draft = this.input.plainText;
@@ -198,6 +202,7 @@ export class Panels {
 
 	private teardown(): void {
 		if (this.panel === null) {
+			this.draft = "";
 			return;
 		}
 		this.panel = null;
