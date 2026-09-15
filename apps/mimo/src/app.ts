@@ -178,9 +178,9 @@ export class MimoApp {
 			return;
 		}
 		if (/^\/new(?: |$)/.test(text)) {
-			const conversation = this.screen.conversation;
-			if (conversation && text.slice(4).trim() === "") {
-				this.composerDrafts.delete(conversation.info.id);
+			if (text.slice(4).trim() !== "") {
+				this.clearComposerDraft(this.screen.conversation?.info.id);
+				this.clearComposer();
 			}
 			void this.createBot(text.slice(4).trim());
 			return;
@@ -198,7 +198,7 @@ export class MimoApp {
 		if (!conversation) {
 			return;
 		}
-		this.composerDrafts.delete(conversation.info.id);
+		this.clearComposerDraft(conversation.info.id);
 		void this.dispatch(async () => await conversation.deliver(text));
 	}
 
@@ -377,7 +377,7 @@ export class MimoApp {
 	};
 
 	private readonly removeBot = async (bot: BotInfo): Promise<void> => {
-		this.composerDrafts.delete(bot.id);
+		this.clearComposerDraft(bot.id);
 		await deleteBot(bot.id, "panel");
 		await this.sidebar.reload();
 	};
@@ -568,6 +568,12 @@ export class MimoApp {
 		}
 	}
 
+	private clearComposerDraft(id: string | undefined): void {
+		if (id) {
+			this.composerDrafts.delete(id);
+		}
+	}
+
 	private stashComposerDraft(): void {
 		const id = this.screen.conversation?.info.id;
 		if (!id) {
@@ -575,7 +581,7 @@ export class MimoApp {
 		}
 		const text = this.panels.active ? this.panels.composerDraft : this.input.plainText;
 		if (text) {
-			this.composerDrafts.set(id, { text, cursor: this.input.cursorCharacterOffset ?? this.input.cursorOffset });
+			this.composerDrafts.set(id, { text, cursor: this.input.cursorOffset });
 		} else {
 			this.composerDrafts.delete(id);
 		}
@@ -584,7 +590,7 @@ export class MimoApp {
 	private restoreComposerDraft(id: string | null): void {
 		const draft = id ? this.composerDrafts.get(id) : undefined;
 		this.input.setText(draft?.text ?? "");
-		this.input.cursorOffset = draft ? Math.min(draft.cursor, draft.text.length) : 0;
+		this.input.cursorOffset = draft ? Math.min(draft.cursor, this.input.plainText.length) : 0;
 		this.fitComposer();
 	}
 
