@@ -95,11 +95,13 @@ export class Sidebar {
 	async reload(): Promise<void> {
 		this.bots = await listBots();
 		this.rows = entries(this.bots);
+		this.syncCursor();
 		this.draw();
 	}
 
 	show(bot: BotInfo | null): void {
 		this.current = bot?.id ?? null;
+		this.syncCursor();
 		this.draw();
 	}
 
@@ -113,7 +115,7 @@ export class Sidebar {
 
 	focus(): void {
 		this.focused = true;
-		this.cursor = Math.max(0, this.rows.findIndex((entry) => entry.bot.id === this.current));
+		this.syncCursor();
 		this.resize();
 		this.draw();
 	}
@@ -143,6 +145,11 @@ export class Sidebar {
 
 	escapeFilter(): boolean {
 		return false;
+	}
+
+	private syncCursor(): void {
+		const at = this.rows.findIndex((entry) => entry.bot.id === this.current);
+		this.cursor = Math.min(this.rows.length - 1, Math.max(0, at));
 	}
 
 	private get narrow(): boolean {
