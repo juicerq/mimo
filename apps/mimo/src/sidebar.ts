@@ -1,4 +1,4 @@
-import { BoxRenderable, CliRenderEvents, InputRenderable, InputRenderableEvents, TextRenderable, type CliRenderer } from "@opentui/core";
+import { BoxRenderable, CliRenderEvents, InputRenderable, InputRenderableEvents, TextRenderable, fg, t, type CliRenderer } from "@opentui/core";
 import { activity, type BotActivity } from "@agent/bot/registry";
 import { listBots } from "@agent/bot/store";
 import type { BotInfo } from "@agent/bot/types";
@@ -73,8 +73,9 @@ export class Sidebar {
 		this.search = new InputRenderable(renderer, {
 			id: "sidebar-search",
 			width: "100%",
-			placeholder: "filtrar",
+			placeholder: "filtrar…",
 			textColor: T2,
+			placeholderColor: T4,
 			cursorColor: T1,
 			visible: false,
 			flexShrink: 0,
@@ -133,6 +134,7 @@ export class Sidebar {
 		this.searching = true;
 		this.search.visible = true;
 		this.search.value = "";
+		this.search.textColor = T1;
 		this.search.focus();
 		this.cursor = Math.max(0, this.visible().findIndex((entry) => entry.bot.id === this.current));
 		this.resize();
@@ -144,6 +146,7 @@ export class Sidebar {
 		this.searching = false;
 		this.search.blur();
 		this.search.value = "";
+		this.search.textColor = T2;
 		this.search.visible = false;
 		this.resize();
 		this.draw();
@@ -171,8 +174,22 @@ export class Sidebar {
 		}
 	}
 
+	escapeFilter(): boolean {
+		if (this.focused && this.search.value !== "") {
+			this.search.value = "";
+			this.cursor = 0;
+			this.draw();
+			return true;
+		}
+		return false;
+	}
+
+	private filter(): string {
+		return this.search.value.trim().toLowerCase();
+	}
+
 	private visible(): Entry[] {
-		const filter = this.search.value.trim().toLowerCase();
+		const filter = this.filter();
 		if (filter === "") {
 			return this.rows;
 		}
@@ -186,7 +203,17 @@ export class Sidebar {
 	private resize(): void {
 		this.box.width = this.narrow ? NARROW_COLS : WIDE_COLS;
 		this.hint.content = this.hintText();
-		this.title.content = this.narrow ? "" : "bots";
+		this.title.content = this.titleText();
+	}
+
+	private titleText(): string {
+		if (this.narrow) {
+			return "";
+		}
+		if (this.filter() === "") {
+			return "bots";
+		}
+		return `bots ${this.visible().length}/${this.rows.length}`;
 	}
 
 	private hintText(): string {
@@ -194,35 +221,43 @@ export class Sidebar {
 			return "";
 		}
 		if (this.focused) {
-			return "↑↓ abre · enter fica";
+			return "↑↓ abrir · enter ficar";
 		}
-		return "ctrl+e";
+		return "ctrl+e filtrar";
 	}
 
-	private row(entry: Entry, index: number, inner: number): Line {
+	private row(entry: Entry, index: number, inner: number, filter: string): Line {
 		const tail = entry.fronts > 0 ? ` ·${entry.fronts}` : "";
+		const base = this.focused && index === this.cursor || entry.bot.id === this.current ? T1 : T2;
 		const name = cut(entry.bot.name, Math.max(0, inner - 2 - tail.length));
-		const text = `${entry.mark} ${name}${tail}`;
-		if (this.focused && index === this.cursor) {
-			return { text, fg: T1 };
+		if (filter === "") {
+			return { text: `${entry.mark} ${name}${tail}`, fg: base };
 		}
-		if (entry.bot.id === this.current) {
-			return { text, fg: T1 };
+		const at = name.toLowerCase().indexOf(filter);
+		if (at < 0) {
+			return { text: `${entry.mark} ${name}${tail}`, fg: base, key: `${entry.bot.id}|${base}` };
 		}
-		return { text, fg: T2 };
+		const other = base === T1 ? T2 : T1;
+		return {
+			text: t`${fg(base)(`${entry.mark} `)}${fg(base)(name.slice(0, at))}${fg(other)(name.slice(at, at + filter.length))}${fg(base)(`${name.slice(at + filter.length)}${tail}`)}`,
+			fg: base,
+			key: `${entry.bot.id}|${base}|${filter}`,
+		};
 	}
 
 	private draw(): void {
+		this.title.content = this.titleText();
 		if (this.narrow) {
 			this.lines.set(this.rows.map((entry) => ({ text: entry.mark, fg: entry.bot.id === this.current ? T1 : T2 })));
 			return;
 		}
 		const inner = WIDE_COLS - 2;
+		const filter = this.filter();
 		const rows = this.visible();
 		if (rows.length === 0) {
-			this.lines.set([{ text: "nenhum bot", fg: T4 }]);
+			this.lines.set([{ text: filter === "" ? "nenhum bot" : "nada p/ filtro", fg: T4, key: filter === "" ? "empty" : `empty|${filter}` }]);
 			return;
 		}
-		this.lines.set(rows.map((entry, index) => this.row(entry, index, inner)));
+		this.lines.set(rows.map((entry, index) => this.row(entry, index, inner, filter)));
 	}
 }

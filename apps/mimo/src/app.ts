@@ -1,4 +1,4 @@
-import { BoxRenderable, InputRenderable, InputRenderableEvents, RenderableEvents, type CliRenderer, type KeyEvent } from "@opentui/core";
+import { BoxRenderable, RenderableEvents, TextareaRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
 import { Bot } from "@agent/bot/bot";
 import { activity, deleteBot, type BotActivity } from "@agent/bot/registry";
 import { createBot, listBots } from "@agent/bot/store";
@@ -23,6 +23,7 @@ import { View } from "./view";
 import { T1, T2, T3, T4, T5 } from "./theme";
 
 const DOUBLE_ESCAPE_MS = 400;
+const COMPOSER_MAX_LINES = 6;
 
 function listMark(entry: BotActivity | undefined): string {
 	if (entry?.failed) {
@@ -37,7 +38,7 @@ function listMark(entry: BotActivity | undefined): string {
 export class MimoApp {
 	private readonly transcript: Transcript;
 	private readonly footer: Footer;
-	private readonly input: InputRenderable;
+	private readonly input: TextareaRenderable;
 	private readonly panels: Panels;
 	private readonly bar: Bar;
 	private readonly rail: Rail;
@@ -53,18 +54,34 @@ export class MimoApp {
 	constructor(renderer: CliRenderer) {
 		this.transcript = new Transcript(renderer);
 		this.footer = new Footer(renderer);
-		this.input = new InputRenderable(renderer, {
+		this.input = new TextareaRenderable(renderer, {
 			id: "composer",
 			width: "100%",
+			height: 1,
+			maxHeight: COMPOSER_MAX_LINES,
 			placeholder: "write your prompt",
 			textColor: T2,
 			cursorColor: T1,
 			cursorStyle: { style: "line", blinking: true },
+			wrapMode: "word",
+			keyBindings: [
+				{ name: "return", action: "submit" },
+				{ name: "kpenter", action: "submit" },
+				{ name: "linefeed", action: "submit" },
+				{ name: "return", shift: true, action: "newline" },
+				{ name: "kpenter", shift: true, action: "newline" },
+				{ name: "linefeed", shift: true, action: "newline" },
+			],
+			onSubmit: () => {
+				this.submit(this.input.plainText);
+			},
 		});
-		this.input.on(InputRenderableEvents.ENTER, (value) => {
-			this.submit(value);
-		});
-		this.panels = new Panels(renderer, { input: this.input, refresh: this.refreshPanels, finish: this.closePanel });
+		this.input.onContentChange = () => {
+			this.fitComposer();
+		};
+		this.panels = new Panels(renderer, { input: this.input, refresh: this.refreshPanels, finish: this.closePanel, syncComposer: () => {
+			this.fitComposer();
+		} });
 		renderer.keyInput.on("keypress", (key) => {
 			this.handleKey(key);
 		});
@@ -131,9 +148,9 @@ export class MimoApp {
 	async start(): Promise<void> {
 		this.input.focus();
 		this.sidebar.start();
-		const draft = this.input.value;
+		const draft = this.input.plainText;
 		const loading = this.showBots();
-		this.input.value = draft;
+		this.input.setText(draft);
 		await loading;
 	}
 
@@ -182,7 +199,7 @@ export class MimoApp {
 				return;
 			}
 		}
-		if (key.name === "c" && !key.ctrl && !key.meta && this.input.value.length === 0 && this.panels.copyLink()) {
+		if (key.name === "c" && !key.ctrl && !key.meta && this.input.plainText.length === 0 && this.panels.copyLink()) {
 			key.preventDefault();
 			this.lastEscapeAt = null;
 			return;
@@ -243,6 +260,9 @@ export class MimoApp {
 			return true;
 		}
 		if (name === "escape") {
+			if (this.sidebar.escapeFilter()) {
+				return true;
+			}
 			this.toggleSidebar();
 			return true;
 		}
@@ -313,7 +333,7 @@ export class MimoApp {
 		if (!command) {
 			return false;
 		}
-		this.input.value = "";
+		this.clearComposer();
 		command();
 		return true;
 	}
@@ -375,7 +395,7 @@ export class MimoApp {
 		this.transcript.box.visible = true;
 		const signal = this.screen.show(bot);
 		this.transcript.clear(bot?.name ?? "");
-		this.input.value = "";
+		this.clearComposer();
 		this.input.placeholder = this.screen.placeholder;
 		this.footer.reset(bot);
 		this.sidebar.show(bot);
@@ -465,8 +485,8 @@ export class MimoApp {
 
 	private async dispatch(operation: () => Promise<void>): Promise<void> {
 		const signal = this.screen.signal;
-		const input = this.input.value;
-		this.input.value = "";
+		const input = this.input.plainText;
+		this.clearComposer();
 		this.view.forget();
 		if (this.turn.idle) {
 			this.turn.start();
@@ -475,8 +495,9 @@ export class MimoApp {
 			await operation();
 		} catch (error) {
 			if (!signal.aborted) {
-				if (!this.input.value) {
-					this.input.value = input;
+				if (!this.input.plainText) {
+					this.input.setText(input);
+					this.fitComposer();
 				}
 				this.view.failure(describeError(error));
 			}
@@ -510,8 +531,36 @@ export class MimoApp {
 		if (!conversation) {
 			return;
 		}
+		const state = this.turn.state;
+		const worked = this.turn.label === "working";
 		this.footer.detail(this.transcript.cycle());
-		void this.openBot(conversation.info);
+		void this.refreshDetail(conversation.info, state, worked);
+	}
+
+	private async refreshDetail(info: BotInfo, state: string, worked: boolean): Promise<void> {
+		await this.openBot(info);
+		const conversation = this.screen.conversation;
+		if (!conversation || conversation.info.id !== info.id || !conversation.busy) {
+			return;
+		}
+		if (state === "cancelling") {
+			this.turn.enter("cancelling");
+			return;
+		}
+		this.turn.start();
+		if (worked) {
+			this.turn.ranTool();
+		}
+	}
+
+	private clearComposer(): void {
+		this.input.setText("");
+		this.fitComposer();
+	}
+
+	private fitComposer(): void {
+		const lines = Math.max(1, this.input.lineCount || 1, this.input.virtualLineCount || 1);
+		this.input.height = Math.min(COMPOSER_MAX_LINES, lines);
 	}
 
 	private spin(): void {

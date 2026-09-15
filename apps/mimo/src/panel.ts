@@ -1,4 +1,4 @@
-import { BoxRenderable, ScrollBoxRenderable, TextRenderable, type CliRenderer, type InputRenderable } from "@opentui/core";
+import { BoxRenderable, ScrollBoxRenderable, TextRenderable, type CliRenderer, type TextareaRenderable } from "@opentui/core";
 import type { BotInfo } from "@agent/bot/types";
 import { describeError } from "./errors";
 import { T3, TONES, type Tone } from "./theme";
@@ -108,9 +108,10 @@ export class Panels {
 	readonly row: BoxRenderable;
 	readonly box: ScrollBoxRenderable;
 	private readonly renderer: CliRenderer;
-	private readonly input: InputRenderable;
+	private readonly input: TextareaRenderable;
 	private readonly refresh: () => void;
 	private readonly finish: (result: PanelResult) => void;
+	private readonly syncComposer: () => void;
 	private readonly heading: TextRenderable;
 	private panel: Panel | null = null;
 	private view: PanelView | null = null;
@@ -118,11 +119,12 @@ export class Panels {
 	private draft = "";
 	private current: PanelState = "ready";
 
-	constructor(renderer: CliRenderer, options: { input: InputRenderable; refresh: () => void; finish: (result: PanelResult) => void }) {
+	constructor(renderer: CliRenderer, options: { input: TextareaRenderable; refresh: () => void; finish: (result: PanelResult) => void; syncComposer: () => void }) {
 		this.renderer = renderer;
 		this.input = options.input;
 		this.refresh = options.refresh;
 		this.finish = options.finish;
+		this.syncComposer = options.syncComposer;
 		this.heading = new TextRenderable(renderer, { id: "heading", content: "", fg: T3 });
 		this.row = new BoxRenderable(renderer, { width: "100%", paddingLeft: 2, flexShrink: 0, visible: false });
 		this.row.add(this.heading);
@@ -143,7 +145,7 @@ export class Panels {
 
 	show(panel: Panel): void {
 		if (this.panel === null) {
-			this.draft = this.input.value;
+			this.draft = this.input.plainText;
 		}
 		this.panel = panel;
 		this.token = {};
@@ -153,7 +155,8 @@ export class Panels {
 		this.row.visible = true;
 		this.box.visible = true;
 		this.heading.content = panel.heading;
-		this.input.value = "";
+		this.input.setText("");
+		this.syncComposer();
 		this.input.placeholder = panel.placeholder ?? NUMBER_PLACEHOLDER;
 		this.view = this.makeView(this.token);
 		this.refresh();
@@ -165,7 +168,8 @@ export class Panels {
 		if (this.current !== "ready" || !view) {
 			return;
 		}
-		this.input.value = "";
+		this.input.setText("");
+		this.syncComposer();
 		this.panel?.submit?.(text, view);
 	}
 
@@ -203,7 +207,9 @@ export class Panels {
 		this.row.visible = false;
 		this.box.visible = false;
 		this.clear();
-		this.input.value = this.draft;
+		this.input.setText(this.draft);
+		this.input.gotoBufferEnd();
+		this.syncComposer();
 		this.draft = "";
 		this.refresh();
 	}

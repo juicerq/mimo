@@ -1,8 +1,9 @@
-import { BoxRenderable, TextRenderable, type CliRenderer } from "@opentui/core";
+import { BoxRenderable, TextRenderable, type CliRenderer, type StyledText } from "@opentui/core";
 
 export interface Line {
-	text: string;
+	text: string | StyledText;
 	fg: string;
+	key?: string;
 }
 
 export class Lines {
@@ -16,7 +17,7 @@ export class Lines {
 	}
 
 	set(lines: Line[]): void {
-		if (lines.length === this.current.length && lines.every((line, index) => line.text === this.current[index]?.text && line.fg === this.current[index]?.fg)) {
+		if (lines.length === this.current.length && lines.every((line, index) => (line.key ?? line.text) === (this.current[index]?.key ?? this.current[index]?.text) && line.fg === this.current[index]?.fg)) {
 			return;
 		}
 		this.current = lines;
