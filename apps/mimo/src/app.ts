@@ -84,6 +84,7 @@ export class MimoApp {
 			this.fitComposer();
 		};
 		this.input.onPaste = (event) => {
+			event.preventDefault();
 			this.paste(event.bytes);
 		};
 		renderer.on(CliRenderEvents.RESIZE, () => {
@@ -615,6 +616,7 @@ export class MimoApp {
 	private paste(bytes: Uint8Array): void {
 		const text = pasteText(bytes);
 		if (text.length > 0) {
+			this.input.insertText(text);
 			return;
 		}
 		void readClipboardImage(this.renderer).then((image) => {
