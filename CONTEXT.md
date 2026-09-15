@@ -10,9 +10,14 @@ _Evitar_: Assistente, agente
 _Dono_: `apps/agent/src/bot/bot.ts` (classe `Bot`); em disco, `apps/agent/src/bot/store.ts`; quem está aberto, `apps/agent/src/bot/registry.ts`
 
 **Registro**:
-A conversa inteira de um Bot, que só cresce e nunca perde nada. Sobrevive a reinícios e à troca de Bot, e é o que a pessoa rola na tela. A pessoa nunca começa outro Registro nem o compacta à mão.
+A conversa inteira de um Bot, que só cresce e nunca perde nada. Sobrevive a reinícios e à troca de Bot, e é o que a pessoa rola na tela. A pessoa nunca começa outro Registro nem o compacta à mão. Ele é gravado enquanto o Turno acontece, a cada mensagem e a cada resultado de tool, e não só no fim: uma queda no meio do Turno não apaga o que já foi feito.
 _Evitar_: Sessão, chat, conversa nova, histórico arquivado
-_Dono_: `apps/agent/src/bot/bot.ts` (`log`, `writeLog`); em disco, `apps/agent/src/bot/store.ts` (`messages.json`); o trecho fora da Janela, `apps/agent/src/history/history.ts`
+_Dono_: `apps/agent/src/bot/bot.ts` (`log`, `writeLog`, `keepLog`); em disco, `apps/agent/src/bot/store.ts` (`messages.json`); o trecho fora da Janela, `apps/agent/src/history/history.ts`
+
+**Selo**:
+O que fecha uma ação que ficou sem resposta no Registro. Ao abrir o Bot, toda chamada de tool sem resultado ganha um resultado com o aviso de que o mimo fechou antes dela terminar e que ela pode ou não ter acontecido. O Bot lê esse aviso como qualquer outro resultado, a pessoa vê a linha `⚠` na tela, e a Janela volta válida para o modelo. O Selo não refaz a ação nem promete que ela falhou.
+_Evitar_: Recuperar, retomar, replay
+_Dono_: `apps/agent/src/bot/seal.ts` (`sealTranscript`); quando roda, `apps/agent/src/bot/bot.ts` (`open`)
 
 **Janela**:
 O trecho do Registro que vai para o modelo. Começa no Resumo mais novo. O prompt de sistema ocupa um piso dentro da janela que a Compactação não corta, então ela mede o que guardar pelo espaço que sobra e avisa quando esse piso passa da metade. Quando o Registro passa do teto do modelo, a Compactação anexa outro Resumo e a Janela encolhe; o resto do Registro continua no lugar, e o Bot alcança ele por `search_history`.
