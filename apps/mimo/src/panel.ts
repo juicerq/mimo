@@ -113,6 +113,7 @@ export class Panels {
 	private readonly finish: (result: PanelResult) => void;
 	private readonly syncComposer: () => void;
 	private readonly heading: TextRenderable;
+	private panelDraft = "";
 	private panel: Panel | null = null;
 	private view: PanelView | null = null;
 	private token = {};
@@ -143,9 +144,14 @@ export class Panels {
 		return this.current;
 	}
 
+	get composerDraft(): string {
+		return this.panelDraft;
+	}
+
 	show(panel: Panel): void {
 		if (this.panel === null) {
 			this.draft = this.input.plainText;
+			this.panelDraft = this.input.plainText;
 		}
 		this.panel = panel;
 		this.token = {};
@@ -198,6 +204,8 @@ export class Panels {
 
 	private teardown(): void {
 		if (this.panel === null) {
+			this.draft = "";
+			this.panelDraft = "";
 			return;
 		}
 		this.panel = null;
@@ -211,6 +219,7 @@ export class Panels {
 		this.input.gotoBufferEnd();
 		this.syncComposer();
 		this.draft = "";
+		this.panelDraft = "";
 		this.refresh();
 	}
 
