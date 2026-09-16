@@ -6,7 +6,7 @@ import { BotNameSchema, type BotEvent, type BotInfo, type ToolGroup } from "@age
 import { modelOption } from "@agent/model/catalog";
 import type { ModelSelection } from "@agent/model/types";
 import { Bar, NEXT_TEAM_VIEW, type TeamView } from "./bar";
-import { copyToClipboard } from "./clipboard";
+import { copyToClipboard, describeClipboardImageFailure, pasteText, readClipboardImage } from "./clipboard";
 import { describeError } from "./errors";
 import { Footer } from "./footer";
 import { Panels, type Panel, type PanelResult } from "./panel";
@@ -37,6 +37,7 @@ function listMark(entry: BotActivity | undefined): string {
 }
 
 export class MimoApp {
+	private readonly renderer: CliRenderer;
 	private readonly transcript: Transcript;
 	private readonly footer: Footer;
 	private readonly input: TextareaRenderable;
@@ -54,6 +55,7 @@ export class MimoApp {
 	private composerDrafts = new Map<string, { text: string; cursor: number }>();
 
 	constructor(renderer: CliRenderer) {
+		this.renderer = renderer;
 		this.transcript = new Transcript(renderer);
 		this.footer = new Footer(renderer);
 		this.input = new TextareaRenderable(renderer, {
@@ -80,6 +82,10 @@ export class MimoApp {
 		});
 		this.input.onContentChange = () => {
 			this.fitComposer();
+		};
+		this.input.onPaste = (event) => {
+			event.preventDefault();
+			this.paste(event.bytes);
 		};
 		renderer.on(CliRenderEvents.RESIZE, () => {
 			this.fitComposer();
@@ -605,6 +611,23 @@ export class MimoApp {
 		if (this.input.height !== height) {
 			this.input.height = height;
 		}
+	}
+
+	private paste(bytes: Uint8Array): void {
+		const text = pasteText(bytes);
+		if (text.length > 0) {
+			this.input.insertText(text);
+			return;
+		}
+		void readClipboardImage(this.renderer).then((outcome) => {
+			if ("image" in outcome) {
+				this.transcript.note(`🖼 pasted image ${outcome.image.mimeType} ${outcome.image.bytes.length} bytes`, T2);
+				return;
+			}
+			this.transcript.note(`📋 ${describeClipboardImageFailure(outcome.failure)}`, T2);
+		}, (error: unknown) => {
+			this.transcript.note(describeError(error), T1);
+		});
 	}
 
 	private copySelection(text: string): void {
