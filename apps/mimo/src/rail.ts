@@ -1,5 +1,6 @@
 import { BoxRenderable, CliRenderEvents, TextRenderable, type CliRenderer } from "@opentui/core";
 import { activity, type BotActivity } from "@agent/bot/registry";
+import { listBots } from "@agent/bot/store";
 import { elapsed } from "./bar";
 import { Lines, type Line } from "./lines";
 import { cols, cut, pad } from "./text";
@@ -55,8 +56,8 @@ export class Rail {
 	show(): void {
 		this.box.visible = true;
 		this.resize();
-		this.timer ??= setInterval(() => this.draw(), RAIL_MS);
-		this.draw();
+		this.timer ??= setInterval(() => void this.draw(), RAIL_MS);
+		void this.draw();
 	}
 
 	hide(): void {
@@ -75,27 +76,32 @@ export class Rail {
 		this.box.width = Math.min(RAIL_COLS, Math.floor(this.renderer.terminalWidth / 3));
 	}
 
-	private draw(): void {
-		this.lines.set(this.read());
+	private async draw(): Promise<void> {
+		this.lines.set(await this.read());
 	}
 
-	private read(): Line[] {
-		const bots = activity().filter((bot) => bot.team.length > 0 || bot.waiting !== null || bot.failed !== null);
+	private async read(): Promise<Line[]> {
+		const live = new Map(activity().map((entry) => [entry.id, entry]));
+		const bots = await listBots();
 		if (bots.length === 0) {
 			return [{ text: "nothing running", fg: T6 }];
 		}
 		const lines: Line[] = [];
 		const inner = Math.max(MIN_COLS, this.box.width - INSET);
 		for (const bot of bots) {
-			lines.push(...lines.length > 0 ? [{ text: "", fg: T6 }] : [], { text: head(bot), fg: T1 });
-			lines.push(...body(bot, inner));
+			const entry = live.get(bot.id) ?? { id: bot.id, name: bot.name, busy: false, team: [], waiting: null, failed: null };
+			lines.push(...lines.length > 0 ? [{ text: "", fg: T6 }] : [], { text: head(entry), fg: T1 });
+			lines.push(...body(entry, inner));
 		}
 		return lines;
 	}
 }
 
 function head(bot: BotActivity): string {
-	const marks = [...bot.team.length > 0 ? [`${bot.team.length} working`] : [], ...bot.waiting === null ? [] : ["waiting"], ...bot.failed === null ? [] : ["failed"]];
+	const marks = [...bot.team.length > 0 ? [`${bot.team.length} working`] : [], ...bot.busy ? ["working"] : [], ...bot.waiting === null ? [] : ["waiting"], ...bot.failed === null ? [] : ["failed"]];
+	if (marks.length === 0) {
+		return `${bot.name} · idle`;
+	}
 	return `${bot.name} · ${marks.join(" · ")}`;
 }
 
