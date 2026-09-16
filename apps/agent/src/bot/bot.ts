@@ -247,11 +247,11 @@ export class Bot {
 
 	private async work(child: Bot, delegation: Delegation): Promise<void> {
 		const note = await child.run(delegation.prompt).then(
-			(reply) => `${child.record.name} finished · ${delegation.task}\n\n${reply}`,
-			(error: unknown) => `${child.record.name} failed · ${delegation.task}\n\n${errorText(error)}`,
+			(reply) => ({ short: `${child.record.name} finished · ${delegation.task}`, text: reply }),
+			(error: unknown) => ({ short: `${child.record.name} failed · ${delegation.task}`, text: errorText(error) }),
 		);
 		this.crew.delete(child);
-		await this.push({ text: note, kind: "note" });
+		await this.push({ ...note, kind: "note" });
 	}
 
 	private async push(entry: Entry): Promise<string | null> {
