@@ -7,7 +7,7 @@ import type { BotEvent } from "./types";
 
 export type Entry =
 	| { kind: "user"; text: string }
-	| { kind: "note"; text: string }
+	| { kind: "note"; text: string; short: string }
 	| { kind: "routine"; name: string; text: string }
 	| { kind: "summary"; text: string };
 
@@ -24,7 +24,7 @@ function entryContent(entry: Entry): string {
 		return `[rotina: ${entry.name}]\n${entry.text}`;
 	}
 	if (entry.kind === "note") {
-		return `${NOTE_MARK}\n${entry.text}`;
+		return `${NOTE_MARK} ${entry.short}\n${entry.text}`;
 	}
 	if (entry.kind === "summary") {
 		return `${SUMMARY_MARK}\n${entry.text}`;
@@ -37,7 +37,7 @@ export function entryEvent(entry: Entry): BotEvent {
 		return { type: "routine", name: entry.name, prompt: entry.text };
 	}
 	if (entry.kind === "note") {
-		return { type: "note", text: entry.text };
+		return { type: "note", text: entry.short };
 	}
 	if (entry.kind === "summary") {
 		return { type: "summary", text: entry.text };
@@ -50,8 +50,13 @@ function entryOf(text: string): Entry {
 	if (routine) {
 		return { kind: "routine", name: routine.groups?.name ?? "rotina", text: text.slice(routine[0].length) };
 	}
+	if (text.startsWith(`${NOTE_MARK} `)) {
+		const line = text.indexOf("\n");
+		const short = line < 0 ? text.slice(NOTE_MARK.length + 1) : text.slice(NOTE_MARK.length + 1, line);
+		return { kind: "note", text: text.slice(line < 0 ? text.length : line + 1), short };
+	}
 	if (text.startsWith(`${NOTE_MARK}\n`)) {
-		return { kind: "note", text: text.slice(NOTE_MARK.length + 1) };
+		return { kind: "note", text: text.slice(NOTE_MARK.length + 1), short: text.slice(NOTE_MARK.length + 1) };
 	}
 	if (text.startsWith(`${SUMMARY_MARK}\n`)) {
 		return { kind: "summary", text: text.slice(SUMMARY_MARK.length + 1) };
