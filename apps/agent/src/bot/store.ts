@@ -105,12 +105,16 @@ function defaultTools(parentId: string | undefined): ToolGroup[] {
 }
 
 export async function createBot(draft: BotDraft): Promise<BotInfo> {
+	let model = draft.model;
+	if (!model && draft.parentId !== undefined) {
+		model = (await readBot(draft.parentId))?.model;
+	}
 	const bot: BotInfo = {
 		...draft,
 		id: randomUUID(),
 		createdAt: new Date().toISOString(),
 		mode: "autonomous",
-		model: draft.model ?? initialModel(),
+		model: model ?? initialModel(),
 		tools: draft.tools ?? defaultTools(draft.parentId),
 	};
 	await writeBot(bot);
