@@ -17,7 +17,7 @@ export class Footer {
 	private folderName: string | null = null;
 	private botMode: BotMode | null = null;
 	private detailLevel: Detail = "brief";
-	private teamView: TeamView = "bar";
+	private teamView: TeamView = "off";
 	private panelState: PanelState | undefined = undefined;
 	private readonly flashed = new Set<string>();
 	private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();

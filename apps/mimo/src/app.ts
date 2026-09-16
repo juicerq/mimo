@@ -51,7 +51,7 @@ export class MimoApp {
 		this.spin();
 	});
 	private lastEscapeAt: number | null = null;
-	private teamView: TeamView = "bar";
+	private teamView: TeamView = "off";
 	private composerDrafts = new Map<string, { text: string; cursor: number }>();
 
 	constructor(renderer: CliRenderer) {
@@ -486,7 +486,6 @@ export class MimoApp {
 				this.showEvent(event);
 			}
 			this.bar.queue(conversation.queue);
-			this.bar.watch({ read: activity, botId: conversation.info.id });
 			this.transcript.toBottom();
 			this.screen.connect(conversation, this.showEvent);
 			const approval = conversation.approval;
@@ -534,7 +533,6 @@ export class MimoApp {
 
 	private cycleTeamView(): void {
 		this.teamView = NEXT_TEAM_VIEW[this.teamView];
-		this.bar.view(this.teamView);
 		this.showRail();
 		this.footer.team(this.teamView);
 	}
