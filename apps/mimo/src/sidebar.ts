@@ -1,4 +1,4 @@
-import { BoxRenderable, CliRenderEvents, InputRenderable, InputRenderableEvents, TextRenderable, fg, t, type CliRenderer } from "@opentui/core";
+import { BoxRenderable, CliRenderEvents, TextRenderable, type CliRenderer } from "@opentui/core";
 import { activity, type BotActivity } from "@agent/bot/registry";
 import { listBots } from "@agent/bot/store";
 import type { BotInfo } from "@agent/bot/types";
@@ -14,7 +14,6 @@ const NARROW_TERMINAL = 90;
 interface Entry {
 	bot: BotInfo;
 	mark: string;
-	fronts: number;
 }
 
 function mark(live: BotActivity | undefined): string {
@@ -35,12 +34,11 @@ function mark(live: BotActivity | undefined): string {
 
 function entries(bots: readonly BotInfo[]): Entry[] {
 	const live = new Map(activity().map((entry) => [entry.id, entry]));
-	return bots.map((bot) => ({ bot, mark: mark(live.get(bot.id)), fronts: live.get(bot.id)?.team.length ?? 0 }));
+	return bots.map((bot) => ({ bot, mark: mark(live.get(bot.id)) }));
 }
 
 export class Sidebar {
 	readonly box: BoxRenderable;
-	private readonly search: InputRenderable;
 	private readonly lines: Lines;
 	private readonly hint: TextRenderable;
 	private readonly title: TextRenderable;
@@ -50,7 +48,6 @@ export class Sidebar {
 	private rows: Entry[] = [];
 	private cursor = 0;
 	private focused = false;
-	private searching = false;
 	private current: string | null = null;
 	private timer: ReturnType<typeof setInterval> | null = null;
 
@@ -70,21 +67,6 @@ export class Sidebar {
 		});
 		this.title = new TextRenderable(renderer, { id: "sidebar-title", content: "bots", fg: T5, width: "100%", flexShrink: 0 });
 		this.box.add(this.title);
-		this.search = new InputRenderable(renderer, {
-			id: "sidebar-search",
-			width: "100%",
-			placeholder: "filtrar…",
-			textColor: T2,
-			placeholderColor: T6,
-			cursorColor: T1,
-			visible: false,
-			flexShrink: 0,
-		});
-		this.search.on(InputRenderableEvents.INPUT, () => {
-			this.cursor = 0;
-			this.draw();
-		});
-		this.box.add(this.search);
 		const list = new BoxRenderable(renderer, {
 			id: "sidebar-list",
 			width: "100%",
@@ -113,11 +95,13 @@ export class Sidebar {
 	async reload(): Promise<void> {
 		this.bots = await listBots();
 		this.rows = entries(this.bots);
+		this.syncCursor();
 		this.draw();
 	}
 
 	show(bot: BotInfo | null): void {
 		this.current = bot?.id ?? null;
+		this.syncCursor();
 		this.draw();
 	}
 
@@ -126,74 +110,46 @@ export class Sidebar {
 	}
 
 	get typing(): boolean {
-		return this.searching;
+		return false;
 	}
 
 	focus(): void {
 		this.focused = true;
-		this.searching = true;
-		this.search.visible = true;
-		this.search.value = "";
-		this.search.textColor = T1;
-		this.search.focus();
-		this.cursor = Math.max(0, this.visible().findIndex((entry) => entry.bot.id === this.current));
+		this.syncCursor();
 		this.resize();
 		this.draw();
 	}
 
 	blur(): void {
 		this.focused = false;
-		this.searching = false;
-		this.search.blur();
-		this.search.value = "";
-		this.search.textColor = T2;
-		this.search.visible = false;
 		this.resize();
 		this.draw();
 	}
 
 	move(step: number): void {
-		const count = this.visible().length;
+		const count = this.rows.length;
 		if (count === 0) {
 			return;
 		}
-		if (this.searching) {
-			this.searching = false;
-			this.search.blur();
-		} else {
-			this.cursor = Math.min(count - 1, Math.max(0, this.cursor + step));
-		}
+		this.cursor = Math.min(count - 1, Math.max(0, this.cursor + step));
 		this.draw();
 		this.choose();
 	}
 
 	choose(): void {
-		const entry = this.visible()[this.cursor];
+		const entry = this.rows[this.cursor];
 		if (entry && entry.bot.id !== this.current) {
 			this.open(entry.bot);
 		}
 	}
 
 	escapeFilter(): boolean {
-		if (this.focused && this.search.value !== "") {
-			this.search.value = "";
-			this.cursor = 0;
-			this.draw();
-			return true;
-		}
 		return false;
 	}
 
-	private filter(): string {
-		return this.search.value.trim().toLowerCase();
-	}
-
-	private visible(): Entry[] {
-		const filter = this.filter();
-		if (filter === "") {
-			return this.rows;
-		}
-		return this.rows.filter((entry) => entry.bot.name.toLowerCase().includes(filter));
+	private syncCursor(): void {
+		const at = this.rows.findIndex((entry) => entry.bot.id === this.current);
+		this.cursor = Math.min(this.rows.length - 1, Math.max(0, at));
 	}
 
 	private get narrow(): boolean {
@@ -210,10 +166,7 @@ export class Sidebar {
 		if (this.narrow) {
 			return "";
 		}
-		if (this.filter() === "") {
-			return "bots";
-		}
-		return `bots ${this.visible().length}/${this.rows.length}`;
+		return "bots";
 	}
 
 	private hintText(): string {
@@ -221,28 +174,15 @@ export class Sidebar {
 			return "";
 		}
 		if (this.focused) {
-			return "↑↓ abrir · enter ficar";
+			return "↑↓ abre · enter fica";
 		}
-		return "ctrl+e filtrar";
+		return "ctrl+e";
 	}
 
-	private row(entry: Entry, index: number, inner: number, filter: string): Line {
-		const tail = entry.fronts > 0 ? ` ·${entry.fronts}` : "";
+	private row(entry: Entry, index: number, inner: number): Line {
 		const base = this.focused && index === this.cursor || entry.bot.id === this.current ? T1 : T2;
-		const name = cut(entry.bot.name, Math.max(0, inner - 2 - tail.length));
-		if (filter === "") {
-			return { text: `${entry.mark} ${name}${tail}`, fg: base };
-		}
-		const at = name.toLowerCase().indexOf(filter);
-		if (at < 0) {
-			return { text: `${entry.mark} ${name}${tail}`, fg: base, key: `${entry.bot.id}|${base}` };
-		}
-		const other = base === T1 ? T2 : T1;
-		return {
-			text: t`${fg(base)(`${entry.mark} `)}${fg(base)(name.slice(0, at))}${fg(other)(name.slice(at, at + filter.length))}${fg(base)(`${name.slice(at + filter.length)}${tail}`)}`,
-			fg: base,
-			key: `${entry.bot.id}|${base}|${filter}`,
-		};
+		const name = cut(entry.bot.name, Math.max(0, inner - 2));
+		return { text: `${entry.mark} ${name}`, fg: base };
 	}
 
 	private draw(): void {
@@ -252,12 +192,10 @@ export class Sidebar {
 			return;
 		}
 		const inner = WIDE_COLS - 2;
-		const filter = this.filter();
-		const rows = this.visible();
-		if (rows.length === 0) {
-			this.lines.set([{ text: filter === "" ? "nenhum bot" : "nada p/ filtro", fg: T6, key: filter === "" ? "empty" : `empty|${filter}` }]);
+		if (this.rows.length === 0) {
+			this.lines.set([{ text: "nenhum bot", fg: T6 }]);
 			return;
 		}
-		this.lines.set(rows.map((entry, index) => this.row(entry, index, inner, filter)));
+		this.lines.set(this.rows.map((entry, index) => this.row(entry, index, inner)));
 	}
 }
