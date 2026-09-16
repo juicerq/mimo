@@ -8,12 +8,12 @@ import type { ModelSelection } from "@agent/model/types";
 import { Bar, NEXT_TEAM_VIEW, type TeamView } from "./bar";
 import { copyToClipboard, describeClipboardImageFailure, pasteText, readClipboardImage } from "./clipboard";
 import { describeError } from "./errors";
-import { Footer } from "./footer";
 import { Panels, type Panel, type PanelResult } from "./panel";
 import { Rail } from "./rail";
 import { Screen } from "./screen";
 import { Sidebar } from "./sidebar";
 import { deletePanel } from "./panels/delete";
+import { detailsPanel, type DetailsSnapshot } from "./panels/details";
 import { folderPanel } from "./panels/folder";
 import { accountsPanel, loginTargetsPanel } from "./panels/login";
 import { effortPanel, modelPanel } from "./panels/model";
@@ -25,6 +25,17 @@ import { T1, T2, T4, T6, T7, T8 } from "./theme";
 
 const DOUBLE_ESCAPE_MS = 400;
 const COMPOSER_MAX_LINES = 6;
+
+function formatDetailsTokens(tokens: number): string {
+	if (tokens < 1_000) {
+		return String(tokens);
+	}
+	const thousands = tokens / 1_000;
+	if (Number.isInteger(thousands)) {
+		return `${thousands}k`;
+	}
+	return `${thousands.toFixed(1)}k`;
+}
 
 function listMark(entry: BotActivity | undefined): string {
 	if (entry?.failed) {
@@ -39,7 +50,6 @@ function listMark(entry: BotActivity | undefined): string {
 export class MimoApp {
 	private readonly renderer: CliRenderer;
 	private readonly transcript: Transcript;
-	private readonly footer: Footer;
 	private readonly input: TextareaRenderable;
 	private readonly panels: Panels;
 	private readonly bar: Bar;
@@ -57,7 +67,6 @@ export class MimoApp {
 	constructor(renderer: CliRenderer) {
 		this.renderer = renderer;
 		this.transcript = new Transcript(renderer);
-		this.footer = new Footer(renderer);
 		this.input = new TextareaRenderable(renderer, {
 			id: "composer",
 			width: "100%",
@@ -125,7 +134,6 @@ export class MimoApp {
 		});
 		this.view = new View({
 			transcript: this.transcript,
-			footer: this.footer,
 			bar: this.bar,
 			turn: this.turn,
 			showPanel: (panel) => {
@@ -146,7 +154,6 @@ export class MimoApp {
 		container.add(this.panels.box);
 		container.add(this.bar.box);
 		container.add(composer);
-		container.add(this.footer.box);
 		const row = new BoxRenderable(renderer, {
 			id: "app",
 			width: "100%",
@@ -335,6 +342,9 @@ export class MimoApp {
 			["/delete", () => {
 				this.panels.show(deletePanel(this.removeBot));
 			}],
+			["/details", () => {
+				this.panels.show(detailsPanel(this.detailsSnapshot()));
+			}],
 			["/login", () => {
 				this.panels.show(loginTargetsPanel());
 			}],
@@ -370,6 +380,20 @@ export class MimoApp {
 		}
 	}
 
+	private detailsSnapshot(): DetailsSnapshot {
+		const info = this.screen.conversation?.info ?? this.screen.bot;
+		return {
+			name: info?.name ?? null,
+			model: info?.model ?? null,
+			mode: info?.mode ?? null,
+			folder: info?.folder ?? null,
+			tools: info?.tools ?? [],
+			detail: this.transcript.level,
+			team: this.teamView,
+			context: info === undefined || info === null ? "—" : `0/${formatDetailsTokens(info.model.contextWindowTokens)}`,
+		};
+	}
+
 	private readonly saveTools = async (tools: ToolGroup[]): Promise<BotInfo> => {
 		return await this.screen.require().setTools(tools);
 	};
@@ -390,7 +414,6 @@ export class MimoApp {
 
 	private readonly refreshPanels = (): void => {
 		this.transcript.box.visible = !this.panels.active;
-		this.footer.panel(this.panels.active ? this.panels.state : undefined);
 		this.spin();
 	};
 
@@ -398,10 +421,6 @@ export class MimoApp {
 		if (result.list) {
 			void this.showBots(result.message);
 			return;
-		}
-		if (result.bot) {
-			this.footer.model(result.bot.model);
-			this.footer.folder(result.bot.folder);
 		}
 		this.input.placeholder = this.screen.placeholder;
 		if (result.message) {
@@ -418,7 +437,6 @@ export class MimoApp {
 		this.transcript.clear(bot?.name ?? "");
 		this.restoreComposerDraft(bot?.id ?? null);
 		this.input.placeholder = this.screen.placeholder;
-		this.footer.reset(bot);
 		this.sidebar.show(bot);
 		this.view.forget();
 		this.lastEscapeAt = null;
@@ -480,7 +498,6 @@ export class MimoApp {
 			if (signal.aborted) {
 				return;
 			}
-			this.footer.reset(conversation.info);
 			this.turn.enter("ready");
 			for (const event of conversation.transcript()) {
 				this.showEvent(event);
@@ -534,7 +551,6 @@ export class MimoApp {
 	private cycleTeamView(): void {
 		this.teamView = NEXT_TEAM_VIEW[this.teamView];
 		this.showRail();
-		this.footer.team(this.teamView);
 	}
 
 	private showRail(): void {
@@ -552,7 +568,7 @@ export class MimoApp {
 		}
 		const state = this.turn.state;
 		const worked = this.turn.label === "working";
-		this.footer.detail(this.transcript.cycle());
+		this.transcript.cycle();
 		void this.refreshDetail(conversation.info, state, worked);
 	}
 
@@ -632,9 +648,7 @@ export class MimoApp {
 		if (text.trim() === "") {
 			return;
 		}
-		void copyToClipboard(text).then(() => {
-			this.footer.copied();
-		}, (error: unknown) => {
+		void copyToClipboard(text).then(() => {}, (error: unknown) => {
 			this.transcript.note(describeError(error), T1);
 		});
 	}

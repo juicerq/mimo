@@ -48,6 +48,10 @@ export class Transcript {
 		return this.detail;
 	}
 
+	get level(): Detail {
+		return this.detail;
+	}
+
 	clear(speaker = ""): void {
 		this.speaker = speaker;
 		this.stopWorking();
