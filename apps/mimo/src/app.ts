@@ -633,6 +633,7 @@ export class MimoApp {
 			this.input.insertText(text);
 			return;
 		}
+		this.transcript.note("📋 reading clipboard image…", T2);
 		void readClipboardImage(this.renderer).then((outcome) => {
 			if ("image" in outcome) {
 				this.transcript.note(`🖼 pasted image ${outcome.image.mimeType} ${outcome.image.bytes.length} bytes`, T2);

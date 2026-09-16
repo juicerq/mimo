@@ -68,7 +68,8 @@ export type ClipboardImageResult = { readonly image: PastedImage } | { readonly 
 
 export async function readClipboardImage(renderer: CliRenderer): Promise<ClipboardImageResult> {
 	const result: ClipboardReadResult = await clipboardService(renderer).read({
-		preferredTypes: ["image/png", "image/jpeg", "image/gif", "image/webp", "text/plain"],
+		preferredTypes: ["image/png", "image/jpeg", "image/gif", "image/webp"],
+		signal: AbortSignal.timeout(5000),
 	});
 	if (result.status === "read") {
 		const mimeType = result.representation.mimeType.split(";")[0]?.trim() ?? "";
