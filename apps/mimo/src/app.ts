@@ -6,7 +6,7 @@ import { BotNameSchema, type BotEvent, type BotInfo, type ToolGroup } from "@age
 import { modelOption } from "@agent/model/catalog";
 import type { ModelSelection } from "@agent/model/types";
 import { Bar, NEXT_TEAM_VIEW, type TeamView } from "./bar";
-import { copyToClipboard, pasteText, readClipboardImage } from "./clipboard";
+import { copyToClipboard, describeClipboardImageFailure, pasteText, readClipboardImage } from "./clipboard";
 import { describeError } from "./errors";
 import { Footer } from "./footer";
 import { Panels, type Panel, type PanelResult } from "./panel";
@@ -619,11 +619,12 @@ export class MimoApp {
 			this.input.insertText(text);
 			return;
 		}
-		void readClipboardImage(this.renderer).then((image) => {
-			if (!image) {
+		void readClipboardImage(this.renderer).then((outcome) => {
+			if ("image" in outcome) {
+				this.transcript.note(`🖼 pasted image ${outcome.image.mimeType} ${outcome.image.bytes.length} bytes`, T2);
 				return;
 			}
-			this.transcript.note(`🖼 pasted image ${image.mimeType} ${image.bytes.length} bytes`, T2);
+			this.transcript.note(`📋 ${describeClipboardImageFailure(outcome.failure)}`, T2);
 		}, (error: unknown) => {
 			this.transcript.note(describeError(error), T1);
 		});

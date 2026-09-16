@@ -1,4 +1,5 @@
 import { createClipboard, createHostClipboard, createRendererClipboardAdapter, decodePasteBytes, stripAnsiSequences, type CliRenderer, type ClipboardReadResult, type ClipboardService } from "@opentui/core";
+import { describeError } from "./errors";
 
 const COMMANDS = [
 	["wl-copy"],
@@ -30,7 +31,7 @@ export async function copyToClipboard(text: string): Promise<void> {
 	process.stdout.write(`\u001b]52;c;${payload}\u0007`);
 }
 
-export interface PastedImage {
+interface PastedImage {
 	readonly bytes: Uint8Array;
 	readonly mimeType: string;
 }
@@ -55,16 +56,46 @@ function clipboardService(renderer: CliRenderer): ClipboardService {
 	return clipboard;
 }
 
-export async function readClipboardImage(renderer: CliRenderer): Promise<PastedImage | null> {
+export type ClipboardImageFailure =
+	| { readonly kind: "empty" }
+	| { readonly kind: "unsupported" }
+	| { readonly kind: "cancelled" }
+	| { readonly kind: "timed-out" }
+	| { readonly kind: "limit-exceeded" }
+	| { readonly kind: "failed"; readonly message: string };
+
+export type ClipboardImageResult = { readonly image: PastedImage } | { readonly failure: ClipboardImageFailure };
+
+export async function readClipboardImage(renderer: CliRenderer): Promise<ClipboardImageResult> {
 	const result: ClipboardReadResult = await clipboardService(renderer).read({
 		preferredTypes: ["image/png", "image/jpeg", "image/gif", "image/webp", "text/plain"],
 	});
-	if (result.status !== "read") {
-		return null;
+	if (result.status === "read") {
+		const mimeType = result.representation.mimeType.split(";")[0]?.trim() ?? "";
+		if (mimeType.startsWith("image/") && result.representation.bytes.length > 0) {
+			return { image: { bytes: result.representation.bytes.slice(), mimeType } };
+		}
+		return { failure: { kind: "empty" } };
 	}
-	const mimeType = result.representation.mimeType.split(";")[0]?.trim() ?? "";
-	if (!mimeType.startsWith("image/") || result.representation.bytes.length === 0) {
-		return null;
+	if (result.status === "failed") {
+		return { failure: { kind: "failed", message: describeError(result.error) } };
 	}
-	return { bytes: result.representation.bytes.slice(), mimeType };
+	return { failure: { kind: result.status } };
+}
+
+export function describeClipboardImageFailure(failure: ClipboardImageFailure): string {
+	switch (failure.kind) {
+		case "empty":
+			return "clipboard has no image (empty or text-only)";
+		case "unsupported":
+			return "clipboard image read unsupported on this terminal";
+		case "cancelled":
+			return "clipboard image read cancelled";
+		case "timed-out":
+			return "clipboard image read timed out";
+		case "limit-exceeded":
+			return "clipboard image exceeds the size limit";
+		case "failed":
+			return `clipboard image read failed: ${failure.message}`;
+	}
 }
