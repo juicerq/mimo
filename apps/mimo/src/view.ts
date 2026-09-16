@@ -1,6 +1,5 @@
 import type { Approval, BotEvent, TeamCall, ToolGroup } from "@agent/bot/types";
 import type { Bar } from "./bar";
-import type { Footer } from "./footer";
 import type { Panel } from "./panel";
 import { loginPanel } from "./panels/login";
 import type { Transcript } from "./transcript";
@@ -19,7 +18,6 @@ function isToolEvent(event: BotEvent): event is ToolEvent {
 
 interface ViewParts {
 	transcript: Transcript;
-	footer: Footer;
 	bar: Bar;
 	turn: Turn;
 	showPanel: (panel: Panel) => void;
@@ -28,7 +26,6 @@ interface ViewParts {
 
 export class View {
 	private readonly transcript: Transcript;
-	private readonly footer: Footer;
 	private readonly bar: Bar;
 	private readonly turn: Turn;
 	private readonly showPanel: (panel: Panel) => void;
@@ -37,7 +34,6 @@ export class View {
 
 	constructor(parts: ViewParts) {
 		this.transcript = parts.transcript;
-		this.footer = parts.footer;
 		this.bar = parts.bar;
 		this.turn = parts.turn;
 		this.showPanel = parts.showPanel;
@@ -132,10 +128,7 @@ export class View {
 	private showTurnEvent(event: Extract<BotEvent, { type: "usage" | "mode" | `turn-${string}` }>): void {
 		switch (event.type) {
 			case "usage":
-				this.footer.context(event.contextTokens);
-				return;
 			case "mode":
-				this.footer.mode(event.mode);
 				return;
 			case "turn-started":
 				this.lastFailure = null;
