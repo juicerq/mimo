@@ -8,6 +8,7 @@ import type { TeamMember } from "./types";
 export type DeleteOrigin = "panel" | "tool" | "cascade";
 
 const open = new Map<string, Bot>();
+const opening = new Map<string, Promise<Bot>>();
 
 export interface BotActivity {
 	id: string;
@@ -22,8 +23,19 @@ export function runningBot(id: string): Bot | null {
 	return open.get(id) ?? null;
 }
 
-export function trackBot(bot: Bot): void {
-	open.set(bot.botId, bot);
+export async function openOnce(id: string, load: () => Promise<Bot>): Promise<Bot> {
+	const running = open.get(id);
+	if (running) {
+		return running;
+	}
+	const pending = opening.get(id) ?? load()
+		.then((bot) => {
+			open.set(id, bot);
+			return bot;
+		})
+		.finally(() => opening.delete(id));
+	opening.set(id, pending);
+	return await pending;
 }
 
 export function activity(): BotActivity[] {

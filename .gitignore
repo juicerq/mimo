@@ -5,6 +5,7 @@ node_modules/
 .eve/
 .data/
 .data-dev/
+.data-desktop/
 .verify/
 docs/plano.md
 dist/

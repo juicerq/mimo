@@ -8,8 +8,10 @@
 		"apps/*"
 	],
 	"scripts": {
+		"postinstall": "bun node_modules/electron/install.js",
 		"dev": "bun scripts/dev.ts",
 		"dev:sandbox": "MIMO_DATA_DIR=.data-dev bun scripts/dev.ts",
+		"dev:desktop": "bun run --filter @mimo/desktop dev",
 		"build": "bun build apps/mimo/src/index.ts --target=bun --outdir=dist --external '@opentui/core-*'",
 		"start": "bun dist/index.js",
 		"check": "juicerq-check",

@@ -143,12 +143,14 @@ _Dono_: `apps/agent/src/storage/home.ts` (`dataPath`); a receita, `.agents/skill
 
 A TUI e o agente moram no mesmo processo. A entrada é `apps/mimo/src/index.ts`: ele sobe o renderizador, chama `startRoutines()` e abre a `MimoApp`. `apps/mimo` é a tela e `apps/agent` é o agente; o alias `@agent/*` aponta para `apps/agent/src`. A seta vai só num sentido: a tela importa do agente, nunca o contrário.
 
-O dispatcher de Rotinas vive **dentro do processo da TUI** e faz um tick por minuto. Com a TUI fechada, nenhuma Rotina dispara.
+O app desktop (`apps/desktop`, Electron) está nascendo e vai substituir a TUI; a ordem está em `DESKTOP.md`. Ele roda o mesmo agente no processo principal do Electron, entrada em `apps/desktop/src/main/index.ts`. A tela fala com o agente por oRPC sobre `MessagePort`, e o router em `apps/desktop/src/main/router.ts` é a única porta. `bun run dev:desktop` abre o app com a Casa `.data-desktop`.
+
+O dispatcher de Rotinas vive **dentro do processo da TUI** (ou do processo principal do desktop) e faz um tick por minuto. Com o app fechado, nenhuma Rotina dispara.
 
 Um Grupo de tools pode carregar um bloco de instruções, em `apps/agent/src/<grupo>/instructions.md`. Hoje `gmail`, `routines`, `computer` e `team` têm um; `web` não tem. `botInstructions` em `apps/agent/src/tools/index.ts` monta o texto, então desligar o grupo tira as tools e também o bloco.
 
 Tudo o que dura fica na Casa (`MIMO_DATA_DIR`, padrão `~/.mimo`): `bots/<id>.json`, `bots/<id>/messages.json`, `routines.json` e `actions.jsonl`. As chaves entram por `loadEnv()`, chamado no começo de `main()`: ele lê `~/.mimo/.env` e não sobrescreve variável já definida no ambiente.
 
-Quem está aberto agora mora em `apps/agent/src/bot/registry.ts`: ele guarda o mapa dos Bots vivos, responde o que a barra e o trilho mostram (`activity`) e apaga um Bot com os filhos (`deleteBot`).
+Quem está aberto agora mora em `apps/agent/src/bot/registry.ts`: ele guarda o mapa dos Bots vivos, garante que dois pedidos para abrir o mesmo Bot recebem a mesma instância (`openOnce`), responde o que a barra e o trilho mostram (`activity`) e apaga um Bot com os filhos (`deleteBot`).
 
 A verificação não tem suíte: ela é dirigir a TUI de verdade. A receita por feature está em `.agents/skills/verify-mimo/features/`.

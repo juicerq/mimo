@@ -16,7 +16,7 @@ import { sealTranscript } from "./seal";
 import { Queue } from "./queue";
 import { withoutBorrowedReasoning } from "./reasoning";
 import { entryEvent, entryMessage, replayMessage, resultEvent, summaryStart, toolErrorText, toolResultText, usageEvent, type Entry } from "./events";
-import { deleteBot, runningBot, trackBot } from "./registry";
+import { deleteBot, openOnce, runningBot } from "./registry";
 import { readBot, readTranscript, writeBot, writeTranscript, type BotPatch } from "./store";
 import type { Approval, BotEvent, BotInfo, BotMode, Delegation, TeamMember, ToolGroup } from "./types";
 
@@ -30,6 +30,7 @@ const STOPPED = "O trabalho foi parado.";
 export class Bot {
 	private readonly agent: Agent;
 	private readonly listeners = new Set<(event: BotEvent) => void>();
+	private readonly observers = new Set<(event: BotEvent) => void>();
 	private readonly approvals = new Approvals((event) => this.emit(event));
 	private readonly entries = new Queue((event) => this.emit(event));
 	private readonly crew = new Map<Bot, Work>();
@@ -66,17 +67,13 @@ export class Bot {
 	}
 
 	static async open(id: string): Promise<Bot> {
-		const running = runningBot(id);
-		if (running) {
-			return running;
-		}
-		const record = await readBot(id);
-		if (!record) {
-			throw new Error("This bot no longer exists.");
-		}
-		const bot = new Bot(record, sealTranscript(await readTranscript(id)));
-		trackBot(bot);
-		return bot;
+		return await openOnce(id, async () => {
+			const record = await readBot(id);
+			if (!record) {
+				throw new Error("This bot no longer exists.");
+			}
+			return new Bot(record, sealTranscript(await readTranscript(id)));
+		});
 	}
 
 	get info(): BotInfo {
@@ -208,6 +205,11 @@ export class Bot {
 	subscribe(listener: (event: BotEvent) => void): () => void {
 		this.listeners.add(listener);
 		return () => this.listeners.delete(listener);
+	}
+
+	observe(observer: (event: BotEvent) => void): () => void {
+		this.observers.add(observer);
+		return () => this.observers.delete(observer);
 	}
 
 	transcript(): BotEvent[] {
@@ -370,6 +372,9 @@ export class Bot {
 	private emit(event: BotEvent): void {
 		for (const listener of this.listeners) {
 			listener(event);
+		}
+		for (const observer of this.observers) {
+			observer(event);
 		}
 	}
 

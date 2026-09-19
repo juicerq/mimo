@@ -6,7 +6,8 @@
 		"paths": {
 			"@agent/*": ["./apps/agent/src/*"]
 		},
-		"lib": ["ES2024"],
+		"lib": ["ES2024", "DOM", "DOM.Iterable"],
+		"jsx": "react-jsx",
 		"strict": true,
 		"noEmit": true,
 		"skipLibCheck": true,
