@@ -55,30 +55,6 @@ export function App() {
 		localStorage.setItem(DETAIL, level);
 	}, [level]);
 
-	useEffect(() => {
-		function onKey(event: KeyboardEvent): void {
-			if (event.key === "Escape") {
-				closeInfo();
-				return;
-			}
-			if (!event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
-				return;
-			}
-			const key = event.key.toLowerCase();
-			if (key === "o") {
-				event.preventDefault();
-				setLevel((current) => DETAIL_LEVELS[(DETAIL_LEVELS.indexOf(current) + 1) % DETAIL_LEVELS.length]);
-				return;
-			}
-			if (key === "i") {
-				event.preventDefault();
-				toggleInfo();
-			}
-		}
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [toggleInfo, closeInfo]);
-
 	function select(id: string): void {
 		setChosen(id);
 		localStorage.setItem(LAST_BOT, id);

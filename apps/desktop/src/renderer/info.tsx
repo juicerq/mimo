@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { Setting } from "@renderer/components/setting";
-import { Kbd, KbdGroup } from "@renderer/components/ui/kbd";
 import { cn } from "cn";
 import { DETAIL_LEVELS, DETAIL_NAMES, type Detail } from "./transcript";
 
@@ -36,6 +35,22 @@ export function useInfoPanel() {
 
 	const close = useCallback(() => setOverlaid(false), []);
 
+	useEffect(() => {
+		function onKey(event: KeyboardEvent): void {
+			if (event.key === "Escape") {
+				close();
+				return;
+			}
+			if (!event.ctrlKey || event.shiftKey || event.altKey || event.metaKey || event.key.toLowerCase() !== "i") {
+				return;
+			}
+			event.preventDefault();
+			toggle();
+		}
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [toggle, close]);
+
 	return { open: overlay ? overlaid : docked, overlay, toggle, close };
 }
 
@@ -65,16 +80,7 @@ export function Info({ name, open, overlay, level, onClose, onLevel }: InfoProps
 				)}
 			>
 				<div className="min-h-0 flex-1 overflow-y-auto p-5">
-					<section>
-						<Setting label="Detalhe" value={level} options={DETAIL_LEVELS} names={DETAIL_NAMES} onChange={onLevel} />
-						<p className="mt-2 text-xs text-muted-foreground">
-							<KbdGroup>
-								<Kbd>Ctrl</Kbd>
-								<Kbd>O</Kbd>
-							</KbdGroup>{" "}
-							alterna.
-						</p>
-					</section>
+					<Setting label="Detalhe" value={level} options={DETAIL_LEVELS} names={DETAIL_NAMES} onChange={onLevel} />
 				</div>
 			</aside>
 		</>
