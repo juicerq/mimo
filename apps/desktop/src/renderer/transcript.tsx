@@ -313,7 +313,7 @@ export function Transcript({ conversation, level, name }: { conversation: Conver
 
 	return (
 		<div className={SCROLL}>
-			<div className="column shrink-0 grow pt-2 pb-5">
+			<div className="shrink-0 grow px-6 pt-2 pb-5">
 				<Lines lines={conversation.lines} level={level} name={name} />
 				{conversation.streaming && <Reply text={conversation.streaming} />}
 				{conversation.queue.map((item, index) => (
