@@ -7,7 +7,6 @@ import { useConversation } from "./conversation";
 import { Head } from "./head";
 import { Info, useInfoPanel } from "./info";
 import { Status, turnLabel } from "./status";
-import { useTheme } from "./theme";
 import { DETAIL_LEVELS, type Detail, Transcript } from "./transcript";
 
 const LAST_BOT = "mimo:bot";
@@ -48,7 +47,6 @@ export function App() {
 	const [chosen, setChosen] = useState(() => localStorage.getItem(LAST_BOT));
 	const [level, setLevel] = useState(savedDetail);
 	const { open: infoOpen, overlay, toggle: toggleInfo, close: closeInfo } = useInfoPanel();
-	const [theme, toggleTheme] = useTheme();
 	const input = useRef<HTMLTextAreaElement>(null);
 	const bot = bots?.find((entry) => entry.id === chosen) ?? bots?.[0];
 	const leave = useCallback(() => input.current?.focus(), []);
@@ -106,10 +104,8 @@ export function App() {
 							open={infoOpen}
 							overlay={overlay}
 							level={level}
-							theme={theme}
 							onClose={closeInfo}
 							onLevel={setLevel}
-							onTheme={toggleTheme}
 						/>
 					)}
 				</div>

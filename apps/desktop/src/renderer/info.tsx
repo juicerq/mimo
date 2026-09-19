@@ -1,8 +1,6 @@
-import { MoonIcon, SunIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { IconButton } from "@renderer/components/icon-button";
+import { Setting } from "@renderer/components/setting";
 import { Kbd, KbdGroup } from "@renderer/components/ui/kbd";
-import { ToggleGroup, ToggleGroupItem } from "@renderer/components/ui/toggle-group";
 import { cn } from "@renderer/lib/utils";
 import { DETAIL_LEVELS, DETAIL_NAMES, type Detail } from "./transcript";
 
@@ -41,24 +39,16 @@ export function useInfoPanel() {
 	return { open: overlay ? overlaid : docked, overlay, toggle, close };
 }
 
-function isDetail(value: unknown): value is Detail {
-	return DETAIL_LEVELS.some((level) => level === value);
-}
-
 interface InfoProps {
 	name: string;
 	open: boolean;
 	overlay: boolean;
 	level: Detail;
-	theme: "light" | "dark";
 	onClose: () => void;
 	onLevel: (level: Detail) => void;
-	onTheme: () => void;
 }
 
-export function Info({ name, open, overlay, level, theme, onClose, onLevel, onTheme }: InfoProps) {
-	const dark = theme === "dark";
-
+export function Info({ name, open, overlay, level, onClose, onLevel }: InfoProps) {
 	if (!open && !overlay) {
 		return null;
 	}
@@ -76,30 +66,7 @@ export function Info({ name, open, overlay, level, theme, onClose, onLevel, onTh
 			>
 				<div className="min-h-0 flex-1 overflow-y-auto p-5">
 					<section>
-						<h3 className="mb-2 text-xs font-medium text-muted-foreground">Detalhe</h3>
-						<ToggleGroup
-							aria-label="Detalhe"
-							value={[level]}
-							onValueChange={(value) => {
-								const next = value[0];
-								if (isDetail(next)) {
-									onLevel(next);
-								}
-							}}
-							spacing={0.5}
-							className="w-full rounded-lg bg-muted p-0.5"
-						>
-							{DETAIL_LEVELS.map((entry) => (
-								<ToggleGroupItem
-									key={entry}
-									value={entry}
-									size="sm"
-									className="flex-1 rounded-md text-muted-foreground hover:bg-transparent aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm"
-								>
-									{DETAIL_NAMES[entry]}
-								</ToggleGroupItem>
-							))}
-						</ToggleGroup>
+						<Setting label="Detalhe" value={level} options={DETAIL_LEVELS} names={DETAIL_NAMES} onChange={onLevel} />
 						<p className="mt-2 text-xs text-muted-foreground">
 							<KbdGroup>
 								<Kbd>Ctrl</Kbd>
@@ -109,11 +76,6 @@ export function Info({ name, open, overlay, level, theme, onClose, onLevel, onTh
 						</p>
 					</section>
 				</div>
-				<footer className="flex shrink-0 px-3 pt-2 pb-3">
-					<IconButton label={dark ? "Usar tema claro" : "Usar tema escuro"} tip={dark ? "Tema claro" : "Tema escuro"} side="top" onClick={onTheme}>
-						{dark ? <SunIcon /> : <MoonIcon />}
-					</IconButton>
-				</footer>
 			</aside>
 		</>
 	);

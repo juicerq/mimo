@@ -1,6 +1,10 @@
 import { useLayoutEffect, useState } from "react";
 
-type Theme = "light" | "dark";
+export const THEMES = ["light", "dark"] as const;
+
+export type Theme = (typeof THEMES)[number];
+
+export const THEME_NAMES: Record<Theme, string> = { light: "Claro", dark: "Escuro" };
 
 const THEME = "mimo:theme";
 
@@ -22,11 +26,10 @@ export function useTheme() {
 		document.documentElement.classList.toggle("dark", theme === "dark");
 	}, [theme]);
 
-	function toggle(): void {
-		const next = theme === "dark" ? "light" : "dark";
+	function choose(next: Theme): void {
 		localStorage.setItem(THEME, next);
 		setTheme(next);
 	}
 
-	return [theme, toggle] as const;
+	return [theme, choose] as const;
 }

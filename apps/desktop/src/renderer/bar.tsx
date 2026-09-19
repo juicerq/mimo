@@ -6,6 +6,7 @@ import { Item, ItemContent, ItemDescription, ItemTitle } from "@renderer/compone
 import { Avatar, STATE_LABELS } from "./avatar";
 import type { BotRow } from "./bots";
 import { orpc } from "./rpc";
+import { Settings } from "./settings";
 
 const STEPS: Partial<Record<string, number>> = { ArrowUp: -1, ArrowDown: 1 };
 const ROW = "[aria-current]";
@@ -178,6 +179,9 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 				))}
 				{error && <p className="p-2 text-xs text-destructive wrap-anywhere">{error.message}</p>}
 			</div>
+			<footer className="flex shrink-0 px-3 pt-2 pb-3">
+				<Settings />
+			</footer>
 		</aside>
 	);
 }
