@@ -54,7 +54,7 @@ export function Composer({ botId, name, working, input, fail }: ComposerProps) {
 
 	return (
 		<form className="column pt-2 pb-5 short:pb-2.5" onSubmit={submit}>
-			<InputGroup className="items-end rounded-3xl bg-background shadow-xs has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+			<InputGroup className="items-end rounded-3xl bg-card shadow-md has-[[data-slot=input-group-control]:focus-visible]:ring-0 dark:bg-card">
 				<InputGroupTextarea
 					ref={input}
 					rows={1}

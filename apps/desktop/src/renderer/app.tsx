@@ -29,8 +29,7 @@ function Conversation({ bot, level, input }: ConversationProps) {
 
 	return (
 		<>
-			<Transcript conversation={conversation} level={level} name={bot.name} />
-			<div className="overflow-hidden scrollbar-gutter-both">
+			<Transcript conversation={conversation} level={level} name={bot.name}>
 				{label && <Status botId={bot.id} label={label} />}
 				<Composer
 					botId={bot.id}
@@ -39,7 +38,7 @@ function Conversation({ bot, level, input }: ConversationProps) {
 					input={input}
 					fail={(message) => apply([{ type: "turn-failed", message }])}
 				/>
-			</div>
+			</Transcript>
 		</>
 	);
 }

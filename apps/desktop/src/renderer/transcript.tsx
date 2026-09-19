@@ -32,6 +32,8 @@ const TEAM_VERBS = { created: "Criou", delegated: "Delegou para", stopped: "Paro
 const DETAIL_CHARACTERS = 600;
 const PLUGINS = [remarkGfm];
 const SCROLL = "flex min-h-0 flex-1 flex-col-reverse overflow-y-auto scrollbar-gutter-both";
+const DOCK =
+	"sticky bottom-0 order-first shrink-0 bg-background before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-10 before:bg-linear-to-t before:from-background";
 const GIST = "truncate before:mr-1.5 before:content-['·']";
 const BUBBLES = {
 	you: "ml-auto rounded-br-none bg-primary whitespace-pre-wrap text-primary-foreground",
@@ -290,36 +292,41 @@ const Lines = memo(function Lines({ lines, level, name }: { lines: Line[]; level
 	return lines.map((line, index) => shows(level, needOf(line)) && <LineView key={index} line={line} level={level} name={name} />);
 });
 
-export function Transcript({ conversation, level, name }: { conversation: Conversation; level: Detail; name: string }) {
-	if (!conversation.ready) {
-		return <div className={SCROLL} />;
-	}
+interface TranscriptProps {
+	conversation: Conversation;
+	level: Detail;
+	name: string;
+	children: ReactNode;
+}
 
-	if (conversation.lines.length === 0 && conversation.turn === "idle" && conversation.queue.length === 0) {
-		return (
-			<div className={SCROLL}>
-				<Empty>
+export function Transcript({ conversation, level, name, children }: TranscriptProps) {
+	const empty = conversation.lines.length === 0 && conversation.turn === "idle" && conversation.queue.length === 0;
+
+	return (
+		<div className={SCROLL}>
+			{conversation.ready && empty && (
+				<Empty className="grow">
 					<EmptyHeader>
 						<EmptyMedia>
 							<Avatar name={name} state="idle" size={80} />
 						</EmptyMedia>
-						<EmptyTitle role="heading" aria-level={3} className="text-lg font-semibold">Comece a conversa com {name}</EmptyTitle>
+						<EmptyTitle role="heading" aria-level={3} className="text-lg font-semibold">
+							Comece a conversa com {name}
+						</EmptyTitle>
 						<EmptyDescription>Diga o que você precisa. {name} aprende com o uso e guarda na Memória o que importa.</EmptyDescription>
 					</EmptyHeader>
 				</Empty>
-			</div>
-		);
-	}
-
-	return (
-		<div className={SCROLL}>
-			<div className="shrink-0 grow px-6 pt-2 pb-5">
-				<Lines lines={conversation.lines} level={level} name={name} />
-				{conversation.streaming && <Reply text={conversation.streaming} />}
-				{conversation.queue.map((item, index) => (
-					<EventLine key={index} head={<span>Na fila: {item}</span>} />
-				))}
-			</div>
+			)}
+			{conversation.ready && !empty && (
+				<div className="shrink-0 grow px-6 pt-2 pb-11">
+					<Lines lines={conversation.lines} level={level} name={name} />
+					{conversation.streaming && <Reply text={conversation.streaming} />}
+					{conversation.queue.map((item, index) => (
+						<EventLine key={index} head={<span>Na fila: {item}</span>} />
+					))}
+				</div>
+			)}
+			<div className={DOCK}>{children}</div>
 		</div>
 	);
 }
