@@ -102,7 +102,7 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 	}
 
 	return (
-		<aside className="flex w-66 shrink-0 flex-col border-r" aria-label="Bots">
+		<aside className="flex w-66 shrink-0 flex-col border-r surface-sidebar" aria-label="Bots">
 			<header className="drag flex h-bar shrink-0 items-center justify-end px-3">
 				<IconButton label="Novo bot" onClick={() => setAdding(true)}>
 					<PlusIcon />
@@ -111,7 +111,7 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 			<div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-3" ref={list} onKeyDown={onListKey}>
 				{(adding || empty) && (
 					<Item
-						className="gap-3 p-2 surface-muted"
+						className="gap-3 p-2 surface-sidebar-active"
 						render={
 							<form
 								onSubmit={(event) => {
@@ -162,7 +162,7 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 				{bots?.map((bot) => (
 					<Item
 						key={bot.id}
-						className="gap-3 p-2 text-left hover:surface-subtle aria-[current=true]:surface-muted"
+						className="gap-3 p-2 text-left hover:surface-sidebar-hover aria-[current=true]:surface-sidebar-active"
 						render={<button type="button" />}
 						aria-current={bot.id === selected}
 						onMouseDown={(event) => event.preventDefault()}

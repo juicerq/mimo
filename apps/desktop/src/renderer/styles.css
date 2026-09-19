@@ -30,6 +30,9 @@
 	--color-input: var(--input);
 	--color-ring: var(--ring);
 	--color-subtle: var(--subtle);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-hover: var(--sidebar-hover);
+	--color-sidebar-active: var(--sidebar-active);
 	--color-border-strong: var(--border-strong);
 	--color-link: var(--link);
 	--color-info: var(--info);
@@ -68,6 +71,9 @@
 	--input: oklch(0.922 0 0);
 	--ring: oklch(0.708 0 0);
 	--subtle: oklch(0.985 0 0);
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-hover: oklch(0.95 0 0);
+	--sidebar-active: oklch(0.915 0 0);
 	--border-strong: oklch(0.87 0 0);
 	--link: oklch(0.546 0.245 262.881);
 	--info: oklch(0.623 0.214 259.815);
@@ -97,6 +103,9 @@
 	--input: oklch(1 0 0 / 15%);
 	--ring: oklch(0.556 0 0);
 	--subtle: oklch(0.205 0 0);
+	--sidebar: oklch(0.11 0 0);
+	--sidebar-hover: oklch(0.16 0 0);
+	--sidebar-active: oklch(0.21 0 0);
 	--border-strong: oklch(1 0 0 / 20%);
 	--link: oklch(0.707 0.165 254.624);
 	--info: oklch(0.707 0.165 254.624);
