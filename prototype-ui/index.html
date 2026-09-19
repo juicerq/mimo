@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<title>mimo · protótipo de UI</title>
+		<style>
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+				background: #000;
+				font: 13px/1 system-ui, sans-serif;
+			}
+
+			body {
+				display: grid;
+				grid-template-rows: 1fr 44px;
+			}
+
+			iframe {
+				width: 100%;
+				height: 100%;
+				border: 0;
+				display: block;
+			}
+
+			.switcher {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+				background: repeating-linear-gradient(45deg, #1b1b1b 0 10px, #222 10px 20px);
+				border-top: 1px solid #444;
+			}
+
+			.pill {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+				padding: 4px;
+				border-radius: 999px;
+				background: #ffe14d;
+				color: #111;
+				box-shadow: 0 2px 10px rgb(0 0 0 / 0.6);
+			}
+
+			.pill button {
+				border: 0;
+				border-radius: 999px;
+				background: transparent;
+				color: inherit;
+				font: inherit;
+				font-weight: 600;
+				padding: 6px 10px;
+				cursor: pointer;
+			}
+
+			.pill button:hover {
+				background: rgb(0 0 0 / 0.12);
+			}
+
+			.label {
+				min-width: 220px;
+				text-align: center;
+				font-weight: 700;
+			}
+
+			.tag {
+				color: #ffe14d;
+				font-weight: 700;
+				letter-spacing: 0.08em;
+				font-size: 11px;
+			}
+		</style>
+	</head>
+	<body>
+		<iframe title="variante"></iframe>
+		<div class="switcher">
+			<span class="tag">PROTÓTIPO</span>
+			<div class="pill">
+				<button type="button" data-step="-1" aria-label="variante anterior">←</button>
+				<span class="label"></span>
+				<button type="button" data-step="1" aria-label="próxima variante">→</button>
+				<button type="button" data-reset>reiniciar</button>
+			</div>
+		</div>
+		<script>
+			const VARIANTS = [
+				{ key: "A", name: "Terminal refinado", file: "a-terminal.html" },
+				{ key: "B", name: "Leitura centrada", file: "b-leitura.html" },
+				{ key: "C", name: "Comando primeiro", file: "c-comando.html" },
+				{ key: "D", name: "Abas e atividade", file: "d-abas.html" },
+				{ key: "E", name: "Caixa de entrada", file: "e-caixa.html" },
+			];
+			const frame = document.querySelector("iframe");
+			const label = document.querySelector(".label");
+
+			function current() {
+				const key = new URLSearchParams(location.search).get("variant");
+				return Math.max(0, VARIANTS.findIndex((variant) => variant.key === key));
+			}
+
+			function show(index) {
+				const variant = VARIANTS[(index + VARIANTS.length) % VARIANTS.length];
+				history.replaceState(null, "", `?variant=${variant.key}`);
+				label.textContent = `${variant.key}. ${variant.name}`;
+				frame.src = variant.file;
+				frame.focus();
+			}
+
+			for (const button of document.querySelectorAll("[data-step]")) {
+				button.addEventListener("click", () => show(current() + Number(button.dataset.step)));
+			}
+
+			document.querySelector("[data-reset]").addEventListener("click", () => show(current()));
+
+			document.addEventListener("keydown", (event) => {
+				const typing = event.target.closest("input, textarea, [contenteditable]");
+				if (typing || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) {
+					return;
+				}
+				show(current() + (event.key === "ArrowLeft" ? -1 : 1));
+			});
+
+			show(current());
+		</script>
+	</body>
+</html>

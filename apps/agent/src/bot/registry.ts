@@ -2,6 +2,7 @@ import { recordAction } from "../actions/actions";
 import { removeWorktree, uncommittedWork } from "../computer/worktree";
 import { deleteBotRoutines } from "../routines/routines";
 import type { Bot } from "./bot";
+import type { LastMessage } from "./events";
 import { listChildren, readBot, removeBot } from "./store";
 import type { TeamMember } from "./types";
 
@@ -17,6 +18,7 @@ export interface BotActivity {
 	team: TeamMember[];
 	waiting: string | null;
 	failed: string | null;
+	last: LastMessage | null;
 }
 
 export function runningBot(id: string): Bot | null {
@@ -44,7 +46,7 @@ export function activity(): BotActivity[] {
 		if (bot.parentId !== undefined) {
 			continue;
 		}
-		bots.push({ id: bot.botId, name: bot.info.name, busy: bot.busy, team: bot.team, waiting: bot.approval?.toolName ?? null, failed: bot.failed });
+		bots.push({ id: bot.botId, name: bot.info.name, busy: bot.busy, team: bot.team, waiting: bot.approval?.toolName ?? null, failed: bot.failed, last: bot.lastMessage });
 	}
 	return bots;
 }

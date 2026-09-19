@@ -15,7 +15,7 @@ import { compactTranscript } from "./compaction";
 import { sealTranscript } from "./seal";
 import { Queue } from "./queue";
 import { withoutBorrowedReasoning } from "./reasoning";
-import { entryEvent, entryMessage, replayMessage, resultEvent, summaryStart, toolErrorText, toolResultText, usageEvent, type Entry } from "./events";
+import { entryEvent, entryMessage, lastMessage, replayMessage, resultEvent, summaryStart, toolErrorText, toolResultText, usageEvent, type Entry, type LastMessage } from "./events";
 import { deleteBot, openOnce, runningBot } from "./registry";
 import { readBot, readTranscript, writeBot, writeTranscript, type BotPatch } from "./store";
 import type { Approval, BotEvent, BotInfo, BotMode, Delegation, TeamMember, ToolGroup } from "./types";
@@ -122,6 +122,10 @@ export class Bot {
 
 	get approval(): Approval | null {
 		return this.approvals.current;
+	}
+
+	get lastMessage(): LastMessage | null {
+		return lastMessage(this.agent.state.messages) ?? lastMessage(this.archive);
 	}
 
 	get failed(): string | null {
@@ -402,7 +406,7 @@ export class Bot {
 		if (event.type === "tool_execution_start") {
 			this.running.set(event.toolCallId, event.toolName);
 			if (!isTeamCall(event.toolName)) {
-				this.emit({ type: "tool", toolName: event.toolName, input: event.args });
+				this.emit({ type: "tool", id: event.toolCallId, toolName: event.toolName, input: event.args });
 			}
 			return;
 		}
@@ -412,11 +416,12 @@ export class Bot {
 			if (this.cancelled) {
 				return;
 			}
+			const tool = { id: event.toolCallId, toolName: event.toolName };
 			if (event.isError) {
-				this.emit({ type: "tool-failed", message: toolErrorText(event.result) });
+				this.emit({ type: "tool-failed", ...tool, message: toolErrorText(event.result) });
 				return;
 			}
-			for (const result of resultEvent(event.toolName, toolResultText(event.result))) {
+			for (const result of resultEvent(tool, toolResultText(event.result))) {
 				this.emit(result);
 			}
 			return;

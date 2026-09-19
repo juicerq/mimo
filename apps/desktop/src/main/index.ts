@@ -2,16 +2,24 @@ import { join } from "node:path";
 import { startRoutines } from "@agent/routines/dispatcher";
 import { loadEnv } from "@agent/storage/home";
 import { RPCHandler } from "@orpc/server/message-port";
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import { router } from "./router";
 
 loadEnv();
 
+if (process.env.XDG_SESSION_TYPE === "wayland") {
+	app.commandLine.appendSwitch("disable-gpu-compositing");
+}
+
 const handler = new RPCHandler(router);
 
 ipcMain.on("rpc", (event) => {
+	const window = BrowserWindow.fromWebContents(event.sender);
+	if (!window) {
+		throw new Error("The rpc port came from outside a window.");
+	}
 	for (const port of event.ports) {
-		handler.upgrade(port);
+		handler.upgrade(port, { context: { window } });
 		port.start();
 	}
 });
@@ -20,10 +28,11 @@ function openWindow(): void {
 	const window = new BrowserWindow({
 		width: 1100,
 		height: 720,
-		minWidth: 640,
+		minWidth: 720,
 		minHeight: 400,
+		frame: false,
 		title: "mimo",
-		backgroundColor: "#0b0b0c",
+		backgroundColor: nativeTheme.shouldUseDarkColors ? "#0a0a0a" : "#ffffff",
 		webPreferences: { preload: join(import.meta.dirname, "../preload/index.cjs") },
 	});
 	window.webContents.on("will-navigate", (event) => event.preventDefault());

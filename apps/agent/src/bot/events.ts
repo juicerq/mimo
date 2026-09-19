@@ -11,7 +11,16 @@ export type Entry =
 	| { kind: "routine"; name: string; text: string }
 	| { kind: "summary"; text: string };
 
+export interface LastMessage {
+	from: "you" | "bot";
+	text: string;
+	at: number;
+}
+
+type ToolCall = Pick<Extract<BotEvent, { type: "tool-result" }>, "id" | "toolName">;
+
 const NOTE_MARK = "[equipe]";
+const PREVIEW_CHARACTERS = 200;
 const SUMMARY_MARK = "[resumo]";
 const ROUTINE_MARK = /^\[rotina(?:: (?<name>[^\]\n]+))?\]\n/u;
 
@@ -74,8 +83,33 @@ export function summaryStart(messages: AgentMessage[]): number {
 	return 0;
 }
 
-export function resultEvent(toolName: string, output: string): BotEvent[] {
-	const call = teamCall(toolName, output);
+function spoken(message: AgentMessage): LastMessage | null {
+	if (!isLlmMessage(message) || message.role === "toolResult") {
+		return null;
+	}
+	const text = contentText(message.content);
+	if (message.role === "user" && entryOf(text).kind !== "user") {
+		return null;
+	}
+	const preview = text.trim().slice(0, PREVIEW_CHARACTERS);
+	if (!preview) {
+		return null;
+	}
+	return { from: message.role === "user" ? "you" : "bot", text: preview, at: message.timestamp };
+}
+
+export function lastMessage(messages: AgentMessage[]): LastMessage | null {
+	for (let index = messages.length - 1; index >= 0; index -= 1) {
+		const last = spoken(messages[index]);
+		if (last) {
+			return last;
+		}
+	}
+	return null;
+}
+
+export function resultEvent(tool: ToolCall, output: string): BotEvent[] {
+	const call = teamCall(tool.toolName, output);
 	if (call) {
 		return [{ type: "team-call", call }];
 	}
@@ -83,7 +117,7 @@ export function resultEvent(toolName: string, output: string): BotEvent[] {
 
 	return [
 		...warning ? [{ type: "tool-warned" as const, message: warning }] : [],
-		{ type: "tool-result", toolName, output },
+		{ type: "tool-result", ...tool, output },
 	];
 }
 
@@ -122,17 +156,18 @@ export function replayMessage(message: AgentMessage): BotEvent[] {
 		return [entryEvent(entryOf(text))];
 	}
 	if (message.role === "toolResult") {
+		const tool = { id: message.toolCallId, toolName: message.toolName };
 		if (message.isError) {
-			return [{ type: "tool-failed", message: toolErrorText(message) }];
+			return [{ type: "tool-failed", ...tool, message: toolErrorText(message) }];
 		}
-		return resultEvent(message.toolName, contentText(message.content));
+		return resultEvent(tool, contentText(message.content));
 	}
 	const text = contentText(message.content);
 	return [
 		...(text ? [{ type: "reply" as const, text }] : []),
 		...message.content.filter((part) => part.type === "toolCall")
 			.filter((part) => !isTeamCall(part.name))
-			.map((part) => ({ type: "tool" as const, toolName: part.name, input: part.arguments })),
+			.map((part) => ({ type: "tool" as const, id: part.id, toolName: part.name, input: part.arguments })),
 		...usageEvent(message.usage),
 	];
 }

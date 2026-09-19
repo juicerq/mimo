@@ -89,7 +89,7 @@ export class Rail {
 		const lines: Line[] = [];
 		const inner = Math.max(MIN_COLS, this.box.width - INSET);
 		for (const bot of bots) {
-			const entry = live.get(bot.id) ?? { id: bot.id, name: bot.name, busy: false, team: [], waiting: null, failed: null };
+			const entry = live.get(bot.id) ?? { id: bot.id, name: bot.name, busy: false, team: [], waiting: null, failed: null, last: null };
 			lines.push(...lines.length > 0 ? [{ text: "", fg: T6 }] : [], { text: head(entry), fg: T1 });
 			lines.push(...body(entry, inner));
 		}

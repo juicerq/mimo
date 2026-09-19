@@ -2,88 +2,100 @@ import { useEffect, useReducer } from "react";
 import type { ScreenEvent } from "../main/router";
 import { rpc } from "./rpc";
 
-type Tone = "quiet" | "alert";
+type EventMap = { [Event in ScreenEvent as Event["type"]]: Event };
+
+export interface ToolResult {
+	text: string;
+	failed: boolean;
+}
 
 export type Line =
 	| { kind: "you"; text: string }
 	| { kind: "reply"; text: string }
-	| { kind: "note"; tone: Tone; text: string }
-	| { kind: "detail"; tone: Tone; text: string; extra?: string }
-	| { kind: "result"; text: string };
+	| { kind: "summary"; text: string }
+	| { kind: "routine"; name: string; prompt: string }
+	| { kind: "team"; call: EventMap["team-call"]["call"] }
+	| { kind: "note"; text: string }
+	| { kind: "tools"; tools: readonly string[] }
+	| { kind: "tool"; id: string; name: string; input: unknown; result?: ToolResult }
+	| { kind: "approval"; approval: EventMap["approval"]["approval"]; outcome?: EventMap["approval-resolved"]["outcome"] }
+	| { kind: "warning"; text: string }
+	| { kind: "error"; text: string }
+	| { kind: "stopped" };
 
 export type Turn = "idle" | "thinking" | "working" | "waiting";
 
 export interface Conversation {
+	ready: boolean;
 	lines: Line[];
 	streaming: string;
 	turn: Turn;
 	queue: readonly string[];
 }
 
-type EventMap = { [Event in ScreenEvent as Event["type"]]: Event };
+type Edit<Event> = (lines: Line[], event: Event) => boolean;
 
-type LineMakers = { [Type in keyof EventMap]: (event: EventMap[Type]) => Line | null };
+type Edits = { [Type in keyof EventMap]: Edit<EventMap[Type]> };
 
-const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
-
-function note(text: string, tone: Tone = "quiet"): Line {
-	return { kind: "note", tone, text };
+function adds<Event>(make: (event: Event) => Line | null): Edit<Event> {
+	return (lines, event) => {
+		const line = make(event);
+		if (!line) {
+			return false;
+		}
+		lines.push(line);
+		return true;
+	};
 }
 
-function trimmed(text?: string): string | undefined {
-	const content = text?.trim();
-	if (!content || content === "{}") {
-		return undefined;
+function unchanged(): boolean {
+	return false;
+}
+
+function settleTool(lines: Line[], call: Pick<EventMap["tool-result"], "id" | "toolName">, result: ToolResult): boolean {
+	const at = lines.findLastIndex((line) => line.kind === "tool" && line.id === call.id);
+	const line = lines[at];
+	if (line?.kind !== "tool") {
+		lines.push({ kind: "tool", id: call.id, name: call.toolName, input: undefined, result });
+		return true;
 	}
-	return content;
+	lines[at] = { ...line, result };
+	return true;
 }
 
-function detail(text: string, extra?: string): Line {
-	const content = trimmed(extra);
-	if (!content) {
-		return { kind: "detail", tone: "quiet", text };
+function resolveApproval(lines: Line[], outcome: EventMap["approval-resolved"]["outcome"]): boolean {
+	const at = lines.findLastIndex((line) => line.kind === "approval" && !line.outcome);
+	const line = lines[at];
+	if (line?.kind !== "approval") {
+		return false;
 	}
-	return { kind: "detail", tone: "quiet", text, extra: content };
+	lines[at] = { ...line, outcome };
+	return true;
 }
 
-function result(output: string): Line | null {
-	const text = trimmed(output);
-	if (!text) {
-		return null;
-	}
-	return { kind: "result", text };
-}
-
-function reply(text: string): Line | null {
-	if (!text) {
-		return null;
-	}
-	return { kind: "reply", text };
-}
-
-const LINES: LineMakers = {
-	user: (event) => ({ kind: "you", text: event.text }),
-	queue: () => null,
-	note: (event) => note(`▌ ${event.text}`),
-	summary: (event) => detail("─ resumo do que veio antes ─", event.text),
-	warning: (event) => note(`⚠ ${event.text}`, "alert"),
-	routine: (event) => detail(`routine: ${event.name} started`, event.prompt.replaceAll("\n", " ")),
-	"reply-delta": () => null,
-	reply: (event) => reply(event.text),
-	tool: (event) => detail(`⚙ ${event.toolName}`, JSON.stringify(event.input)),
-	"team-call": (event) => detail(`▌ ${TEAM_VERBS[event.call.kind]} ${event.call.bot}${event.call.task ? ` · ${event.call.task}` : ""}`),
-	"tool-result": (event) => result(event.output),
-	"tool-warned": (event) => note(`⚠ ${event.message}`, "alert"),
-	"tool-failed": (event) => ({ kind: "detail", tone: "alert", text: `✗ tool failed: ${event.message}` }),
-	approval: (event) => note(`⏸ approval: ${event.approval.toolName} · ${event.approval.bot} — 1 aprova, 2 cancela`, "alert"),
-	"approval-resolved": (event) => note(`⏸ ${event.outcome}`),
-	usage: () => null,
-	mode: () => null,
-	tools: (event) => detail(`tools: ${event.tools.join(", ") || "none"}`),
-	"turn-started": () => null,
-	"turn-finished": () => null,
-	"turn-failed": (event) => note(`✗ error: ${event.message}`, "alert"),
-	"turn-cancelled": () => note("Interrupted."),
+const EDITS: Edits = {
+	user: adds((event) => ({ kind: "you", text: event.text })),
+	queue: unchanged,
+	note: adds((event) => ({ kind: "note", text: event.text })),
+	summary: adds((event) => ({ kind: "summary", text: event.text })),
+	warning: adds((event) => ({ kind: "warning", text: event.text })),
+	routine: adds((event) => ({ kind: "routine", name: event.name, prompt: event.prompt })),
+	"reply-delta": unchanged,
+	reply: adds((event) => (event.text ? { kind: "reply", text: event.text } : null)),
+	tool: adds((event) => ({ kind: "tool", id: event.id, name: event.toolName, input: event.input })),
+	"team-call": adds((event) => ({ kind: "team", call: event.call })),
+	"tool-result": (lines, event) => settleTool(lines, event, { text: event.output, failed: false }),
+	"tool-warned": adds((event) => ({ kind: "warning", text: event.message })),
+	"tool-failed": (lines, event) => settleTool(lines, event, { text: event.message, failed: true }),
+	approval: adds((event) => ({ kind: "approval", approval: event.approval })),
+	"approval-resolved": (lines, event) => resolveApproval(lines, event.outcome),
+	usage: unchanged,
+	mode: unchanged,
+	tools: adds((event) => ({ kind: "tools", tools: event.tools })),
+	"turn-started": unchanged,
+	"turn-finished": unchanged,
+	"turn-failed": adds((event) => ({ kind: "error", text: event.message })),
+	"turn-cancelled": adds(() => ({ kind: "stopped" })),
 };
 
 const TURN_AFTER: Partial<Record<ScreenEvent["type"], Turn>> = {
@@ -95,11 +107,11 @@ const TURN_AFTER: Partial<Record<ScreenEvent["type"], Turn>> = {
 	"turn-cancelled": "idle",
 };
 
-const EMPTY: Conversation = { lines: [], streaming: "", turn: "idle", queue: [] };
+const EMPTY: Conversation = { ready: false, lines: [], streaming: "", turn: "idle", queue: [] };
 
-function lineOf<Type extends keyof EventMap>(type: Type, event: EventMap[Type]): Line | null {
-	const make: (event: EventMap[Type]) => Line | null = LINES[type];
-	return make(event);
+function edit<Type extends keyof EventMap>(lines: Line[], type: Type, event: EventMap[Type]): boolean {
+	const apply: Edit<EventMap[Type]> = EDITS[type];
+	return apply(lines, event);
 }
 
 function streamingAfter(streaming: string, event: ScreenEvent): string {
@@ -120,14 +132,19 @@ function turnAfter(turn: Turn, event: ScreenEvent): Turn {
 }
 
 function applyEvents(conversation: Conversation, events: ScreenEvent[]): Conversation {
-	const added = events.flatMap((event) => lineOf(event.type, event) ?? []);
-	const next = { ...conversation, lines: added.length === 0 ? conversation.lines : [...conversation.lines, ...added] };
+	const lines = [...conversation.lines];
+	let changed = false;
+	const next = { ...conversation, ready: true };
 	for (const event of events) {
+		changed = edit(lines, event.type, event) || changed;
 		next.streaming = streamingAfter(next.streaming, event);
 		next.turn = turnAfter(next.turn, event);
 		if (event.type === "queue") {
 			next.queue = event.items;
 		}
+	}
+	if (changed) {
+		next.lines = lines;
 	}
 	return next;
 }

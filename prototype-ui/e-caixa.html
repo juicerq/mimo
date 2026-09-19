@@ -1,0 +1,2385 @@
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>mimo: caixa de entrada</title>
+		<script>
+			(() => {
+				let theme = null;
+				try {
+					theme = localStorage.getItem("mimo-e:theme");
+				} catch {
+					theme = null;
+				}
+				document.documentElement.dataset.theme = theme ?? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+			})();
+		</script>
+		<style>
+			:root {
+				--sans: ui-sans-serif, system-ui, sans-serif;
+				--mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+				--amber: #f59e0b;
+				--red: #ef4444;
+				--blue: #3b82f6;
+				--green: #22c55e;
+				--left: 264px;
+				--right: 296px;
+				--bar: 56px;
+				--radius: 9999px;
+				--radius-block: 16px;
+				--radius-side: 8px;
+			}
+
+			:root,
+			[data-theme="light"] {
+				color-scheme: light;
+				--bg: #ffffff;
+				--fg: #0a0a0a;
+				--raised: #ffffff;
+				--muted: #f5f5f5;
+				--hover: #fafafa;
+				--muted-fg: #737373;
+				--border: #e5e5e5;
+				--line: #d4d4d4;
+				--primary: #171717;
+				--primary-fg: #fafafa;
+				--link: #2563eb;
+				--red-text: #dc2626;
+				--code: #fafafa;
+				--track: #e5e5e5;
+				--knob: #ffffff;
+				--knob-on: #ffffff;
+				--shadow: 0 16px 40px rgb(0 0 0 / 0.12);
+				--scrim: rgb(0 0 0 / 0.2);
+			}
+
+			[data-theme="dark"] {
+				color-scheme: dark;
+				--bg: #0a0a0a;
+				--fg: #fafafa;
+				--raised: #171717;
+				--muted: #262626;
+				--hover: #171717;
+				--muted-fg: #a3a3a3;
+				--border: #262626;
+				--line: #404040;
+				--primary: #fafafa;
+				--primary-fg: #171717;
+				--link: #60a5fa;
+				--red-text: #f87171;
+				--code: #171717;
+				--track: #404040;
+				--knob: #a3a3a3;
+				--knob-on: #171717;
+				--shadow: 0 16px 40px rgb(0 0 0 / 0.6);
+				--scrim: rgb(0 0 0 / 0.5);
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				height: 100%;
+				margin: 0;
+			}
+
+			body {
+				overflow: hidden;
+				background: var(--bg);
+				color: var(--fg);
+				font: 14px/1.5 var(--sans);
+				-webkit-font-smoothing: antialiased;
+			}
+
+			p,
+			h2,
+			h3,
+			dl,
+			dd,
+			ul {
+				margin: 0;
+			}
+
+			ul {
+				padding: 0;
+				list-style: none;
+			}
+
+			button,
+			input,
+			select,
+			textarea {
+				font: inherit;
+				color: inherit;
+			}
+
+			button {
+				padding: 0;
+				border: 0;
+				background: none;
+				cursor: pointer;
+			}
+
+			code,
+			kbd,
+			pre {
+				font-family: var(--mono);
+			}
+
+			:focus-visible {
+				outline: 2px solid var(--muted-fg);
+				outline-offset: 1px;
+			}
+
+			.sr {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				overflow: hidden;
+				clip-path: inset(50%);
+				white-space: nowrap;
+			}
+
+			.icon {
+				display: inline-grid;
+				flex: none;
+				place-items: center;
+				width: 32px;
+				height: 32px;
+				border-radius: var(--radius);
+				color: var(--muted-fg);
+			}
+
+			.icon:hover {
+				background: var(--muted);
+				color: var(--fg);
+			}
+
+			.icon svg {
+				width: 20px;
+				height: 20px;
+			}
+
+			.icon[aria-pressed="true"] {
+				color: var(--fg);
+			}
+
+			.app {
+				display: grid;
+				grid-template-columns: var(--left) minmax(0, 1fr) var(--right);
+				grid-template-rows: var(--bar) minmax(0, 1fr);
+				height: 100vh;
+			}
+
+			.app:not(.info-open) {
+				grid-template-columns: var(--left) minmax(0, 1fr);
+			}
+
+			.app:not(.info-open) .info {
+				display: none;
+			}
+
+			.side {
+				grid-column: 1;
+				grid-row: 1 / 3;
+				display: flex;
+				flex-direction: column;
+				min-height: 0;
+				border-right: 1px solid var(--border);
+			}
+
+			.side-top {
+				display: flex;
+				flex: none;
+				align-items: center;
+				justify-content: flex-end;
+				height: var(--bar);
+				padding: 0 12px;
+			}
+
+			.list {
+				flex: 1;
+				min-height: 0;
+				overflow-y: auto;
+				padding: 0 8px 12px;
+				scrollbar-width: thin;
+				scrollbar-color: var(--border) transparent;
+			}
+
+			.row,
+			.add {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				width: 100%;
+				padding: 8px;
+				border-radius: var(--radius-side);
+				text-align: left;
+				--ring: var(--bg);
+			}
+
+			.side .icon,
+			.info .icon {
+				border-radius: var(--radius-side);
+			}
+
+			.add[hidden] {
+				display: none;
+			}
+
+			.row + .row,
+			.add + .rows {
+				margin-top: 2px;
+			}
+
+			.row:hover {
+				background: var(--hover);
+				--ring: var(--hover);
+			}
+
+			.row[aria-current="true"],
+			.add {
+				background: var(--muted);
+				--ring: var(--muted);
+			}
+
+			.av {
+				position: relative;
+				display: block;
+				flex: none;
+				width: 47px;
+				height: 47px;
+			}
+
+			.av svg {
+				display: block;
+				width: 100%;
+				height: 100%;
+			}
+
+			.av.ph {
+				border: 1.5px dashed var(--muted-fg);
+				border-radius: 50%;
+				opacity: 0.6;
+			}
+
+			.presence {
+				position: absolute;
+				right: 12%;
+				bottom: 12%;
+				display: none;
+				width: 9.6px;
+				height: 9.6px;
+				border-radius: 50%;
+				box-shadow: 0 0 0 2px var(--ring);
+			}
+
+			.presence[data-state="working"] {
+				display: block;
+				background: var(--blue);
+			}
+
+			.presence[data-state="waiting"] {
+				display: block;
+				background: var(--amber);
+			}
+
+			.presence[data-state="failed"] {
+				display: block;
+				background: var(--red);
+			}
+
+			.txt {
+				display: flex;
+				flex: 1;
+				flex-direction: column;
+				min-width: 0;
+			}
+
+			.name,
+			.last {
+				overflow: hidden;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+
+			.name {
+				font-weight: 500;
+			}
+
+			.row.unread .name {
+				font-weight: 700;
+			}
+
+			.last {
+				font-size: 13px;
+				color: var(--muted-fg);
+			}
+
+			.add input {
+				width: 100%;
+				padding: 0;
+				border: 0;
+				outline: none;
+				background: none;
+				font-weight: 500;
+			}
+
+			.add input::placeholder {
+				color: var(--muted-fg);
+				font-weight: 400;
+			}
+
+			.add-error {
+				font-size: 12px;
+				color: var(--red-text);
+			}
+
+			.pane {
+				grid-column: 2;
+				grid-row: 2;
+				display: flex;
+				flex-direction: column;
+				min-width: 0;
+				min-height: 0;
+			}
+
+			.head {
+				grid-column: 2 / -1;
+				grid-row: 1;
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				height: var(--bar);
+				padding: 0 12px 0 20px;
+				border-bottom: 1px solid var(--border);
+				--ring: var(--bg);
+			}
+
+			.head .av {
+				width: 38px;
+				height: 38px;
+			}
+
+			.head .presence {
+				width: 8px;
+				height: 8px;
+				box-shadow: 0 0 0 1.6px var(--ring);
+			}
+
+			.head h2 {
+				flex: 1;
+				min-width: 0;
+				overflow: hidden;
+				font-size: 15px;
+				font-weight: 600;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+
+			.win {
+				display: flex;
+				align-items: center;
+				gap: 2px;
+				margin-left: 6px;
+				padding-left: 8px;
+				border-left: 1px solid var(--border);
+			}
+
+			.win .close:hover {
+				background: var(--red);
+				color: #ffffff;
+			}
+
+			.back {
+				display: none;
+				margin-left: -10px;
+			}
+
+			.scroll {
+				flex: 1;
+				min-height: 0;
+				overflow-y: auto;
+				scrollbar-width: thin;
+				scrollbar-color: var(--border) transparent;
+			}
+
+			.lines {
+				padding: 8px 24px 20px;
+			}
+
+			.msg {
+				margin-top: 20px;
+			}
+
+			.msg.you {
+				display: flex;
+				justify-content: flex-end;
+			}
+
+			.msg.you p {
+				max-width: min(80%, 60ch);
+				padding: 8px 14px;
+				border-radius: 18px 18px 0 18px;
+				background: var(--primary);
+				color: var(--primary-fg);
+				white-space: pre-wrap;
+				overflow-wrap: anywhere;
+			}
+
+			.reply {
+				width: fit-content;
+				max-width: min(85%, 68ch);
+				padding: 10px 16px;
+				border-radius: 18px 18px 18px 0;
+				background: var(--muted);
+				line-height: 1.65;
+				overflow-wrap: anywhere;
+			}
+
+			.reply:empty {
+				display: none;
+			}
+
+			.reply > * {
+				margin: 0 0 10px;
+			}
+
+			.reply > :last-child {
+				margin-bottom: 0;
+			}
+
+			.reply h2 {
+				margin-top: 2px;
+				font-size: 16px;
+				font-weight: 600;
+				line-height: 1.4;
+			}
+
+			.reply strong {
+				font-weight: 600;
+			}
+
+			.reply ul,
+			.reply ol {
+				padding-left: 20px;
+			}
+
+			.reply ul {
+				list-style: disc;
+			}
+
+			.reply li + li {
+				margin-top: 2px;
+			}
+
+			.reply li::marker {
+				color: var(--muted-fg);
+			}
+
+			.reply code {
+				padding: 1px 5px;
+				border-radius: var(--radius);
+				background: var(--bg);
+				font-size: 0.86em;
+			}
+
+			.reply pre {
+				padding: 12px 14px;
+				overflow-x: auto;
+				border: 1px solid var(--line);
+				border-radius: 12px;
+				background: var(--bg);
+				overflow-wrap: normal;
+				font-size: 12.5px;
+				line-height: 1.6;
+			}
+
+			.reply pre code {
+				padding: 0;
+				background: none;
+				font-size: inherit;
+			}
+
+			.reply table {
+				border-collapse: collapse;
+				font-size: 13px;
+			}
+
+			.reply th {
+				padding: 6px 20px 6px 0;
+				border-bottom: 1px solid var(--line);
+				text-align: left;
+				font-weight: 500;
+				color: var(--muted-fg);
+			}
+
+			.reply td {
+				padding: 6px 20px 6px 0;
+				border-bottom: 1px solid var(--line);
+			}
+
+			.reply blockquote {
+				margin-left: 0;
+				padding-left: 14px;
+				border-left: 2px solid var(--line);
+				color: var(--muted-fg);
+			}
+
+			.reply a {
+				color: var(--link);
+				text-underline-offset: 3px;
+			}
+
+			.event {
+				max-width: 80%;
+				margin: 16px auto 0;
+				font-size: 12.5px;
+				color: var(--muted-fg);
+				text-align: center;
+			}
+
+			.event + .event {
+				margin-top: 4px;
+			}
+
+			.event-head {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				max-width: 100%;
+			}
+
+			.event-head > span {
+				min-width: 0;
+			}
+
+			.event svg {
+				flex: none;
+				width: 14px;
+				height: 14px;
+			}
+
+			.event code {
+				font-size: 12px;
+				color: var(--fg);
+			}
+
+			.event strong {
+				font-weight: 500;
+				color: var(--fg);
+			}
+
+			.event .gist {
+				overflow: hidden;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+
+			.event .gist::before {
+				content: "·";
+				margin-right: 6px;
+			}
+
+			.event[data-tone="warn"] svg {
+				color: var(--amber);
+			}
+
+			.event[data-tone="err"] {
+				color: var(--red-text);
+			}
+
+			.event[data-tone="err"] svg {
+				color: var(--red);
+			}
+
+			.io {
+				max-width: 560px;
+				margin: 6px auto 0;
+				text-align: left;
+			}
+
+			.io dl,
+			.ask dl {
+				display: grid;
+				grid-template-columns: max-content minmax(0, 1fr);
+				gap: 2px 14px;
+				font: 12px/1.6 var(--mono);
+			}
+
+			.io dt,
+			.ask dt {
+				color: var(--muted-fg);
+			}
+
+			.io dd,
+			.ask dd {
+				color: var(--fg);
+				overflow-wrap: anywhere;
+			}
+
+			.io pre {
+				max-height: 240px;
+				margin: 6px 0 0;
+				padding: 8px 12px;
+				overflow: auto;
+				border: 1px solid var(--border);
+				border-radius: var(--radius-block);
+				background: var(--code);
+				font-size: 12px;
+				line-height: 1.6;
+				color: var(--fg);
+				white-space: pre-wrap;
+			}
+
+			.io pre.bad {
+				color: var(--red-text);
+			}
+
+			.io .said {
+				color: var(--fg);
+			}
+
+			.summary {
+				margin-top: 8px;
+				font-size: 13px;
+			}
+
+			.summary summary {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				color: var(--muted-fg);
+				cursor: pointer;
+				list-style: none;
+			}
+
+			.summary summary::-webkit-details-marker {
+				display: none;
+			}
+
+			.summary summary::before,
+			.summary summary::after {
+				content: "";
+				flex: 1;
+				height: 1px;
+				background: var(--border);
+			}
+
+			.summary summary:hover {
+				color: var(--fg);
+			}
+
+			.summary p {
+				margin-top: 8px;
+				color: var(--muted-fg);
+			}
+
+			.empty {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				max-width: 380px;
+				margin: 14vh auto 0;
+				text-align: center;
+			}
+
+			.empty .av {
+				width: 85px;
+				height: 85px;
+				margin-bottom: 16px;
+			}
+
+			.empty h3 {
+				margin: 0;
+				font-size: 17px;
+				font-weight: 600;
+			}
+
+			.empty p {
+				margin-top: 6px;
+				color: var(--muted-fg);
+			}
+
+			.dock {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				padding: 0 24px;
+			}
+
+			.dock:empty {
+				display: none;
+			}
+
+			.ask-head {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				font-weight: 500;
+			}
+
+			.ask-head svg {
+				width: 18px;
+				height: 18px;
+				color: var(--amber);
+			}
+
+			.ask-head code {
+				font-size: 12.5px;
+			}
+
+			.ask dl {
+				margin: 10px 0 14px;
+			}
+
+			.ask-actions {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+
+			.ask-done {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				font-size: 13px;
+				color: var(--muted-fg);
+			}
+
+			.ask-done svg {
+				width: 15px;
+				height: 15px;
+				color: var(--green);
+			}
+
+			.ask-done[data-outcome="denied"] svg {
+				color: var(--red);
+			}
+
+			.btn {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				height: 32px;
+				padding: 0 12px;
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				background: var(--bg);
+				font-size: 13px;
+				font-weight: 500;
+				white-space: nowrap;
+			}
+
+			.btn:hover {
+				background: var(--muted);
+			}
+
+			.btn.primary {
+				border-color: var(--primary);
+				background: var(--primary);
+				color: var(--primary-fg);
+			}
+
+			.btn.primary:hover {
+				opacity: 0.9;
+			}
+
+			.btn kbd {
+				font-size: 11px;
+				opacity: 0.55;
+			}
+
+			.status {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				min-height: 36px;
+				font-size: 13px;
+				color: var(--muted-fg);
+			}
+
+			.status .what {
+				flex: 1;
+				min-width: 0;
+				overflow: hidden;
+				color: var(--fg);
+				text-align: left;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+
+			.status code {
+				font-size: 12.5px;
+			}
+
+			.status .icon {
+				width: 28px;
+				height: 28px;
+			}
+
+			.status .icon svg {
+				width: 20px;
+				height: 20px;
+			}
+
+			.timer {
+				flex: none;
+				font-variant-numeric: tabular-nums;
+			}
+
+			.spinner {
+				flex: none;
+				width: 14px;
+				height: 14px;
+				border: 2px solid rgb(59 130 246 / 0.25);
+				border-top-color: var(--blue);
+				border-radius: 50%;
+				animation: spin 0.8s linear infinite;
+			}
+
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+
+			.queue-note {
+				flex: none;
+				padding: 1px 8px;
+				border-radius: var(--radius);
+				background: var(--muted);
+				font-size: 12px;
+				color: var(--muted-fg);
+			}
+
+			.queue-note:hover {
+				color: var(--fg);
+			}
+
+			.ask .queue-note {
+				margin-left: auto;
+			}
+
+			.composer {
+				padding: 8px 24px 20px;
+			}
+
+			.field {
+				display: flex;
+				align-items: flex-end;
+				gap: 8px;
+				padding: 6px 6px 6px 16px;
+				border: 1px solid var(--border);
+				border-radius: 24px;
+				background: var(--bg);
+				box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+			}
+
+			.field:focus-within {
+				border-color: var(--muted-fg);
+			}
+
+			.field textarea {
+				flex: 1;
+				min-height: calc(1lh + 12px);
+				max-height: calc(8lh + 12px);
+				padding: 6px 0;
+				border: 0;
+				outline: none;
+				background: none;
+				resize: none;
+				field-sizing: content;
+			}
+
+			.field textarea::placeholder {
+				color: var(--muted-fg);
+			}
+
+			.send {
+				display: grid;
+				flex: none;
+				place-items: center;
+				width: 32px;
+				height: 32px;
+				border-radius: var(--radius);
+				background: var(--primary);
+				color: var(--primary-fg);
+			}
+
+			.send svg {
+				width: 16px;
+				height: 16px;
+				stroke-width: 2;
+			}
+
+			.send:disabled {
+				background: var(--muted);
+				color: var(--muted-fg);
+				cursor: default;
+			}
+
+			.scrim {
+				display: none;
+				position: fixed;
+				inset: var(--bar) 0 0;
+				z-index: 10;
+				background: var(--scrim);
+			}
+
+			.info {
+				grid-column: 3;
+				grid-row: 2;
+				display: flex;
+				flex-direction: column;
+				min-height: 0;
+				border-left: 1px solid var(--border);
+				background: var(--bg);
+			}
+
+			.info-body {
+				flex: 1;
+				min-height: 0;
+				overflow-y: auto;
+				padding: 20px;
+				scrollbar-width: thin;
+				scrollbar-color: var(--border) transparent;
+			}
+
+			.info section + section {
+				margin-top: 24px;
+			}
+
+			.info h3 {
+				margin: 0 0 8px;
+				font-size: 12px;
+				font-weight: 500;
+				color: var(--muted-fg);
+			}
+
+			.info h4 {
+				margin: 12px 0 6px;
+				font-size: 12px;
+				font-weight: 500;
+				color: var(--fg);
+			}
+
+			.info h4:first-of-type {
+				margin-top: 0;
+			}
+
+			.info-foot {
+				display: flex;
+				flex: none;
+				padding: 8px 12px 12px;
+			}
+
+			.select,
+			.input {
+				width: 100%;
+				height: 36px;
+				padding: 0 10px;
+				border: 1px solid var(--border);
+				border-radius: var(--radius-side);
+				background: var(--bg);
+			}
+
+			.input {
+				font: 13px var(--mono);
+			}
+
+			.input::placeholder {
+				color: var(--muted-fg);
+			}
+
+			.seg {
+				display: flex;
+				padding: 3px;
+				border-radius: var(--radius-side);
+				background: var(--muted);
+			}
+
+			.select + .seg {
+				margin-top: 8px;
+			}
+
+			.seg button {
+				flex: 1;
+				height: 28px;
+				border-radius: calc(var(--radius-side) - 2px);
+				font-size: 13px;
+				color: var(--muted-fg);
+			}
+
+			.seg button:hover {
+				color: var(--fg);
+			}
+
+			.seg button[aria-checked="true"] {
+				background: var(--bg);
+				color: var(--fg);
+				box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
+			}
+
+			.hint {
+				margin-top: 6px;
+				font-size: 12px;
+				color: var(--muted-fg);
+			}
+
+			.toggle {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 4px 0;
+			}
+
+			.switch {
+				position: relative;
+				flex: none;
+				width: 34px;
+				height: 20px;
+				border-radius: 999px;
+				background: var(--track);
+				transition: background 0.15s ease;
+			}
+
+			.switch::after {
+				content: "";
+				position: absolute;
+				top: 2px;
+				left: 2px;
+				width: 16px;
+				height: 16px;
+				border-radius: 50%;
+				background: var(--knob);
+				box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+				transition: transform 0.15s ease;
+			}
+
+			.switch[aria-checked="true"] {
+				background: var(--primary);
+			}
+
+			.switch[aria-checked="true"]::after {
+				background: var(--knob-on);
+				transform: translateX(14px);
+			}
+
+			.stat strong {
+				font-weight: 600;
+				font-variant-numeric: tabular-nums;
+			}
+
+			.kid,
+			.queued {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				min-width: 0;
+				padding: 4px 0;
+				font-size: 13px;
+			}
+
+			.kid .dot {
+				flex: none;
+				width: 8px;
+				height: 8px;
+				border-radius: 50%;
+				background: var(--green);
+			}
+
+			.kid[data-state="working"] .dot {
+				background: var(--blue);
+			}
+
+			.kid-txt {
+				display: flex;
+				flex: 1;
+				flex-direction: column;
+				min-width: 0;
+			}
+
+			.kid-txt span {
+				overflow: hidden;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+
+			.kid-txt span + span {
+				font-size: 12px;
+				color: var(--muted-fg);
+			}
+
+			.kid-meta {
+				display: flex;
+				flex: none;
+				flex-direction: column;
+				align-items: flex-end;
+				font-size: 12px;
+				color: var(--muted-fg);
+			}
+
+			.kid-meta code {
+				font-size: 11.5px;
+				color: var(--fg);
+			}
+
+			.queued span {
+				flex: 1;
+				min-width: 0;
+				overflow-wrap: anywhere;
+			}
+
+			.queued .icon {
+				width: 26px;
+				height: 26px;
+			}
+
+			.queued .icon svg {
+				width: 16px;
+				height: 16px;
+			}
+
+			@media (max-width: 959px) {
+				.app,
+				.app:not(.info-open) {
+					grid-template-columns: var(--left) minmax(0, 1fr);
+				}
+
+				.info,
+				.app:not(.info-open) .info {
+					display: flex;
+					position: fixed;
+					top: var(--bar);
+					right: 0;
+					bottom: 0;
+					z-index: 20;
+					width: min(var(--right), 100%);
+					box-shadow: var(--shadow);
+					transform: translateX(100%);
+					visibility: hidden;
+					transition:
+						transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+						visibility 0s linear 0.22s;
+				}
+
+				.app.info-open .info {
+					transform: none;
+					visibility: visible;
+					transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+				}
+
+				.app.info-open .scrim {
+					display: block;
+				}
+			}
+
+			@media (max-width: 719px) {
+				.app,
+				.app:not(.info-open) {
+					grid-template-columns: minmax(0, 1fr);
+				}
+
+				.side,
+				.head,
+				.pane {
+					grid-column: 1;
+				}
+
+				.app[data-view="chat"] .side,
+				.app[data-view="inbox"] .head,
+				.app[data-view="inbox"] .pane {
+					display: none;
+				}
+
+				.back {
+					display: inline-grid;
+				}
+
+				.head {
+					padding-left: 16px;
+				}
+
+				.lines,
+				.dock {
+					padding-left: 16px;
+					padding-right: 16px;
+				}
+
+				.composer {
+					padding: 8px 16px 12px;
+				}
+			}
+
+			@media (max-height: 480px) {
+				:root {
+					--bar: 48px;
+				}
+
+				.composer {
+					padding-bottom: 10px;
+				}
+
+				.ask dl {
+					margin: 6px 0 10px;
+				}
+
+				.ask dd {
+					overflow: hidden;
+					white-space: nowrap;
+					text-overflow: ellipsis;
+				}
+
+				.empty {
+					margin-top: 20px;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				*,
+				*::before,
+				*::after {
+					animation: none !important;
+					transition: none !important;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="app" data-view="inbox">
+			<aside class="side" aria-label="Bots">
+				<header class="side-top">
+					<button type="button" class="icon" data-new aria-label="Novo bot" title="Novo bot"></button>
+				</header>
+				<div class="list">
+					<form class="add" hidden>
+						<span class="av ph" aria-hidden="true"></span>
+						<span class="txt">
+							<input type="text" maxlength="40" placeholder="Nome do bot" aria-label="Nome do novo bot" autocomplete="off" spellcheck="false" />
+							<span class="add-error" hidden></span>
+						</span>
+					</form>
+					<div class="rows"></div>
+				</div>
+			</aside>
+			<header class="head"></header>
+			<main class="pane">
+				<div class="scroll"><div class="lines"></div></div>
+				<div class="dock"></div>
+				<form class="composer">
+					<div class="field">
+						<textarea rows="1" data-fid="composer" aria-label="Mensagem"></textarea>
+						<button type="submit" class="send" aria-label="Enviar" title="Enviar" disabled></button>
+					</div>
+				</form>
+			</main>
+			<div class="scrim" data-close-info></div>
+			<aside class="info" aria-label="Sobre o bot">
+				<div class="info-body">
+					<div class="info-now"></div>
+					<div class="info-settings"></div>
+				</div>
+				<footer class="info-foot">
+					<button type="button" class="icon" data-theme-toggle></button>
+				</footer>
+			</aside>
+		</div>
+		<script src="vendor/blobatar.js"></script>
+		<script src="vendor/heroicons.js"></script>
+		<script src="data.js"></script>
+		<script>
+			const D = window.MIMO;
+			const B = window.Blobatar;
+			const HERO = window.HEROICONS;
+			const LEVELS = ["off", "brief", "full"];
+			const LEVEL_NAMES = { off: "Oculto", brief: "Breve", full: "Completo" };
+			const NEEDS = { tool: "full", team: "brief", routine: "brief", note: "brief" };
+			const EFFORTS = { low: "baixo", medium: "médio", high: "alto", max: "máximo" };
+			const STATE_LABELS = { waiting: "esperando aprovação", failed: "falhou", working: "trabalhando", idle: "parado", fresh: "novo" };
+			const FACES = { waiting: "surprised", failed: "sad", working: "thinking", idle: "idle", fresh: "idle" };
+			const MODES = {
+				normal: { name: "Normal", hint: "Pede Aprovação antes de enviar emails, apagar Rotinas ou mexer no computador." },
+				autonomous: { name: "Autônomo", hint: "Age sem pedir Aprovação. Você revisa as ações depois." },
+			};
+			const KEYS = { theme: "mimo-e:theme", info: "mimo-e:info" };
+			const START = 14 * 60 + 6;
+			const loadedAt = Date.now();
+			const motion = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+			const wide = matchMedia("(min-width: 720px)");
+			const overlay = matchMedia("(max-width: 959px)");
+			const darkScheme = matchMedia("(prefers-color-scheme: dark)");
+
+			const el = {
+				app: document.querySelector(".app"),
+				side: document.querySelector(".side"),
+				rows: document.querySelector(".rows"),
+				add: document.querySelector(".add"),
+				addAvatar: document.querySelector(".add .av"),
+				addInput: document.querySelector(".add input"),
+				addError: document.querySelector(".add-error"),
+				pane: document.querySelector(".pane"),
+				head: document.querySelector(".head"),
+				scroll: document.querySelector(".scroll"),
+				lines: document.querySelector(".lines"),
+				dock: document.querySelector(".dock"),
+				composer: document.querySelector(".composer"),
+				textarea: document.querySelector(".composer textarea"),
+				send: document.querySelector(".send"),
+				info: document.querySelector(".info"),
+				infoBody: document.querySelector(".info-body"),
+				infoNow: document.querySelector(".info-now"),
+				infoSettings: document.querySelector(".info-settings"),
+				theme: document.querySelector("[data-theme-toggle]"),
+			};
+
+			function readStore(key) {
+				try {
+					return localStorage.getItem(key);
+				} catch {
+					return null;
+				}
+			}
+
+			function writeStore(key, value) {
+				try {
+					localStorage.setItem(key, value);
+				} catch {
+					return;
+				}
+			}
+
+			let stampSeq = 0;
+			const bots = D.bots.map((bot) => ({ ...structuredClone(bot), at: sortKey(bot.lastAt), unread: false, run: null, v: 0 }));
+			const ui = {
+				selected: "gemeio",
+				level: "brief",
+				view: "inbox",
+				info: readStore(KEYS.info) !== "closed",
+				infoOverlay: false,
+				adding: false,
+				drafts: new Map(),
+				open: new Set(),
+			};
+			const rowEls = new Map();
+			const faces = new Map();
+			const sig = { head: "", lines: "", dock: "", now: "", settings: "" };
+
+			function icon(name, solid) {
+				return HERO[solid ? "solid" : "outline"][name];
+			}
+
+			function sortKey(lastAt) {
+				if (!lastAt) {
+					return -2000;
+				}
+				if (lastAt === "ontem") {
+					return -1000;
+				}
+				const [hours, minutes] = lastAt.split(":").map(Number);
+				return hours * 60 + minutes;
+			}
+
+			function minutesNow() {
+				return START + Math.floor((Date.now() - loadedAt) / 60000);
+			}
+
+			function stamp(bot) {
+				stampSeq += 1;
+				bot.at = minutesNow() + stampSeq / 10000;
+			}
+
+			function esc(text) {
+				return String(text ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+			}
+
+			function fmt(seconds) {
+				return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+			}
+
+			function byId(id) {
+				return bots.find((bot) => bot.id === id);
+			}
+
+			function selectedBot() {
+				return byId(ui.selected);
+			}
+
+			function gist(input) {
+				const value = Object.values(input ?? {})[0];
+				if (value === undefined) {
+					return "";
+				}
+				return String(value).replace(/^https?:\/\//, "").replace(/\s+/g, " ");
+			}
+
+			function plain(html) {
+				const box = document.createElement("div");
+				box.innerHTML = html.replace(/<\/(p|li|h\d|td|th|pre|blockquote)>/g, "$& ");
+				return box.textContent.replace(/\s+/g, " ").trim();
+			}
+
+			function busy(bot) {
+				return bot.live.turn !== "idle" || Boolean(bot.live.approval);
+			}
+
+			function teamWorking(bot) {
+				return bot.live.team.some((kid) => kid.state === "working");
+			}
+
+			function stateOf(bot) {
+				const live = bot.live;
+				if (live.approval) {
+					return "waiting";
+				}
+				if (live.failed) {
+					return "failed";
+				}
+				if (live.turn !== "idle" || teamWorking(bot)) {
+					return "working";
+				}
+				return bot.lines.length ? "idle" : "fresh";
+			}
+
+			function lastMessage(bot) {
+				const line = bot.lines.findLast((entry) => entry.kind === "you" || (entry.kind === "reply" && entry.html));
+				if (!line) {
+					return null;
+				}
+				return line.kind === "you" ? `Você: ${line.text}` : plain(line.html);
+			}
+
+			function face(name, state, size) {
+				const key = `${name}|${state}|${size}`;
+				if (!faces.has(key)) {
+					faces.set(key, B.blobatar(name, { size, expression: B.expressions[FACES[state]], title: `${name}: ${STATE_LABELS[state]}` }));
+				}
+				return faces.get(key);
+			}
+
+			function avatarHTML(bot, size) {
+				const state = stateOf(bot);
+				return `<span class="av">${face(bot.name, state, size)}<span class="presence" data-state="${state}"></span></span>`;
+			}
+
+			function visible(bot) {
+				return bot.id === ui.selected && (wide.matches || ui.view === "chat");
+			}
+
+			function infoOpen() {
+				return overlay.matches ? ui.infoOverlay : ui.info;
+			}
+
+			function rowSig(bot) {
+				return JSON.stringify([stateOf(bot), bot.id === ui.selected, bot.unread, bot.name, lastMessage(bot)]);
+			}
+
+			function fillRow(node, bot) {
+				const state = stateOf(bot);
+				node.className = `row${bot.unread ? " unread" : ""}`;
+				node.setAttribute("aria-current", String(bot.id === ui.selected));
+				node.innerHTML = `${avatarHTML(bot, 47)}<span class="txt"><span class="name">${esc(bot.name)}</span><span class="last">${esc(lastMessage(bot) ?? "Sem mensagens ainda")}</span></span><span class="sr">${STATE_LABELS[state]}</span>`;
+			}
+
+			function renderList() {
+				const sorted = [...bots].sort((a, b) => b.at - a.at);
+				const before = new Map();
+				for (const node of el.rows.children) {
+					before.set(node.dataset.id, node.getBoundingClientRect().top);
+				}
+				const active = document.activeElement;
+				const hadFocus = el.rows.contains(active);
+				const nodes = sorted.map((bot) => {
+					let node = rowEls.get(bot.id);
+					if (!node) {
+						node = document.createElement("button");
+						node.type = "button";
+						node.dataset.id = bot.id;
+						rowEls.set(bot.id, node);
+					}
+					const next = rowSig(bot);
+					if (node.dataset.sig !== next) {
+						fillRow(node, bot);
+						node.dataset.sig = next;
+					}
+					return node;
+				});
+				const same = nodes.length === el.rows.children.length && nodes.every((node, index) => el.rows.children[index] === node);
+				if (!same) {
+					el.rows.replaceChildren(...nodes);
+				}
+				if (hadFocus && document.activeElement !== active) {
+					active.focus({ preventScroll: true });
+				}
+				if (!motion) {
+					return;
+				}
+				for (const node of nodes) {
+					const top = before.get(node.dataset.id);
+					const now = node.getBoundingClientRect().top;
+					if (top === undefined) {
+						if (before.size) {
+							node.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240, easing: "ease-out" });
+						}
+						continue;
+					}
+					if (Math.abs(top - now) > 1) {
+						node.animate([{ transform: `translateY(${top - now}px)` }, { transform: "none" }], { duration: 380, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+					}
+				}
+			}
+
+			function headHTML(bot) {
+				return `<button type="button" class="icon back" data-back data-fid="back" aria-label="Voltar para os bots" title="Voltar">${icon("chevron-left")}</button>
+					${avatarHTML(bot, 38)}
+					<h2>${esc(bot.name)}<span class="sr">, ${STATE_LABELS[stateOf(bot)]}</span></h2>
+					<button type="button" class="icon" data-info-toggle data-fid="info-toggle" aria-pressed="${infoOpen()}" aria-label="Sobre ${esc(bot.name)}" title="Sobre o bot (Ctrl+I)">${icon("information-circle")}</button>
+					<div class="win">
+						<button type="button" class="icon" data-fid="win-min" aria-label="Minimizar" title="Minimizar">${icon("minus")}</button>
+						<button type="button" class="icon" data-fid="win-max" aria-label="Maximizar" title="Maximizar">${icon("stop")}</button>
+						<button type="button" class="icon close" data-fid="win-close" aria-label="Fechar o app" title="Fechar">${icon("x-mark")}</button>
+					</div>`;
+			}
+
+			function shows(line) {
+				const need = line.kind === "team" && line.verb === "criou" ? "full" : (NEEDS[line.kind] ?? "off");
+				return LEVELS.indexOf(ui.level) >= LEVELS.indexOf(need);
+			}
+
+			function eventHTML(tone, glyph, head, body) {
+				return `<div class="event"${tone ? ` data-tone="${tone}"` : ""}><div class="event-head">${glyph}${head}</div>${body || ""}</div>`;
+			}
+
+			function askHTML(ask, foot, waiting) {
+				const rows = Object.entries(ask.input)
+					.map(([key, value]) => `<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`)
+					.join("");
+				return `<div class="msg reply ask" role="group" aria-label="Aprovação">
+						<div class="ask-head">${waiting ? icon("pause-circle") : ""}<span>Aprovar <code>${esc(ask.tool)}</code>?</span></div>
+						<dl>${rows}</dl>
+						${foot}
+					</div>`;
+			}
+
+			function ioHTML(input, result, failed) {
+				const rows = Object.entries(input ?? {})
+					.map(([key, value]) => `<dt>${esc(key)}</dt><dd>${esc(typeof value === "string" ? value : JSON.stringify(value))}</dd>`)
+					.join("");
+				return `<div class="io">${rows ? `<dl>${rows}</dl>` : ""}${result ? `<pre${failed ? ' class="bad"' : ""}>${esc(result)}</pre>` : ""}</div>`;
+			}
+
+			function lineHTML(bot, line, index) {
+				if (!shows(line)) {
+					return "";
+				}
+				const full = ui.level === "full";
+				switch (line.kind) {
+					case "you":
+						return `<div class="msg you"><p>${esc(line.text)}</p></div>`;
+					case "reply":
+						return `<div class="msg reply">${line.html}</div>`;
+					case "tool":
+						return eventHTML(line.failed ? "err" : "", icon("wrench-screwdriver"), `<code>${esc(line.name)}</code><span class="gist">${esc(line.failed ? "falhou" : gist(line.input))}</span>`, full && ioHTML(line.input, line.failed ?? line.result, Boolean(line.failed)));
+					case "team":
+						return eventHTML("", icon("user-group"), `<span>${esc(line.verb[0].toUpperCase() + line.verb.slice(1))} <strong>${esc(line.bot)}</strong></span><span class="gist">${esc(line.task)}</span>`);
+					case "routine":
+						return eventHTML("", icon("clock"), `<span>Rotina <code>${esc(line.name)}</code> começou</span>`, full && `<div class="io"><p class="said">${esc(line.prompt)}</p></div>`);
+					case "approval": {
+						const approved = line.outcome === "approved";
+						return askHTML(line, `<p class="ask-done" data-outcome="${line.outcome}">${icon(approved ? "check" : "x-mark")}<span>Você ${approved ? "aprovou" : "negou"}</span></p>`);
+					}
+					case "note":
+						return eventHTML("", icon("user-group"), `<span><strong>${esc(line.from)}</strong> terminou</span><span class="gist">${esc(line.task)}</span>`, full && `<div class="io"><pre>${esc(line.detail)}</pre></div>`);
+					case "summary": {
+						const key = `${bot.id}:${index}`;
+						return `<details class="summary" data-key="${key}"${ui.open.has(key) ? " open" : ""}><summary>Resumo do que veio antes</summary><p>${esc(line.text)}</p></details>`;
+					}
+					case "warning":
+						return eventHTML("warn", icon("exclamation-triangle"), `<span>${esc(line.text)}</span>`);
+					case "error":
+						return eventHTML("err", icon("x-circle"), `<span>${esc(line.text)}</span>`);
+					case "stopped":
+						return eventHTML("", icon("stop"), "<span>Interrompido</span>");
+				}
+				return "";
+			}
+
+			function linesHTML(bot) {
+				if (!bot.lines.length && !busy(bot)) {
+					return `<div class="empty"><span class="av">${face(bot.name, "fresh", 85)}</span><h3>Comece a conversa com ${esc(bot.name)}</h3><p>Diga o que você precisa. ${esc(bot.name)} aprende com o uso e guarda na Memória o que importa.</p></div>`;
+				}
+				return bot.lines.map((line, index) => lineHTML(bot, line, index)).join("") + (bot.live.approval ? approvalHTML(bot) : "");
+			}
+
+			function queueNote(bot) {
+				const count = bot.live.queue.length;
+				return count ? `<button type="button" class="queue-note" data-show-now data-fid="queue-note" title="Ver a Fila">${count} na fila</button>` : "";
+			}
+
+			function approvalHTML(bot) {
+				return askHTML(
+					bot.live.approval,
+					`<div class="ask-actions">
+						<button type="button" class="btn primary" data-decide="approve" data-fid="approve">Aprovar <kbd>1</kbd></button>
+						<button type="button" class="btn" data-decide="deny" data-fid="deny">Negar <kbd>2</kbd></button>
+						${queueNote(bot)}
+					</div>`,
+					true,
+				);
+			}
+
+			function statusHTML(bot) {
+				const live = bot.live;
+				if (live.turn === "idle") {
+					return teamWorking(bot) ? `<div class="status"><span class="spinner" aria-hidden="true"></span><button type="button" class="what" data-show-now data-fid="team-note">A Equipe está trabalhando</button></div>` : "";
+				}
+				const what = live.turn === "thinking" ? "Pensando" : live.turn === "writing" ? "Respondendo" : live.tool ? `Usando <code>${esc(live.tool.name)}</code>` : "Trabalhando";
+				return `<div class="status">
+						<span class="spinner" aria-hidden="true"></span>
+						<span class="what">${what}</span>
+						${queueNote(bot)}
+						<span class="timer" data-timer="${bot.id}">${fmt(live.seconds)}</span>
+						<button type="button" class="icon" data-stop data-fid="stop" aria-label="Parar" title="Parar o Turno e descartar a Fila">${icon("stop", true)}</button>
+					</div>`;
+			}
+
+			function dockHTML(bot) {
+				return bot.live.approval ? "" : statusHTML(bot);
+			}
+
+			function nowHTML(bot) {
+				const live = bot.live;
+				if (!live.team.length && !live.queue.length) {
+					return "";
+				}
+				const team = live.team.length
+					? `<h4>Equipe</h4><ul>${live.team
+							.map((kid) => {
+								const meta = kid.state === "working" ? `${kid.tool ? `<code>${esc(kid.tool)}</code>` : ""}<span class="timer" data-timer="${bot.id}:${esc(kid.name)}">${fmt(kid.seconds)}</span>` : "<span>terminou</span>";
+								return `<li class="kid" data-state="${kid.state}"><span class="dot"></span><span class="kid-txt"><span>${esc(kid.name)}</span><span>${esc(kid.task)}</span></span><span class="kid-meta">${meta}</span></li>`;
+							})
+							.join("")}</ul>`
+					: "";
+				const queue = live.queue.length
+					? `<h4>Fila</h4><ul>${live.queue
+							.map((text, index) => `<li class="queued"><span>${esc(text)}</span><button type="button" class="icon" data-unqueue="${index}" data-fid="unqueue-${index}" aria-label="Tirar da fila" title="Tirar da fila">${icon("x-mark")}</button></li>`)
+							.join("")}</ul>`
+					: "";
+				return `<section data-sec="now"><h3>Agora</h3>${team}${queue}</section>`;
+			}
+
+			function segHTML(label, items, current, attr) {
+				return `<div class="seg" role="radiogroup" aria-label="${label}">${items
+					.map(([value, text]) => `<button type="button" role="radio" aria-checked="${value === current}" ${attr}="${value}" data-fid="${attr}-${value}">${text}</button>`)
+					.join("")}</div>`;
+			}
+
+			function settingsHTML(bot) {
+				const model = D.models.find((entry) => entry.id === bot.model.id);
+				const memories = bot.memories ? `<strong>${bot.memories}</strong> ${bot.memories === 1 ? "memória" : "memórias"}` : "Nenhuma memória ainda";
+				return `<section data-sec="model">
+						<h3>Modelo</h3>
+						<select class="select" data-set="model" data-fid="model" aria-label="Modelo">${D.models.map((entry) => `<option value="${entry.id}"${entry.id === bot.model.id ? " selected" : ""}>${esc(entry.label)}</option>`).join("")}</select>
+						${segHTML(
+							"Esforço",
+							model.efforts.map((effort) => [effort, EFFORTS[effort]]),
+							bot.model.effort,
+							"data-effort",
+						)}
+					</section>
+					<section data-sec="mode">
+						<h3>Modo</h3>
+						${segHTML(
+							"Modo",
+							Object.entries(MODES).map(([id, mode]) => [id, mode.name]),
+							bot.mode,
+							"data-mode",
+						)}
+						<p class="hint">${MODES[bot.mode].hint}</p>
+					</section>
+					<section data-sec="tools">
+						<h3>Grupos de tools</h3>
+						${D.toolGroups
+							.map((group) => `<div class="toggle" title="${esc(group.hint)}"><span>${esc(group.label)}</span><button type="button" class="switch" role="switch" aria-checked="${bot.tools.includes(group.id)}" aria-label="${esc(group.label)}" data-tool="${group.id}" data-fid="tool-${group.id}"></button></div>`)
+							.join("")}
+					</section>
+					<section data-sec="folder">
+						<h3>Pasta</h3>
+						<input type="text" class="input" data-set="folder" data-fid="folder" value="${esc(bot.folder ?? "")}" placeholder="Nenhuma, usa ~" aria-label="Pasta" spellcheck="false" />
+					</section>
+					<section data-sec="memory">
+						<h3>Memória</h3>
+						<p class="stat">${memories}</p>
+					</section>
+					<section data-sec="detail">
+						<h3>Detalhe</h3>
+						${segHTML(
+							"Detalhe",
+							LEVELS.map((level) => [level, LEVEL_NAMES[level]]),
+							ui.level,
+							"data-level",
+						)}
+					</section>`;
+			}
+
+			function keepFocus(container, apply) {
+				const active = document.activeElement;
+				const inside = container.contains(active);
+				const fid = inside ? active.dataset.fid : null;
+				apply();
+				if (!inside) {
+					return true;
+				}
+				const again = fid && container.querySelector(`[data-fid="${fid}"]`);
+				if (again) {
+					again.focus({ preventScroll: true });
+					return true;
+				}
+				return false;
+			}
+
+			function renderPane() {
+				const bot = selectedBot();
+				el.app.dataset.view = ui.view;
+				const scroller = el.scroll;
+				const switched = !sig.lines.startsWith(`${bot.id}|`);
+				const stick = switched || scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
+				const head = headHTML(bot);
+				if (head !== sig.head) {
+					keepFocus(el.head, () => {
+						el.head.innerHTML = head;
+					});
+					sig.head = head;
+				}
+				const linesKey = `${bot.id}|${bot.v}|${ui.level}`;
+				if (linesKey !== sig.lines) {
+					keepFocus(el.lines, () => {
+						el.lines.innerHTML = linesHTML(bot);
+					});
+					sig.lines = linesKey;
+				}
+				const dock = dockHTML(bot);
+				if (dock !== sig.dock) {
+					const kept = keepFocus(el.dock, () => {
+						el.dock.innerHTML = dock;
+					});
+					sig.dock = dock;
+					if (!kept) {
+						focusChat();
+					}
+				}
+				el.textarea.placeholder = busy(bot) ? `Mensagem para ${bot.name}, entra na fila` : `Mensagem para ${bot.name}`;
+				if (stick) {
+					scroller.scrollTop = scroller.scrollHeight;
+				}
+			}
+
+			function renderInfo() {
+				const bot = selectedBot();
+				el.app.classList.toggle("info-open", infoOpen());
+				el.info.setAttribute("aria-label", `Sobre ${bot.name}`);
+				const now = nowHTML(bot);
+				if (now !== sig.now) {
+					keepFocus(el.infoNow, () => {
+						el.infoNow.innerHTML = now;
+					});
+					sig.now = now;
+				}
+				el.infoNow.hidden = !now;
+				const settings = settingsHTML(bot);
+				if (settings !== sig.settings) {
+					keepFocus(el.infoSettings, () => {
+						el.infoSettings.innerHTML = settings;
+					});
+					sig.settings = settings;
+				}
+				el.infoNow.style.marginBottom = now ? "24px" : "";
+			}
+
+			function renderTheme() {
+				const dark = document.documentElement.dataset.theme === "dark";
+				el.theme.innerHTML = icon(dark ? "sun" : "moon");
+				el.theme.setAttribute("aria-label", dark ? "Usar tema claro" : "Usar tema escuro");
+				el.theme.title = dark ? "Tema claro" : "Tema escuro";
+			}
+
+			function render() {
+				renderList();
+				renderPane();
+				renderInfo();
+			}
+
+			let queued = false;
+
+			function changed(bot) {
+				bot.v += 1;
+				if (queued) {
+					return;
+				}
+				queued = true;
+				queueMicrotask(() => {
+					queued = false;
+					render();
+				});
+			}
+
+			function tick() {
+				for (const bot of bots) {
+					const live = bot.live;
+					if (live.turn !== "idle" || live.approval) {
+						live.seconds += 1;
+					}
+					for (const kid of live.team) {
+						if (kid.state === "working") {
+							kid.seconds += 1;
+						}
+					}
+				}
+				for (const node of document.querySelectorAll("[data-timer]")) {
+					const [id, kidName] = node.dataset.timer.split(":");
+					const bot = byId(id);
+					if (!bot) {
+						continue;
+					}
+					const kid = kidName ? bot.live.team.find((entry) => entry.name === kidName) : null;
+					node.textContent = fmt(kid ? kid.seconds : bot.live.seconds);
+				}
+			}
+
+			function wait(ms) {
+				return new Promise((resolve) => setTimeout(resolve, ms));
+			}
+
+			async function stream(bot, token, blocks, ms) {
+				bot.live.turn = "writing";
+				bot.live.tool = null;
+				const line = { kind: "reply", html: "" };
+				bot.lines.push(line);
+				stamp(bot);
+				for (const block of blocks) {
+					line.html += block;
+					changed(bot);
+					await wait(ms);
+					if (bot.run !== token) {
+						return;
+					}
+				}
+			}
+
+			function finish(bot) {
+				const live = bot.live;
+				bot.run = null;
+				live.turn = "idle";
+				live.tool = null;
+				live.seconds = 0;
+				if (!visible(bot)) {
+					bot.unread = true;
+				}
+				if (live.queue.length) {
+					for (const text of live.queue.splice(0)) {
+						bot.lines.push({ kind: "you", text });
+					}
+					stamp(bot);
+					runTurn(bot);
+					return;
+				}
+				changed(bot);
+			}
+
+			async function runTurn(bot) {
+				const token = {};
+				const live = bot.live;
+				const demo = D.demoTurn;
+				bot.run = token;
+				live.turn = "thinking";
+				live.seconds = 0;
+				live.tool = null;
+				changed(bot);
+				await wait(demo.thinkingMs);
+				if (bot.run !== token) {
+					return;
+				}
+				for (const entry of demo.steps) {
+					live.turn = "working";
+					live.tool = { name: entry.name, input: entry.input };
+					changed(bot);
+					await wait(entry.ms);
+					if (bot.run !== token) {
+						return;
+					}
+					bot.lines.push({ kind: "tool", name: entry.name, input: entry.input, result: entry.result });
+				}
+				await stream(bot, token, demo.replyBlocks, demo.blockMs);
+				if (bot.run !== token) {
+					return;
+				}
+				finish(bot);
+			}
+
+			function sendTo(bot, text) {
+				if (busy(bot)) {
+					bot.live.queue.push(text);
+					changed(bot);
+					return;
+				}
+				bot.live.failed = null;
+				bot.lines.push({ kind: "you", text });
+				stamp(bot);
+				runTurn(bot);
+			}
+
+			function stop(bot) {
+				const live = bot.live;
+				bot.run = null;
+				live.turn = "idle";
+				live.tool = null;
+				live.seconds = 0;
+				live.queue = [];
+				bot.lines.push({ kind: "stopped" });
+				changed(bot);
+			}
+
+			async function decide(bot, approved) {
+				const ask = bot.live.approval;
+				if (!ask) {
+					return;
+				}
+				const outcome = D.approvalOutcomes[approved ? "approved" : "denied"];
+				const token = {};
+				bot.run = token;
+				bot.live.approval = null;
+				const pending = bot.lines.at(-1);
+				if (pending?.kind === "tool" && pending.name === ask.tool && !pending.result) {
+					bot.lines.pop();
+				}
+				bot.lines.push({ kind: "approval", tool: ask.tool, input: ask.input, outcome: approved ? "approved" : "denied" });
+				if (approved) {
+					bot.live.turn = "working";
+					bot.live.tool = { name: ask.tool, input: ask.input };
+					changed(bot);
+					await wait(1100);
+					if (bot.run !== token) {
+						return;
+					}
+					bot.lines.push({ kind: "tool", name: ask.tool, input: ask.input, result: outcome.result });
+				} else {
+					bot.live.turn = "thinking";
+					changed(bot);
+					await wait(700);
+					if (bot.run !== token) {
+						return;
+					}
+				}
+				await stream(bot, token, [outcome.replyHtml], D.demoTurn.blockMs);
+				if (bot.run !== token) {
+					return;
+				}
+				finish(bot);
+			}
+
+			function saveDraft() {
+				ui.drafts.set(ui.selected, el.textarea.value);
+			}
+
+			function loadDraft() {
+				el.textarea.value = ui.drafts.get(ui.selected) ?? "";
+				el.send.disabled = !el.textarea.value.trim();
+			}
+
+			function select(id) {
+				if (ui.selected !== id) {
+					saveDraft();
+					ui.selected = id;
+					loadDraft();
+				}
+				byId(id).unread = false;
+				render();
+			}
+
+			function focusChat() {
+				if (!wide.matches && ui.view !== "chat") {
+					return;
+				}
+				const bot = selectedBot();
+				const target = bot.live.approval ? el.lines.querySelector('[data-fid="approve"]') : el.textarea;
+				target?.focus({ preventScroll: true });
+			}
+
+			function openBot(id) {
+				ui.view = "chat";
+				select(id);
+				focusChat();
+			}
+
+			function focusRow(id) {
+				rowEls.get(id)?.focus();
+			}
+
+			function showList() {
+				ui.view = "inbox";
+				render();
+				focusRow(ui.selected);
+			}
+
+			function toggleList() {
+				if (el.side.contains(document.activeElement) && !ui.adding) {
+					ui.view = "chat";
+					render();
+					focusChat();
+					return;
+				}
+				showList();
+			}
+
+			function cycleLevel() {
+				ui.level = LEVELS[(LEVELS.indexOf(ui.level) + 1) % LEVELS.length];
+				renderPane();
+				renderInfo();
+			}
+
+			function setInfo(open, section) {
+				if (overlay.matches) {
+					ui.infoOverlay = open;
+				} else {
+					ui.info = open;
+					writeStore(KEYS.info, open ? "open" : "closed");
+				}
+				render();
+				if (open && section) {
+					const target = el.infoBody.querySelector(`[data-sec="${section}"]`);
+					if (target) {
+						el.infoBody.scrollTop = target.offsetTop - el.infoBody.offsetTop;
+					}
+				}
+				if (open && overlay.matches) {
+					el.info.querySelector("button, select, input")?.focus();
+				}
+				if (!open && el.info.contains(document.activeElement)) {
+					el.head.querySelector("[data-info-toggle]")?.focus();
+				}
+			}
+
+			function startAdding() {
+				ui.adding = true;
+				ui.view = "inbox";
+				el.add.hidden = false;
+				el.addInput.value = "";
+				el.addError.hidden = true;
+				paintAddAvatar();
+				el.app.dataset.view = ui.view;
+				el.side.querySelector(".list").scrollTop = 0;
+				el.addInput.focus();
+			}
+
+			function stopAdding() {
+				ui.adding = false;
+				el.add.hidden = true;
+				el.addError.hidden = true;
+			}
+
+			function paintAddAvatar() {
+				const name = el.addInput.value.trim();
+				el.addAvatar.classList.toggle("ph", !name);
+				el.addAvatar.innerHTML = name ? face(name, "fresh", 47) : "";
+			}
+
+			function createBot() {
+				const name = el.addInput.value.trim();
+				if (!name) {
+					return;
+				}
+				if (bots.some((bot) => bot.name.toLowerCase() === name.toLowerCase())) {
+					el.addError.textContent = "Já existe um bot com esse nome.";
+					el.addError.hidden = false;
+					return;
+				}
+				const bot = {
+					id: `bot-${Date.now()}`,
+					name,
+					model: { id: "gpt-5.6-luna", effort: "max" },
+					mode: "autonomous",
+					tools: D.toolGroups.map((group) => group.id),
+					folder: null,
+					memories: 0,
+					lastAt: null,
+					preview: null,
+					live: { turn: "idle", seconds: 0, approval: null, queue: [], team: [], failed: null },
+					lines: [],
+					at: 0,
+					unread: false,
+					run: null,
+					v: 0,
+				};
+				stamp(bot);
+				bots.push(bot);
+				stopAdding();
+				openBot(bot.id);
+			}
+
+			function editable(target) {
+				return Boolean(target.closest?.("input, textarea, select, [contenteditable]"));
+			}
+
+			function setTheme(theme) {
+				document.documentElement.dataset.theme = theme;
+				writeStore(KEYS.theme, theme);
+				renderTheme();
+			}
+
+			el.rows.addEventListener("click", (event) => {
+				const row = event.target.closest(".row");
+				if (row) {
+					openBot(row.dataset.id);
+				}
+			});
+
+			el.rows.addEventListener("keydown", (event) => {
+				if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+					return;
+				}
+				const rows = [...el.rows.children];
+				const at = rows.indexOf(event.target.closest(".row"));
+				if (at < 0) {
+					return;
+				}
+				event.preventDefault();
+				const next = rows[Math.min(rows.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)))];
+				select(next.dataset.id);
+				focusRow(next.dataset.id);
+			});
+
+			document.querySelector("[data-new]").addEventListener("click", startAdding);
+
+			el.add.addEventListener("submit", (event) => {
+				event.preventDefault();
+				createBot();
+			});
+
+			el.addInput.addEventListener("keydown", (event) => {
+				if (event.key === "Escape") {
+					event.preventDefault();
+					event.stopPropagation();
+					stopAdding();
+					focusRow(ui.selected);
+				}
+			});
+
+			el.addInput.addEventListener("input", () => {
+				el.addError.hidden = true;
+				paintAddAvatar();
+			});
+
+			el.addInput.addEventListener("blur", () => {
+				if (!el.addInput.value.trim()) {
+					stopAdding();
+				}
+			});
+
+			el.head.addEventListener("click", (event) => {
+				if (event.target.closest("[data-back]")) {
+					showList();
+					return;
+				}
+				if (event.target.closest("[data-info-toggle]")) {
+					setInfo(!infoOpen());
+				}
+			});
+
+			el.lines.addEventListener("click", (event) => {
+				if (event.target.closest("a")) {
+					event.preventDefault();
+				}
+			});
+
+			el.lines.addEventListener(
+				"toggle",
+				(event) => {
+					const key = event.target.dataset?.key;
+					if (!key) {
+						return;
+					}
+					if (event.target.open) {
+						ui.open.add(key);
+					} else {
+						ui.open.delete(key);
+					}
+				},
+				true,
+			);
+
+			function onChatClick(event) {
+				const choice = event.target.closest("[data-decide]");
+				if (choice) {
+					decide(selectedBot(), choice.dataset.decide === "approve");
+					return;
+				}
+				if (event.target.closest("[data-show-now]")) {
+					setInfo(true, "now");
+					return;
+				}
+				if (event.target.closest("[data-stop]")) {
+					stop(selectedBot());
+					el.textarea.focus();
+				}
+			}
+
+			el.dock.addEventListener("click", onChatClick);
+			el.lines.addEventListener("click", onChatClick);
+
+			el.textarea.addEventListener("keydown", (event) => {
+				if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+					event.preventDefault();
+					el.composer.requestSubmit();
+				}
+			});
+
+			el.textarea.addEventListener("input", () => {
+				el.send.disabled = !el.textarea.value.trim();
+			});
+
+			el.composer.addEventListener("submit", (event) => {
+				event.preventDefault();
+				const text = el.textarea.value.trim();
+				if (!text) {
+					return;
+				}
+				el.textarea.value = "";
+				el.send.disabled = true;
+				ui.drafts.set(ui.selected, "");
+				sendTo(selectedBot(), text);
+				el.textarea.focus();
+			});
+
+			document.addEventListener("click", (event) => {
+				if (event.target.closest("[data-close-info]")) {
+					setInfo(false);
+				}
+			});
+
+			el.theme.addEventListener("click", () => {
+				setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+			});
+
+			el.infoBody.addEventListener("click", (event) => {
+				const bot = selectedBot();
+				const effort = event.target.closest("[data-effort]");
+				if (effort) {
+					bot.model.effort = effort.dataset.effort;
+					changed(bot);
+					return;
+				}
+				const mode = event.target.closest("[data-mode]");
+				if (mode) {
+					bot.mode = mode.dataset.mode;
+					changed(bot);
+					return;
+				}
+				const tool = event.target.closest("[data-tool]");
+				if (tool) {
+					const id = tool.dataset.tool;
+					bot.tools = bot.tools.includes(id) ? bot.tools.filter((entry) => entry !== id) : D.toolGroups.map((group) => group.id).filter((entry) => entry === id || bot.tools.includes(entry));
+					changed(bot);
+					return;
+				}
+				const level = event.target.closest("[data-level]");
+				if (level) {
+					ui.level = level.dataset.level;
+					renderPane();
+					renderInfo();
+					return;
+				}
+				const unqueue = event.target.closest("[data-unqueue]");
+				if (unqueue) {
+					bot.live.queue.splice(Number(unqueue.dataset.unqueue), 1);
+					changed(bot);
+				}
+			});
+
+			el.infoBody.addEventListener("change", (event) => {
+				const bot = selectedBot();
+				const target = event.target;
+				if (target.dataset.set === "model") {
+					const model = D.models.find((entry) => entry.id === target.value);
+					bot.model = { id: model.id, effort: model.efforts.includes(bot.model.effort) ? bot.model.effort : model.efforts.at(-1) };
+				}
+				if (target.dataset.set === "folder") {
+					bot.folder = target.value.trim() || null;
+				}
+				changed(bot);
+			});
+
+			el.infoBody.addEventListener("keydown", (event) => {
+				if (event.key === "Enter" && event.target.dataset.set === "folder") {
+					event.target.blur();
+				}
+			});
+
+			document.addEventListener("keydown", (event) => {
+				const key = event.key.toLowerCase();
+				if (event.ctrlKey && key === "o") {
+					event.preventDefault();
+					cycleLevel();
+					return;
+				}
+				if (event.ctrlKey && key === "e") {
+					event.preventDefault();
+					if (overlay.matches && ui.infoOverlay) {
+						setInfo(false);
+					}
+					toggleList();
+					return;
+				}
+				if (event.ctrlKey && key === "i") {
+					event.preventDefault();
+					setInfo(!infoOpen());
+					return;
+				}
+				if (event.key === "Escape") {
+					if (overlay.matches && ui.infoOverlay) {
+						event.preventDefault();
+						setInfo(false);
+						return;
+					}
+					if (el.rows.contains(document.activeElement) && wide.matches) {
+						event.preventDefault();
+						focusChat();
+					}
+					return;
+				}
+				if ((event.key === "1" || event.key === "2") && !event.ctrlKey && !event.altKey && !event.metaKey && !editable(event.target)) {
+					const row = event.target.closest?.(".row");
+					const bot = row ? byId(row.dataset.id) : wide.matches || ui.view === "chat" ? selectedBot() : null;
+					if (bot?.live.approval) {
+						event.preventDefault();
+						decide(bot, event.key === "1");
+					}
+				}
+			});
+
+			wide.addEventListener("change", render);
+			overlay.addEventListener("change", () => {
+				ui.infoOverlay = false;
+				render();
+			});
+			darkScheme.addEventListener("change", () => {
+				if (!readStore(KEYS.theme)) {
+					document.documentElement.dataset.theme = darkScheme.matches ? "dark" : "light";
+					renderTheme();
+				}
+			});
+
+			document.querySelector("[data-new]").innerHTML = icon("plus");
+			el.send.innerHTML = icon("arrow-up");
+			setInterval(tick, 1000);
+			loadDraft();
+			renderTheme();
+			render();
+			if (wide.matches) {
+				el.textarea.focus();
+			}
+		</script>
+	</body>
+</html>

@@ -79,11 +79,11 @@ export type BotEvent =
 	| { type: "routine"; name: string; prompt: string }
 	| { type: "reply-delta"; delta: string }
 	| { type: "reply"; text: string }
-	| { type: "tool"; toolName: string; input: unknown }
+	| { type: "tool"; id: string; toolName: string; input: unknown }
 	| { type: "team-call"; call: TeamCall }
-	| { type: "tool-result"; toolName: string; output: string }
+	| { type: "tool-result"; id: string; toolName: string; output: string }
 	| { type: "tool-warned"; message: string }
-	| { type: "tool-failed"; message: string }
+	| { type: "tool-failed"; id: string; toolName: string; message: string }
 	| { type: "approval"; approval: Approval }
 	| { type: "login"; target: LoginTarget; session: LoginSession }
 	| { type: "approval-resolved"; outcome: "approved" | "denied" }

@@ -15,6 +15,10 @@ O mimo deixa de ser TUI e vira um app Electron. No fim fica só um: o Electron.
 - A Barra de bots pede o estado de cada bot (`activity`) a cada segundo, como a TUI. A lista de bots só relê o disco quando muda.
 - A resposta do bot vira markdown pelo react-markdown, que não passa HTML cru. Um link abre no navegador.
 - O app lembra o último bot aberto; o texto do composer fica guardado por bot enquanto o app está aberto.
+- O visual segue o protótipo E (`prototype-ui/e-caixa.html`), que fica no repo como referência até o passo 4. A pessoa fala pela direita, o bot pela esquerda, e o que acontece em volta fica centralizado e curto.
+- A janela não tem moldura: minimizar, maximizar e fechar ficam no topo, à direita do ⓘ, e passam pelo router, que recebe a janela no contexto. No Wayland o app desliga a composição pela GPU: com NVIDIA, a janela sem moldura para de desenhar depois de maximizar.
+- A última mensagem de cada bot vem do agent (`lastMessage`): do bot aberto, pela memória; dos outros, pelo disco. A Barra ordena pela hora dela.
+- O Aviso de um Bot filho aparece com o texto do agent, em inglês (`finished`, `failed`), até o passo 3.
 - O build é electron-vite 5 com Vite 7. O electron-vite 5 não suporta o Vite 8 e, com ele, embute o próprio `electron` no bundle; só o 6, ainda beta, suporta.
 
 ## Ordem

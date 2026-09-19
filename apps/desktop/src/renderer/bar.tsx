@@ -1,51 +1,42 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Blobatar } from "blobatar/react";
+import { PlusIcon } from "@heroicons/react/24/outline";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
-import { type Outputs, orpc } from "./rpc";
-import type { Detail } from "./transcript";
-
-type Activity = Outputs["bots"]["activity"][number];
-
-type State = "failed" | "waiting" | "working" | "idle";
-
-const MARKS: Record<State, { glyph: string; label: string }> = {
-	failed: { glyph: "✗", label: "falhou" },
-	waiting: { glyph: "⏸", label: "esperando aprovação" },
-	working: { glyph: "●", label: "trabalhando" },
-	idle: { glyph: "", label: "parado" },
-};
+import { Avatar, STATE_LABELS } from "./avatar";
+import type { BotRow } from "./bots";
+import { orpc } from "./rpc";
 
 const STEPS: Partial<Record<string, number>> = { ArrowUp: -1, ArrowDown: 1 };
 
-function stateOf(live: Activity | undefined): State {
-	if (!live) {
-		return "idle";
+function plain(text: string): string {
+	return text
+		.replaceAll(/^\s*(?:#{1,6}|>|[-*+]|\d+\.)\s+/gmu, "")
+		.replaceAll(/\[([^\]]*)\]\([^)]*\)/gu, "$1")
+		.replaceAll(/\*\*|__|~~|`/gu, "");
+}
+
+function preview(bot: BotRow): string {
+	if (!bot.last) {
+		return "Sem mensagens ainda";
 	}
-	if (live.failed !== null) {
-		return "failed";
+	if (bot.last.from === "you") {
+		return `Você: ${bot.last.text}`;
 	}
-	if (live.waiting !== null) {
-		return "waiting";
-	}
-	if (live.busy || live.team.length > 0) {
-		return "working";
-	}
-	return "idle";
+	return plain(bot.last.text);
 }
 
 interface BarProps {
+	bots: BotRow[] | undefined;
+	error: Error | null;
 	selected: string | undefined;
-	level: Detail;
 	onSelect: (id: string) => void;
 	onLeave: () => void;
 }
 
-export function Bar({ selected, level, onSelect, onLeave }: BarProps) {
+export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 	const queryClient = useQueryClient();
-	const bots = useQuery(orpc.bots.list.queryOptions());
-	const activity = useQuery(orpc.bots.activity.queryOptions({ refetchInterval: 1000 }));
 	const [adding, setAdding] = useState(false);
 	const [name, setName] = useState("");
-	const [browsing, setBrowsing] = useState(false);
 	const list = useRef<HTMLDivElement>(null);
 	const create = useMutation(orpc.bots.create.mutationOptions({
 		onSuccess: async (bot) => {
@@ -55,8 +46,8 @@ export function Bar({ selected, level, onSelect, onLeave }: BarProps) {
 			onSelect(bot.id);
 		},
 	}));
-	const live = new Map(activity.data?.map((entry) => [entry.id, entry]));
-	const empty = bots.data?.length === 0;
+	const empty = bots?.length === 0;
+	const draft = name.trim();
 
 	useEffect(() => {
 		function onKey(event: globalThis.KeyboardEvent): void {
@@ -68,18 +59,18 @@ export function Bar({ selected, level, onSelect, onLeave }: BarProps) {
 				onLeave();
 				return;
 			}
-			const buttons = list.current?.querySelectorAll("button");
-			const current = buttons && [...buttons].find((button) => button.getAttribute("aria-current") === "true");
-			(current ?? buttons?.[0])?.focus();
+			const rows = list.current?.querySelectorAll<HTMLButtonElement>(".row");
+			const current = rows && [...rows].find((row) => row.getAttribute("aria-current") === "true");
+			(current ?? rows?.[0])?.focus();
 		}
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, [onLeave]);
 
 	function onListKey(event: KeyboardEvent<HTMLDivElement>): void {
-		const all = bots.data ?? [];
-		const buttons = [...event.currentTarget.querySelectorAll("button")];
-		const at = buttons.findIndex((button) => button === event.target);
+		const all = bots ?? [];
+		const rows = [...event.currentTarget.querySelectorAll<HTMLButtonElement>(".row")];
+		const at = rows.findIndex((row) => row === event.target);
 		if (event.key === "Escape") {
 			event.preventDefault();
 			onLeave();
@@ -98,80 +89,89 @@ export function Bar({ selected, level, onSelect, onLeave }: BarProps) {
 		event.preventDefault();
 		const next = Math.min(all.length - 1, Math.max(0, at + step));
 		onSelect(all[next].id);
-		buttons[next]?.focus();
+		rows[next]?.focus();
 	}
 
 	function stopAdding(): void {
 		setName("");
 		setAdding(false);
 		create.reset();
-		onLeave();
 	}
 
 	return (
-		<nav className="bots">
-			<header>
-				<span>bots</span>
-				<button type="button" aria-label="novo bot" title="novo bot" onClick={() => setAdding(true)}>
-					+
+		<aside className="side" aria-label="Bots">
+			<header className="side-top">
+				<button type="button" className="icon" aria-label="Novo bot" title="Novo bot" onClick={() => setAdding(true)}>
+					<PlusIcon />
 				</button>
 			</header>
-			{(adding || empty) && (
-				<form
-					onSubmit={(event) => {
-						event.preventDefault();
-						if (name.trim() && !create.isPending) {
-							create.mutate({ name });
-						}
-					}}
-				>
-					<input
-						autoFocus
-						maxLength={80}
-						value={name}
-						placeholder="nome do bot"
-						onChange={(event) => setName(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Escape" && !empty) {
-								stopAdding();
+			<div className="list" ref={list} onKeyDown={onListKey}>
+				{(adding || empty) && (
+					<form
+						className="add"
+						onSubmit={(event) => {
+							event.preventDefault();
+							if (draft && !create.isPending) {
+								create.mutate({ name });
 							}
 						}}
-						onBlur={() => {
-							if (!name.trim() && !empty) {
-								setAdding(false);
-								create.reset();
-							}
-						}}
-					/>
-				</form>
-			)}
-			{create.error && <p className="alert">{create.error.message}</p>}
-			<div className="list" ref={list} onKeyDown={onListKey} onFocus={() => setBrowsing(true)} onBlur={() => setBrowsing(false)}>
-				{bots.data?.map((bot) => {
-					const mark = MARKS[stateOf(live.get(bot.id))];
-					return (
-						<button
-							key={bot.id}
-							type="button"
-							aria-current={bot.id === selected}
-							aria-label={`${bot.name}, ${mark.label}`}
-							title={mark.label}
-							onMouseDown={(event) => event.preventDefault()}
-							onClick={() => onSelect(bot.id)}
-						>
-							<span className="mark" aria-hidden>
-								{mark.glyph}
+					>
+						{draft ? (
+							<span className="av" aria-hidden>
+								<Blobatar name={draft} size={47} />
 							</span>
-							{bot.name}
-						</button>
-					);
-				})}
+						) : (
+							<span className="av ph" aria-hidden />
+						)}
+						<span className="txt">
+							<input
+								autoFocus
+								maxLength={80}
+								value={name}
+								placeholder="Nome do bot"
+								aria-label="Nome do novo bot"
+								autoComplete="off"
+								spellCheck={false}
+								onChange={(event) => {
+									setName(event.target.value);
+									create.reset();
+								}}
+								onKeyDown={(event) => {
+									if (event.key === "Escape" && !empty) {
+										event.stopPropagation();
+										stopAdding();
+										onLeave();
+									}
+								}}
+								onBlur={() => {
+									if (!draft && !empty) {
+										stopAdding();
+									}
+								}}
+							/>
+							{create.error && <span className="add-error">{create.error.message}</span>}
+						</span>
+					</form>
+				)}
+				{bots?.map((bot) => (
+					<button
+						key={bot.id}
+						type="button"
+						className="row"
+						aria-current={bot.id === selected}
+						onMouseDown={(event) => event.preventDefault()}
+						onClick={() => onSelect(bot.id)}
+					>
+						<Avatar name={bot.name} state={bot.state} size={47} />
+						<span className="txt">
+							<span className="name">{bot.name}</span>
+							<span className="last">{preview(bot)}</span>
+						</span>
+						<span className="sr">{STATE_LABELS[bot.state]}</span>
+					</button>
+				))}
+				{error && <p className="list-error">{error.message}</p>}
 			</div>
-			{bots.error && <p className="alert">{bots.error.message}</p>}
-			<footer>
-				<p>{browsing ? "↑↓ abre · enter fica" : "ctrl+e bots"}</p>
-				<p>ctrl+o detalhe: {level}</p>
-			</footer>
-		</nav>
+		</aside>
 	);
 }

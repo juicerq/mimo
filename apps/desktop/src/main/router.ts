@@ -1,15 +1,19 @@
 import { Bot } from "@agent/bot/bot";
-import { activity } from "@agent/bot/registry";
-import { createBot, listBots } from "@agent/bot/store";
+import { lastMessage } from "@agent/bot/events";
+import { activity, runningBot } from "@agent/bot/registry";
+import { createBot, listBots, readTranscript } from "@agent/bot/store";
 import { BotNameSchema, type BotEvent } from "@agent/bot/types";
 import { EventPublisher, ORPCError, os, ValidationError } from "@orpc/server";
+import type { BrowserWindow } from "electron";
 import { z } from "zod";
 
 export type ScreenEvent = Exclude<BotEvent, { type: "login" }>;
 
 const BotInput = z.object({ botId: z.uuid() });
 
-const agent = os.use(async ({ next }) => {
+const base = os.$context<{ window: BrowserWindow }>();
+
+const agent = base.use(async ({ next }) => {
 	try {
 		return await next();
 	} catch (error) {
@@ -41,6 +45,31 @@ function replay(bot: Bot): BotEvent[] {
 	return events;
 }
 
+async function listedBots() {
+	return await Promise.all((await listBots()).map(async (bot) => ({
+		...bot,
+		last: runningBot(bot.id)?.lastMessage ?? lastMessage(await readTranscript(bot.id).catch(() => [])),
+	})));
+}
+
+async function* maximized(window: BrowserWindow, signal?: AbortSignal) {
+	const publisher = new EventPublisher<{ maximized: boolean }>();
+	const changes = publisher.subscribe("maximized", { ...signal && { signal } });
+	const onMaximize = () => publisher.publish("maximized", true);
+	const onUnmaximize = () => publisher.publish("maximized", false);
+	window.on("maximize", onMaximize);
+	window.on("unmaximize", onUnmaximize);
+	try {
+		yield window.isMaximized();
+		for await (const state of changes) {
+			yield state;
+		}
+	} finally {
+		window.off("maximize", onMaximize);
+		window.off("unmaximize", onUnmaximize);
+	}
+}
+
 async function* watch(bot: Bot, signal?: AbortSignal) {
 	const publisher = new EventPublisher<{ event: ScreenEvent }>({ maxBufferedEvents: Number.POSITIVE_INFINITY });
 	const live = publisher.subscribe("event", { ...signal && { signal } });
@@ -61,7 +90,7 @@ async function* watch(bot: Bot, signal?: AbortSignal) {
 
 export const router = {
 	bots: {
-		list: agent.handler(listBots),
+		list: agent.handler(listedBots),
 		activity: agent.handler(activity),
 		create: agent
 			.input(z.object({ name: BotNameSchema }))
@@ -83,6 +112,18 @@ export const router = {
 				const bot = await Bot.open(input.botId);
 				bot.cancel();
 			}),
+	},
+	window: {
+		minimize: base.handler(({ context }) => context.window.minimize()),
+		maximize: base.handler(({ context }) => {
+			if (context.window.isMaximized()) {
+				context.window.unmaximize();
+				return;
+			}
+			context.window.maximize();
+		}),
+		close: base.handler(({ context }) => context.window.close()),
+		maximized: base.handler(({ context, signal }) => maximized(context.window, signal)),
 	},
 };
 

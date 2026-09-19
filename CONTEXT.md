@@ -25,9 +25,9 @@ _Evitar_: Contexto, sessão
 _Dono_: `apps/agent/src/bot/events.ts` (`summaryStart`); o corte e o Resumo, `apps/agent/src/bot/compaction.ts`; quando roda, `apps/agent/src/bot/bot.ts` (`compact`)
 
 **Resumo**:
-O que a Compactação escreve no Registro quando a Janela chega a 80% do modelo: um texto que substitui o trecho antigo na Janela. Entra marcado com `[resumo]`, aparece na conversa como `─ resumo do que veio antes ─` e nunca como fala da pessoa. Uma Compactação que falha avisa e o Turno segue.
+O que a Compactação escreve no Registro quando a Janela chega a 80% do modelo: um texto que substitui o trecho antigo na Janela. Entra marcado com `[resumo]`, aparece na conversa como `─ resumo do que veio antes ─` (no desktop, um bloco fechado "Resumo do que veio antes") e nunca como fala da pessoa. Uma Compactação que falha avisa e o Turno segue.
 _Evitar_: Sumário, compactação manual
-_Dono_: `apps/agent/src/bot/compaction.ts`; a marca, `apps/agent/src/bot/events.ts`; na tela, `apps/mimo/src/view.ts`
+_Dono_: `apps/agent/src/bot/compaction.ts`; a marca, `apps/agent/src/bot/events.ts`; na tela, `apps/mimo/src/view.ts`; no desktop, `apps/desktop/src/renderer/transcript.tsx`
 
 **Turno**:
 Uma entrega da pessoa ou um disparo de Rotina e todo o trabalho que ela provoca até a resposta.
@@ -65,12 +65,12 @@ _Evitar_: Buffer, rascunho
 _Dono_: `apps/agent/src/bot/queue.ts` (as entradas e a promessa de cada uma); quando ela entra, `apps/agent/src/bot/bot.ts` (`push`, `drain`, `steerQueue`); na tela, `apps/mimo/src/bar.ts`
 
 **Rotina**:
-Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em seu Registro. Tem um nome curto e único dentro do Bot, que as tools usam para tratá-la. Aparece na conversa como `routine: <nome> started`, nunca como entrega da pessoa. Continua pertencendo ao mesmo Bot depois de uma Compactação.
+Um trabalho de um Bot, executado numa frequência escolhida enquanto a TUI está aberta e entregue em seu Registro. Tem um nome curto e único dentro do Bot, que as tools usam para tratá-la. Aparece na conversa como `routine: <nome> started` (no desktop, "Rotina <nome> começou"), nunca como entrega da pessoa. Continua pertencendo ao mesmo Bot depois de uma Compactação.
 _Evitar_: Agendamento, cron job, automação
 _Dono_: `apps/agent/src/routines/routines.ts`; o disparo, `apps/agent/src/routines/dispatcher.ts`; a marca `[rotina: <nome>]`, `apps/agent/src/bot/events.ts`
 
 **Detalhe**:
-Tudo que aparece na conversa e não é a entrega da pessoa nem a resposta do Bot: a tool, o disparo de uma Rotina, a ação de equipe e a troca de Grupo de tools. A pessoa escolhe quanto ver com `Ctrl+O`: `off` esconde, `brief` mostra uma linha por item e `full` acrescenta o conteúdo.
+Tudo que aparece na conversa e não é a entrega da pessoa nem a resposta do Bot: a tool, o disparo de uma Rotina, a ação de equipe e a troca de Grupo de tools. A pessoa escolhe quanto ver com `Ctrl+O`: `off` esconde, `brief` mostra uma linha por item e `full` acrescenta o conteúdo. No desktop os níveis se chamam Oculto, Breve e Completo, também escolhidos no painel da direita, e a chamada de tool só aparece no Completo.
 _Evitar_: Tool view, log, verbosidade
 _Dono_: `apps/mimo/src/transcript.ts` (`DETAIL_LEVELS`, `cycle`); no desktop, `apps/desktop/src/renderer/transcript.tsx`
 
@@ -90,9 +90,9 @@ _Evitar_: worktree, branch do bot
 _Dono_: `apps/agent/src/computer/worktree.ts` (`addWorktree`, `removeWorktree`)
 
 **Barra de bots**:
-A coluna da esquerda, sempre visível, com todos os Bots sem pai e a marca do estado de cada um: trabalhando, esperando Aprovação, falhou, parado. Também é por onde se troca de Bot, com `Ctrl+E`. Responde "o que está acontecendo"; a Sidebar da equipe (`Ctrl+T`) responde "o que os filhos deste Bot fazem".
+A coluna da esquerda, sempre visível, com todos os Bots sem pai e a marca do estado de cada um: trabalhando, esperando Aprovação, falhou, parado. Também é por onde se troca de Bot, com `Ctrl+E`. Responde "o que está acontecendo"; a Sidebar da equipe (`Ctrl+T`) responde "o que os filhos deste Bot fazem". No desktop cada Bot mostra também um rosto e a última mensagem, e o mais recente fica no topo.
 _Evitar_: sidebar, lista de bots, rail
-_Dono_: `apps/mimo/src/sidebar.ts`; no desktop, `apps/desktop/src/renderer/bar.tsx`; o estado de cada Bot, `apps/agent/src/bot/registry.ts` (`activity`)
+_Dono_: `apps/mimo/src/sidebar.ts`; no desktop, `apps/desktop/src/renderer/bar.tsx`, a lista e a ordem em `apps/desktop/src/renderer/bots.ts` e o rosto em `apps/desktop/src/renderer/avatar.tsx`; o estado de cada Bot, `apps/agent/src/bot/registry.ts` (`activity`); a última mensagem, `apps/agent/src/bot/events.ts` (`lastMessage`)
 
 **Regras**:
 Os `AGENTS.md` que entram no prompt de todo Turno de um Bot: o geral, em `~/.agents/AGENTS.md`, e o do projeto, na raiz da Pasta. São os únicos arquivos tratados como instrução da pessoa, e não como dado. Lidos a cada Turno, então editar um vale no Turno seguinte, sem reiniciar. Quando as duas brigam, vale a do projeto, que vem depois.
@@ -117,7 +117,7 @@ _Dono_: `apps/agent/src/memory/memory.ts`
 **Aprovação**:
 A confirmação da pessoa no terminal antes de uma ação que a exige.
 _Evitar_: Permissão, consentimento
-_Dono_: `apps/agent/src/bot/approvals.ts` (a fila de pendentes); quem decide se pede, `apps/agent/src/bot/bot.ts` (`approve`); na tela, `apps/mimo/src/view.ts`
+_Dono_: `apps/agent/src/bot/approvals.ts` (a fila de pendentes); quem decide se pede, `apps/agent/src/bot/bot.ts` (`approve`); na tela, `apps/mimo/src/view.ts`; no desktop, `apps/desktop/src/renderer/transcript.tsx`
 
 **Rascunho**:
 Uma resposta escrita pelo Bot que só vira e-mail enviado por ação da pessoa ou no Modo autônomo.

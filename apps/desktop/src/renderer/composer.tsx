@@ -1,5 +1,6 @@
+import { ArrowUpIcon } from "@heroicons/react/24/outline";
 import { useMutation } from "@tanstack/react-query";
-import { type KeyboardEvent, type RefObject, useEffect, useState } from "react";
+import { type FormEvent, type KeyboardEvent, type RefObject, useEffect, useState } from "react";
 import { orpc } from "./rpc";
 
 const drafts = new Map<string, string>();
@@ -20,7 +21,6 @@ export function Composer({ botId, name, working, input, fail }: ComposerProps) {
 			fail(error.message);
 		},
 	}));
-	const cancel = useMutation(orpc.conversation.cancel.mutationOptions());
 
 	useEffect(() => {
 		drafts.set(botId, draft);
@@ -34,7 +34,8 @@ export function Composer({ botId, name, working, input, fail }: ComposerProps) {
 		}
 	}, [input]);
 
-	function submit(): void {
+	function submit(event: FormEvent): void {
+		event.preventDefault();
 		const text = draft.trim();
 		if (!text) {
 			return;
@@ -46,25 +47,26 @@ export function Composer({ botId, name, working, input, fail }: ComposerProps) {
 	function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
 		if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
 			event.preventDefault();
-			submit();
+			event.currentTarget.form?.requestSubmit();
 		}
 	}
 
 	return (
-		<div className="composer">
-			<textarea
-				ref={input}
-				rows={1}
-				value={draft}
-				placeholder={`Fale com ${name}`}
-				onChange={(event) => setDraft(event.target.value)}
-				onKeyDown={onKeyDown}
-			/>
-			{working && (
-				<button type="button" onClick={() => cancel.mutate({ botId })}>
-					parar
+		<form className="composer" onSubmit={submit}>
+			<div className="field">
+				<textarea
+					ref={input}
+					rows={1}
+					value={draft}
+					aria-label="Mensagem"
+					placeholder={working ? `Mensagem para ${name}, entra na fila` : `Mensagem para ${name}`}
+					onChange={(event) => setDraft(event.target.value)}
+					onKeyDown={onKeyDown}
+				/>
+				<button type="submit" className="send" aria-label="Enviar" title="Enviar" disabled={!draft.trim()}>
+					<ArrowUpIcon />
 				</button>
-			)}
-		</div>
+			</div>
+		</form>
 	);
 }

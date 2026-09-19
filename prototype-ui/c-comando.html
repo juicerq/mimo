@@ -1,0 +1,2485 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mimo</title>
+<script src="data.js"></script>
+<style>
+:root {
+	--ground: #15171c;
+	--panel: #1c1f26;
+	--raise: #252a33;
+	--line: #2a2f38;
+	--line-2: #3a404b;
+	--t1: #efece7;
+	--t2: #d3d0ca;
+	--t3: #9ca1aa;
+	--t4: #6c717b;
+	--accent: #b3a6ff;
+	--work: #6cc4d8;
+	--wait: #efb45b;
+	--fail: #f07b6b;
+	--ok: #8ccf9c;
+	--code: #e6cf9f;
+	--gutter: 26px;
+	--sans: "Fira Sans", "Adwaita Sans", "Cantarell", system-ui, sans-serif;
+	--mono: "Adwaita Mono", "Maple Mono NF", "DejaVu Sans Mono", ui-monospace, monospace;
+	color-scheme: dark;
+	font: 14px/1.5 var(--sans);
+	color: var(--t2);
+	background: var(--ground);
+	scrollbar-color: var(--line-2) transparent;
+	scrollbar-width: thin;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+[hidden] {
+	display: none !important;
+}
+
+html,
+body {
+	height: 100%;
+	margin: 0;
+}
+
+p,
+h1,
+h2,
+dl,
+dd {
+	margin: 0;
+}
+
+button,
+input,
+textarea {
+	font: inherit;
+	color: inherit;
+	background: none;
+	border: 0;
+	padding: 0;
+}
+
+button {
+	cursor: pointer;
+}
+
+:focus-visible {
+	outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+	outline-offset: 1px;
+}
+
+code,
+kbd,
+pre {
+	font-family: var(--mono);
+}
+
+.i {
+	flex: none;
+	width: 14px;
+	height: 14px;
+}
+
+.app {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr) auto;
+	height: 100vh;
+}
+
+.frame {
+	width: min(100% - 48px, 940px);
+	margin-inline: auto;
+}
+
+.top {
+	border-bottom: 1px solid var(--line);
+}
+
+.top .frame {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	height: 44px;
+}
+
+.who {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	height: 32px;
+	margin-left: -8px;
+	padding: 0 10px 0 8px;
+	border-radius: 8px;
+	white-space: nowrap;
+}
+
+.who:hover {
+	background: var(--raise);
+}
+
+.gut {
+	display: flex;
+	flex: none;
+	width: var(--gutter);
+}
+
+.gut .dot {
+	margin-left: 3px;
+}
+
+.who .nm {
+	overflow: hidden;
+	color: var(--t1);
+	font-weight: 600;
+	text-overflow: ellipsis;
+}
+
+.who .st {
+	margin-left: 10px;
+	color: var(--t3);
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.who .i {
+	margin-left: 6px;
+	color: var(--t4);
+}
+
+.fleet {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	margin-left: auto;
+}
+
+.bd {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	min-width: 26px;
+	height: 26px;
+	padding: 0 8px;
+	border-radius: 13px;
+	color: var(--t3);
+	font-size: 12.5px;
+	font-weight: 500;
+}
+
+.bd:hover {
+	background: var(--raise);
+	color: var(--t1);
+}
+
+.bd.loud {
+	color: var(--wait);
+	background: color-mix(in srgb, var(--wait) 13%, transparent);
+}
+
+.bd.loud.s-failed {
+	color: var(--fail);
+	background: color-mix(in srgb, var(--fail) 13%, transparent);
+}
+
+.bd.loud:hover {
+	background: color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.bd.is-cur .dot {
+	outline: 1.5px solid var(--t2);
+	outline-offset: 2.5px;
+}
+
+.bd.add {
+	margin-left: 4px;
+	color: var(--t4);
+}
+
+.dot {
+	flex: none;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--t4);
+}
+
+.s-working > .dot,
+.dot.s-working {
+	background: var(--work);
+}
+
+.s-waiting > .dot,
+.dot.s-waiting {
+	background: var(--wait);
+	animation: beckon 2.4s ease-in-out infinite;
+}
+
+.s-failed > .dot,
+.dot.s-failed {
+	background: var(--fail);
+}
+
+.s-new > .dot,
+.dot.s-new {
+	background: transparent;
+	box-shadow: inset 0 0 0 1.5px var(--t4);
+}
+
+.dot.s-done {
+	background: var(--ok);
+}
+
+@keyframes beckon {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 rgb(239 180 91 / 0.55);
+	}
+	60% {
+		box-shadow: 0 0 0 5px rgb(239 180 91 / 0);
+	}
+}
+
+.cmd {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	height: 28px;
+	padding: 0 6px 0 10px;
+	border-left: 1px solid var(--line);
+	border-radius: 0 7px 7px 0;
+	color: var(--t3);
+	font-size: 12.5px;
+}
+
+.cmd:hover {
+	color: var(--t1);
+}
+
+.keys {
+	display: inline-flex;
+	gap: 3px;
+}
+
+kbd {
+	display: inline-grid;
+	place-items: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	border: 1px solid var(--line-2);
+	border-radius: 4px;
+	color: var(--t3);
+	font: 500 11px/1 var(--sans);
+}
+
+.scroll {
+	overflow-y: auto;
+	scrollbar-gutter: stable both-edges;
+	mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+}
+
+.lines {
+	display: flex;
+	flex-direction: column;
+	justify-content: flex-end;
+	min-height: 100%;
+	padding: 28px 0 20px;
+}
+
+.ln {
+	display: grid;
+	grid-template-columns: var(--gutter) minmax(0, 1fr);
+	margin-top: 16px;
+}
+
+.ln > .g {
+	display: flex;
+	padding-top: 4px;
+	color: var(--t4);
+}
+
+.ln > .c {
+	grid-column: 2;
+	min-width: 0;
+}
+
+.ln.d + .ln.d {
+	margin-top: 5px;
+}
+
+.lv-full .ln.d + .ln.d {
+	margin-top: 12px;
+}
+
+.ln.you {
+	margin-top: 34px;
+}
+
+.ln.you + .ln.you {
+	margin-top: 8px;
+}
+
+.lines > .ln:first-child {
+	margin-top: 0;
+}
+
+.ln.you > .g {
+	padding-top: 5px;
+	color: var(--accent);
+}
+
+.ln.you p {
+	max-width: 68ch;
+	color: var(--t1);
+	font-size: 15px;
+	font-weight: 500;
+	line-height: 1.55;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.md {
+	color: var(--t2);
+	font-size: 15px;
+	line-height: 1.65;
+}
+
+.md > * {
+	max-width: 68ch;
+	margin: 0 0 10px;
+}
+
+.md > :last-child {
+	margin-bottom: 0;
+}
+
+.md h2 {
+	margin-top: 4px;
+	color: var(--t1);
+	font-size: 16.5px;
+	font-weight: 600;
+	letter-spacing: -0.005em;
+}
+
+.md strong {
+	color: var(--t1);
+	font-weight: 600;
+}
+
+.md ul,
+.md ol {
+	padding-left: 20px;
+}
+
+.md li + li {
+	margin-top: 4px;
+}
+
+.md li::marker {
+	color: var(--t4);
+}
+
+.md code {
+	padding: 1px 5px;
+	border-radius: 4px;
+	background: var(--raise);
+	color: var(--code);
+	font-size: 0.86em;
+}
+
+.md pre {
+	max-width: 100%;
+	padding: 12px 14px;
+	overflow-x: auto;
+	border: 1px solid var(--line);
+	border-radius: 9px;
+	background: var(--panel);
+	line-height: 1.55;
+}
+
+.md pre code {
+	padding: 0;
+	background: none;
+	font-size: 13px;
+}
+
+.md table {
+	max-width: 100%;
+	border-collapse: collapse;
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+}
+
+.md th {
+	padding: 6px 28px 6px 0;
+	border-bottom: 1px solid var(--line-2);
+	color: var(--t3);
+	font-weight: 500;
+	text-align: left;
+}
+
+.md td {
+	padding: 7px 28px 7px 0;
+	border-bottom: 1px solid var(--line);
+}
+
+.md blockquote {
+	padding-left: 14px;
+	border-left: 2px solid var(--line-2);
+	color: var(--t3);
+}
+
+.md a {
+	color: var(--accent);
+	text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+	text-underline-offset: 3px;
+}
+
+.md a:hover {
+	text-decoration-color: currentColor;
+}
+
+.d .row {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	min-width: 0;
+	font-size: 13px;
+	white-space: nowrap;
+}
+
+.d .row > * {
+	flex: none;
+}
+
+.d .row .arg {
+	flex: 0 1 auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.nm {
+	color: var(--t3);
+	font-size: 12.5px;
+}
+
+.arg {
+	color: var(--t4);
+}
+
+.verb {
+	color: var(--t4);
+}
+
+.who-b {
+	color: var(--t2);
+	font-weight: 500;
+}
+
+.bad {
+	color: var(--fail);
+}
+
+.tool.failed > .g {
+	color: var(--fail);
+}
+
+.kv {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	gap: 2px 14px;
+	margin-top: 6px;
+	font: 12.5px/1.55 var(--mono);
+}
+
+.kv dt {
+	color: var(--t4);
+}
+
+.kv dd {
+	color: var(--t3);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.out {
+	width: fit-content;
+	min-width: min(100%, 36ch);
+	max-width: 100%;
+	max-height: 16em;
+	margin: 8px 0 0;
+	padding: 10px 12px;
+	overflow: auto;
+	border-radius: 8px;
+	background: var(--panel);
+	color: var(--t3);
+	font-size: 12.5px;
+	line-height: 1.55;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.out.bad {
+	background: color-mix(in srgb, var(--fail) 9%, var(--panel));
+	color: color-mix(in srgb, var(--fail) 70%, var(--t2));
+	font-family: var(--sans);
+}
+
+.note > .g {
+	color: var(--ok);
+}
+
+.note .head {
+	font-size: 14px;
+	color: var(--t2);
+}
+
+.note .out {
+	max-width: 68ch;
+}
+
+.summary .rule {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: var(--t4);
+	font-size: 12.5px;
+}
+
+.summary .rule::after {
+	content: "";
+	flex: 1;
+	border-top: 1px solid var(--line);
+}
+
+.summary p {
+	max-width: 68ch;
+	margin-top: 6px;
+	color: var(--t3);
+	font-size: 14px;
+}
+
+.warn > .g {
+	color: var(--wait);
+}
+
+.warn p,
+.err p,
+.stopped p {
+	max-width: 68ch;
+	font-size: 14px;
+}
+
+.warn p {
+	color: color-mix(in srgb, var(--wait) 55%, var(--t2));
+}
+
+.err > .g {
+	color: var(--fail);
+}
+
+.err p {
+	color: color-mix(in srgb, var(--fail) 65%, var(--t1));
+}
+
+.stopped p {
+	color: var(--t3);
+}
+
+.appr.approved > .g {
+	color: var(--ok);
+}
+
+.appr.denied > .g {
+	color: var(--fail);
+}
+
+.retry {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	height: 28px;
+	margin-top: 8px;
+	padding: 0 10px;
+	border: 1px solid var(--line-2);
+	border-radius: 7px;
+	color: var(--t1);
+	font-size: 13px;
+}
+
+.retry:hover {
+	background: var(--raise);
+}
+
+.empty {
+	display: grid;
+	grid-template-columns: var(--gutter) minmax(0, 1fr);
+}
+
+.empty > * {
+	grid-column: 2;
+}
+
+.empty h1 {
+	color: var(--t1);
+	font-size: 34px;
+	font-weight: 600;
+	line-height: 1.1;
+	letter-spacing: -0.02em;
+}
+
+.empty .lede {
+	max-width: 52ch;
+	margin-top: 10px;
+	color: var(--t3);
+	font-size: 15px;
+}
+
+.starters {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+	margin: 18px 0 0 -10px;
+}
+
+.starters button {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	max-width: 100%;
+	height: 32px;
+	padding: 0 12px 0 10px;
+	border-radius: 8px;
+	color: var(--t2);
+	font-size: 14px;
+	text-align: left;
+}
+
+.starters button .i {
+	color: var(--accent);
+}
+
+.starters button span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.starters button:hover {
+	background: var(--raise);
+	color: var(--t1);
+}
+
+.setup {
+	max-width: 68ch;
+	margin-top: 18px;
+	color: var(--t4);
+	font-size: 13px;
+}
+
+.setup b {
+	color: var(--t3);
+	font-weight: 500;
+}
+
+.link {
+	color: var(--accent);
+	text-decoration: underline;
+	text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+	text-underline-offset: 3px;
+}
+
+.dock {
+	padding-bottom: 14px;
+}
+
+.deck {
+	display: flex;
+	flex-direction: column;
+	padding: 4px 0 8px;
+}
+
+.deck:empty {
+	display: none;
+}
+
+.drow {
+	display: grid;
+	grid-template-columns: var(--gutter) minmax(0, 1fr);
+	align-items: center;
+	min-height: 30px;
+	font-size: 13px;
+}
+
+.drow > .g {
+	display: flex;
+	color: var(--t4);
+}
+
+.dc {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+	white-space: nowrap;
+}
+
+.dc > * {
+	flex: none;
+}
+
+.lab {
+	color: var(--t3);
+}
+
+.turn .lab {
+	color: var(--t1);
+	font-weight: 500;
+}
+
+.dc .arg {
+	flex: 0 1 auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.clk {
+	color: var(--t4);
+	font-variant-numeric: tabular-nums;
+}
+
+.spin {
+	width: 11px;
+	height: 11px;
+	margin-left: 1px;
+	border: 1.5px solid color-mix(in srgb, var(--work) 30%, transparent);
+	border-top-color: var(--work);
+	border-radius: 50%;
+	animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(1turn);
+	}
+}
+
+.stop {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 26px;
+	margin-left: auto;
+	padding: 0 10px 0 8px;
+	border: 1px solid var(--line-2);
+	border-radius: 7px;
+	color: var(--t2);
+	font-size: 12.5px;
+}
+
+.stop:hover {
+	border-color: color-mix(in srgb, var(--fail) 60%, var(--line-2));
+	color: var(--t1);
+}
+
+.mates {
+	display: flex;
+	flex: 0 1 auto;
+	gap: 16px;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.mate {
+	display: inline-flex;
+	flex: 0 1 auto;
+	align-items: center;
+	gap: 7px;
+	min-width: 0;
+}
+
+.mate > * {
+	flex: none;
+}
+
+.mate b {
+	color: var(--t2);
+	font-weight: 500;
+}
+
+.mate .task {
+	flex: 0 1 auto;
+	overflow: hidden;
+	color: var(--t4);
+	text-overflow: ellipsis;
+}
+
+.mate .ok {
+	color: var(--ok);
+}
+
+.qi {
+	flex: 0 1 auto;
+	overflow: hidden;
+	padding: 2px 9px;
+	border: 1px dashed var(--line-2);
+	border-radius: 7px;
+	color: var(--t2);
+	text-overflow: ellipsis;
+}
+
+.composer {
+	position: relative;
+	padding: 11px 12px 7px 25px;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	background: var(--panel);
+}
+
+.composer:focus-within {
+	border-color: var(--line-2);
+}
+
+.composer textarea {
+	display: block;
+	width: 100%;
+	min-height: 1.5em;
+	max-height: 9em;
+	padding-right: 44px;
+	outline: 0;
+	resize: none;
+	color: var(--t1);
+	font-size: 15px;
+	line-height: 1.5;
+	field-sizing: content;
+}
+
+.composer textarea::placeholder {
+	color: var(--t4);
+}
+
+.send {
+	position: absolute;
+	top: 8px;
+	right: 9px;
+	display: grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	border-radius: 8px;
+	background: var(--raise);
+	color: var(--t4);
+}
+
+.send.on {
+	background: var(--accent);
+	color: #17152a;
+}
+
+.chips {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	margin: 7px 0 0 -9px;
+	white-space: nowrap;
+}
+
+.chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	height: 26px;
+	padding: 0 8px;
+	border-radius: 7px;
+	color: var(--t3);
+	font-size: 12.5px;
+}
+
+.chip span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.chip .dim {
+	color: var(--t4);
+}
+
+.chip:hover {
+	background: var(--raise);
+	color: var(--t1);
+}
+
+.chip:hover .dim {
+	color: var(--t3);
+}
+
+.chip.flash {
+	animation: flash 0.7s ease-out;
+}
+
+@keyframes flash {
+	from {
+		background: color-mix(in srgb, var(--accent) 28%, transparent);
+		color: var(--t1);
+	}
+}
+
+.chips .sp {
+	flex: 1;
+}
+
+.hint {
+	color: var(--t4);
+	font-size: 12px;
+}
+
+.approval {
+	display: grid;
+	grid-template-columns: var(--gutter) minmax(0, 1fr);
+	padding: 12px 14px 12px 0;
+	border: 1px solid color-mix(in srgb, var(--wait) 45%, var(--line));
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--wait) 5%, var(--panel));
+	animation: rise 0.18s ease-out;
+}
+
+.approval:focus {
+	outline: 0;
+}
+
+.approval > .g {
+	display: flex;
+	justify-content: center;
+	padding-top: 3px;
+	color: var(--wait);
+}
+
+.ap-head {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	color: var(--t1);
+	font-size: 14.5px;
+}
+
+.ap-head p {
+	flex: 1;
+	min-width: 0;
+}
+
+.ap-head code {
+	color: var(--code);
+	font-size: 13.5px;
+}
+
+.ap-kv {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	gap: 3px 16px;
+	margin-top: 10px;
+	padding: 10px 12px;
+	border-radius: 8px;
+	background: var(--ground);
+	font: 13px/1.5 var(--mono);
+}
+
+.ap-kv dt {
+	color: var(--t4);
+}
+
+.ap-kv dd {
+	color: var(--t2);
+	overflow-wrap: anywhere;
+}
+
+.ap-act {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+.ap-act button {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	height: 32px;
+	padding: 0 8px 0 14px;
+	border-radius: 8px;
+	font-weight: 500;
+}
+
+.ap-act button kbd {
+	border-color: transparent;
+	background: rgb(0 0 0 / 0.18);
+	color: inherit;
+}
+
+.yes {
+	background: var(--wait);
+	color: #22190a;
+}
+
+.yes:hover {
+	background: color-mix(in srgb, var(--wait) 88%, #fff);
+}
+
+.no {
+	background: var(--raise);
+	color: var(--t1);
+}
+
+.no:hover {
+	background: var(--line-2);
+}
+
+.ap-act .hint {
+	margin-left: auto;
+}
+
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+}
+
+.scrim {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	justify-content: center;
+	align-items: flex-start;
+	padding-top: 52px;
+	background: rgb(9 10 13 / 0.55);
+}
+
+.scrim[hidden] {
+	display: none;
+}
+
+.palette {
+	display: flex;
+	flex-direction: column;
+	width: min(640px, 100% - 24px);
+	max-height: calc(100vh - 68px);
+	overflow: hidden;
+	border: 1px solid var(--line-2);
+	border-radius: 12px;
+	background: var(--panel);
+	box-shadow: 0 28px 70px -20px rgb(0 0 0 / 0.75);
+	animation: drop 0.14s ease-out;
+}
+
+@keyframes drop {
+	from {
+		opacity: 0;
+		transform: translateY(-6px);
+	}
+}
+
+.pin {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 10px;
+	height: 50px;
+	padding: 0 12px 0 16px;
+	border-bottom: 1px solid var(--line);
+	color: var(--t4);
+}
+
+.crumb {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	gap: 4px;
+	height: 26px;
+	padding: 0 9px 0 5px;
+	border-radius: 7px;
+	background: var(--raise);
+	color: var(--t1);
+	font-size: 13px;
+}
+
+.crumb[hidden] {
+	display: none;
+}
+
+.crumb:hover {
+	background: var(--line-2);
+}
+
+.pin input {
+	flex: 1;
+	min-width: 0;
+	height: 100%;
+	outline: 0;
+	color: var(--t1);
+	font-size: 15px;
+}
+
+.pin input::placeholder {
+	color: var(--t4);
+}
+
+.plist {
+	flex: 1;
+	min-height: 0;
+	padding: 6px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.gh {
+	display: flex;
+	justify-content: space-between;
+	padding: 10px 10px 4px;
+	color: var(--t4);
+	font-size: 12px;
+}
+
+.gh:first-child {
+	padding-top: 4px;
+}
+
+.it {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	height: 36px;
+	padding: 0 10px;
+	border-radius: 8px;
+	color: var(--t2);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.it > * {
+	flex: none;
+}
+
+.it .lead {
+	display: flex;
+	justify-content: center;
+	width: 16px;
+	color: var(--t4);
+}
+
+.it .lb {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.it .ht {
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	color: var(--t4);
+	font-size: 13px;
+	text-overflow: ellipsis;
+}
+
+.it .meta {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: auto;
+	padding-left: 12px;
+	color: var(--t4);
+	font-size: 12.5px;
+}
+
+.it .meta.s-waiting {
+	color: var(--wait);
+}
+
+.it .meta.s-failed {
+	color: var(--fail);
+}
+
+.it .meta.s-working {
+	color: var(--work);
+}
+
+.it .meta .i {
+	color: var(--accent);
+}
+
+.it mark {
+	background: none;
+	color: var(--accent);
+}
+
+.it.sel {
+	background: var(--raise);
+	color: var(--t1);
+	box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.it.sel .lead {
+	color: var(--t2);
+}
+
+.it.off {
+	cursor: default;
+	color: var(--t3);
+}
+
+.it.off.bad {
+	color: var(--fail);
+}
+
+.it.warnrow {
+	color: var(--wait);
+}
+
+.box {
+	width: 13px;
+	height: 13px;
+	border: 1.5px solid var(--t4);
+	border-radius: 4px;
+}
+
+.box.on {
+	border-color: var(--accent);
+	background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3.5 7.2l2.3 2.3 4.7-4.8' fill='none' stroke='%2317152a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+
+.none {
+	padding: 18px 12px;
+	color: var(--t4);
+	font-size: 13px;
+}
+
+.pfoot {
+	display: flex;
+	flex: none;
+	gap: 16px;
+	padding: 8px 16px;
+	border-top: 1px solid var(--line);
+	color: var(--t4);
+	font-size: 12px;
+}
+
+.pfoot span {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.tip {
+	position: fixed;
+	z-index: 5;
+	max-width: 280px;
+	padding: 7px 10px;
+	border: 1px solid var(--line-2);
+	border-radius: 8px;
+	background: var(--raise);
+	color: var(--t2);
+	font-size: 12.5px;
+	line-height: 1.45;
+	pointer-events: none;
+}
+
+.tip[hidden] {
+	display: none;
+}
+
+.tip b {
+	color: var(--t1);
+	font-weight: 600;
+}
+
+.tip .p {
+	display: block;
+	margin-top: 2px;
+	color: var(--t3);
+}
+
+.toast {
+	position: fixed;
+	top: 54px;
+	left: 50%;
+	z-index: 6;
+	max-width: calc(100% - 32px);
+	padding: 8px 14px;
+	border: 1px solid var(--line-2);
+	border-radius: 9px;
+	background: var(--raise);
+	color: var(--t1);
+	font-size: 13px;
+	opacity: 0;
+	transform: translate(-50%, -4px);
+	transition: opacity 0.16s, transform 0.16s;
+	pointer-events: none;
+}
+
+.toast.show {
+	opacity: 1;
+	transform: translate(-50%, 0);
+}
+
+@media (max-width: 760px) {
+	.frame {
+		width: calc(100% - 28px);
+	}
+
+	.cmd .word,
+	.chip.opt,
+	.chips .hint,
+	.ap-act .hint,
+	.mate .task {
+		display: none;
+	}
+
+	.who .st {
+		margin-left: 8px;
+	}
+}
+
+@media (max-height: 520px) {
+	.lines {
+		padding-top: 14px;
+	}
+
+	.pfoot {
+		display: none;
+	}
+
+	.drow {
+		min-height: 26px;
+	}
+
+	.deck {
+		padding-bottom: 6px;
+	}
+
+	.dock {
+		padding-bottom: 10px;
+	}
+
+	.ap-kv {
+		margin-top: 8px;
+		padding: 6px 10px;
+	}
+
+	.ap-act {
+		margin-top: 8px;
+	}
+
+	.empty h1 {
+		font-size: 28px;
+	}
+
+	.starters {
+		margin-top: 10px;
+	}
+
+	.setup {
+		margin-top: 10px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation: none !important;
+		transition: none !important;
+	}
+}
+</style>
+</head>
+<body>
+<div class="app">
+	<header class="top">
+		<div class="frame">
+			<button class="who" id="who" type="button" aria-label="Trocar de bot"></button>
+			<nav class="fleet" id="fleet" aria-label="Bots"></nav>
+			<button class="cmd" id="cmd" type="button"><span class="word">Comandos</span><span class="keys"><kbd>Ctrl</kbd><kbd>K</kbd></span></button>
+		</div>
+	</header>
+	<main class="scroll" id="scroll">
+		<div class="frame lines" id="lines"></div>
+	</main>
+	<footer class="dock">
+		<div class="frame">
+			<section class="deck" id="deck" aria-live="polite"></section>
+			<section class="approval" id="approval" tabindex="-1" hidden></section>
+			<form class="composer" id="composer">
+				<textarea id="input" rows="1" aria-label="Mensagem"></textarea>
+				<button class="send" id="send" type="submit" aria-label="Enviar"></button>
+				<div class="chips" id="chips"></div>
+			</form>
+		</div>
+	</footer>
+</div>
+<div class="scrim" id="scrim" hidden>
+	<div class="palette" role="dialog" aria-label="Comandos">
+		<div class="pin">
+			<span id="picon"></span>
+			<button class="crumb" id="crumb" type="button" hidden></button>
+			<input id="q" autocomplete="off" spellcheck="false" aria-label="Buscar comandos" aria-controls="plist">
+			<kbd>Esc</kbd>
+		</div>
+		<div class="plist" id="plist" role="listbox"></div>
+		<div class="pfoot"><span><kbd>↑</kbd><kbd>↓</kbd> mover</span><span><kbd>Enter</kbd> escolher</span><span><kbd>⌫</kbd> voltar</span><span><kbd>Esc</kbd> fechar</span></div>
+	</div>
+</div>
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+const M = window.MIMO;
+const LEVELS = ["off", "brief", "full"];
+const LEVEL_LABEL = { off: "desligado", brief: "breve", full: "completo" };
+const LEVEL_HINT = { off: "só a conversa", brief: "uma linha por tool e por ação da Equipe", full: "com a entrada e o resultado de cada tool" };
+const EFFORT_LABEL = { low: "baixo", medium: "médio", high: "alto", max: "máximo" };
+const MODE_LABEL = { normal: "normal", autonomous: "autônomo" };
+const MODE_HINT = { normal: "pede Aprovação antes de ações como enviar email", autonomous: "age sem pedir; você revisa o registro depois" };
+const STATE_LABEL = { failed: "falhou", waiting: "esperando aprovação", working: "trabalhando", idle: "parado", new: "novo" };
+const DETAIL_KINDS = new Set(["tool", "team", "routine", "approval", "setting"]);
+
+const svg = (body) => `<svg class="i" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+const ICON = {
+	chev: svg('<path d="M4 5.5l3 3 3-3"/>'),
+	prompt: svg('<path d="M5 3.5L8.5 7 5 10.5"/>'),
+	back: svg('<path d="M8.5 3.5L5 7l3.5 3.5"/>'),
+	plus: svg('<path d="M7 3v8M3 7h8"/>'),
+	check: svg('<path d="M3 7.5l2.5 2.5L11 4.5"/>'),
+	x: svg('<path d="M4 4l6 6M10 4l-6 6"/>'),
+	stop: svg('<rect x="4" y="4" width="6" height="6" rx="1.2" fill="currentColor" stroke="none"/>'),
+	tool: svg('<path d="M3 4.5L5.5 7 3 9.5M7.5 10H11"/>'),
+	out: svg('<path d="M5 9l4-4M5.5 5H9v3.5"/>'),
+	back2: svg('<path d="M9 5L5 9M8.5 9H5V5.5"/>'),
+	clock: svg('<circle cx="7" cy="7" r="4.6"/><path d="M7 4.6V7l1.7 1.1"/>'),
+	warn: svg('<path d="M7 2.4l5 9H2z"/><path d="M7 6v2.1M7 9.7v.1"/>'),
+	err: svg('<circle cx="7" cy="7" r="4.8"/><path d="M5.3 5.3l3.4 3.4M8.7 5.3l-3.4 3.4"/>'),
+	sliders: svg('<path d="M2.5 4.5h9M2.5 9.5h9"/><circle cx="5" cy="4.5" r="1.5" fill="var(--panel)"/><circle cx="9" cy="9.5" r="1.5" fill="var(--panel)"/>'),
+	cpu: svg('<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><path d="M5.6 1.6v1.9M8.4 1.6v1.9M5.6 10.5v1.9M8.4 10.5v1.9M1.6 5.6h1.9M1.6 8.4h1.9M10.5 5.6h1.9M10.5 8.4h1.9"/>'),
+	mode: svg('<rect x="1.5" y="4" width="11" height="6" rx="3"/><circle cx="9.5" cy="7" r="1.5"/>'),
+	grid: svg('<rect x="2.5" y="2.5" width="3.6" height="3.6" rx=".8"/><rect x="7.9" y="2.5" width="3.6" height="3.6" rx=".8"/><rect x="2.5" y="7.9" width="3.6" height="3.6" rx=".8"/><rect x="7.9" y="7.9" width="3.6" height="3.6" rx=".8"/>'),
+	folder: svg('<path d="M2 3.8h3.4l1.2 1.4H12v5.6a.8.8 0 0 1-.8.8H2.8a.8.8 0 0 1-.8-.8z"/>'),
+	home: svg('<path d="M2.5 6.5L7 2.8l4.5 3.7V11.5h-9z"/>'),
+	memory: svg('<path d="M4 2.5h6v9L7 9.6l-3 1.9z"/>'),
+	eye: svg('<path d="M1.5 7S3.5 3.3 7 3.3 12.5 7 12.5 7 10.5 10.7 7 10.7 1.5 7 1.5 7z"/><circle cx="7" cy="7" r="1.6"/>'),
+	retry: svg('<path d="M11 7a4 4 0 1 1-1.2-2.9M11 2.6v2.3H8.7"/>'),
+	send: svg('<path d="M7 11.5V3M3.6 6.4L7 3l3.4 3.4"/>'),
+	search: svg('<circle cx="6.2" cy="6.2" r="3.8"/><path d="M9 9l3 3"/>'),
+	team: svg('<circle cx="5" cy="5" r="1.9"/><path d="M1.8 11c.4-1.8 1.6-2.8 3.2-2.8S7.8 9.2 8.2 11"/><circle cx="9.8" cy="5.6" r="1.5"/><path d="M9.6 8.4c1.3 0 2.2.8 2.6 2.4"/>'),
+	queue: svg('<path d="M3 4h8M3 7h8M3 10h5"/>'),
+	shield: svg('<path d="M7 1.8l4.3 1.7v3.2c0 2.6-1.8 4.6-4.3 5.5-2.5-.9-4.3-2.9-4.3-5.5V3.5z"/><path d="M5 7l1.5 1.5L9.2 5.8"/>'),
+	bolt: svg('<path d="M7.8 1.8L3.5 8h3.3l-.6 4.2L10.5 6H7.2z"/>'),
+};
+
+const state = {
+	bots: structuredClone(M.bots).map((bot) => ({ ...bot, draft: "" })),
+	current: "gemeio",
+	level: "brief",
+};
+const runs = new Map();
+const pal = { open: false, scope: "root", ctx: {}, q: "", sel: 0, items: [], stack: [] };
+
+const $ = (selector) => document.querySelector(selector);
+const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const clock = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+const cur = () => state.bots.find((bot) => bot.id === state.current);
+const byId = (id) => state.bots.find((bot) => bot.id === id);
+const modelOf = (bot) => M.models.find((model) => model.id === bot.model.id);
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const input = $("#input");
+
+function stateOf(bot) {
+	if (bot.live.failed) return "failed";
+	if (bot.live.turn === "waiting") return "waiting";
+	if (bot.live.turn !== "idle" || bot.live.team.some((mate) => mate.state === "working")) return "working";
+	return bot.lines.length ? "idle" : "new";
+}
+
+function statusOf(bot) {
+	const turn = bot.live.turn;
+	if (turn === "thinking") return { text: "pensando", clock: true };
+	if (turn === "working") return { text: "trabalhando", clock: true };
+	if (turn === "waiting") return { text: "esperando aprovação", clock: true };
+	if (bot.live.failed) return { text: "falhou" };
+	if (bot.live.team.some((mate) => mate.state === "working")) return { text: "equipe trabalhando" };
+	return { text: bot.lines.length ? "parado" : "novo" };
+}
+
+function argText(value) {
+	if (!value) return "";
+	const first = Object.values(value)[0];
+	return String(first).replace(/^https?:\/\//, "").split("\n")[0];
+}
+
+function kv(value) {
+	if (!value) return "";
+	return `<dl class="kv">${Object.entries(value).map(([key, val]) => `<dt>${esc(key)}</dt><dd>${esc(val)}</dd>`).join("")}</dl>`;
+}
+
+function clockFor(key) {
+	const [kind, id, name] = key.split(":");
+	const bot = byId(id);
+	if (!bot) return "";
+	if (kind === "turn") return clock(bot.live.seconds);
+	const mate = bot.live.team.find((entry) => entry.name === name);
+	return mate ? clock(mate.seconds) : "";
+}
+
+function renderTop() {
+	const bot = cur();
+	const status = statusOf(bot);
+	const timer = status.clock ? ` <span data-clock="turn:${bot.id}">${clock(bot.live.seconds)}</span>` : "";
+	$("#who").innerHTML = `<span class="gut s-${stateOf(bot)}"><span class="dot"></span></span><span class="nm">${esc(bot.name)}</span><span class="st">${status.text}${timer}</span>${ICON.chev}`;
+	$("#who").dataset.tip = "Trocar de bot  Ctrl E";
+	$("#fleet").innerHTML = state.bots.map((entry) => {
+		const s = stateOf(entry);
+		const here = entry.id === bot.id;
+		const loud = !here && (s === "waiting" || s === "failed");
+		return `<button type="button" class="bd s-${s}${here ? " is-cur" : ""}${loud ? " loud" : ""}" data-bot="${entry.id}" aria-label="${esc(entry.name)}, ${STATE_LABEL[s]}"><span class="dot"></span>${loud ? `<span>${esc(entry.name)}</span>` : ""}</button>`;
+	}).join("") + `<button type="button" class="bd add" data-new aria-label="Novo bot" data-tip="Novo bot">${ICON.plus}</button>`;
+}
+
+function lineHTML(line, index, bot, level) {
+	if (DETAIL_KINDS.has(line.kind) && level === "off") return "";
+	const full = level === "full";
+	switch (line.kind) {
+		case "you":
+			return `<div class="ln you"><span class="g">${ICON.prompt}</span><div class="c"><p>${esc(line.text)}</p></div></div>`;
+		case "reply":
+			if (!line.html) return "";
+			return `<div class="ln reply"><div class="c md">${line.html}</div></div>`;
+		case "tool": {
+			const failed = Boolean(line.failed);
+			const body = full ? `${kv(line.input)}${line.result ? `<pre class="out">${esc(line.result)}</pre>` : ""}${failed ? `<p class="out bad">${esc(line.failed)}</p>` : ""}` : "";
+			return `<div class="ln d tool${failed ? " failed" : ""}"><span class="g">${failed ? ICON.err : ICON.tool}</span><div class="c"><div class="row"><code class="nm">${esc(line.name)}</code>${full ? "" : `<span class="arg">${esc(argText(line.input))}</span>`}${failed ? `<span class="bad">falhou</span>` : ""}</div>${body}</div></div>`;
+		}
+		case "team":
+			return `<div class="ln d team"><span class="g">${line.verb === "criou" ? ICON.plus : ICON.out}</span><div class="c"><div class="row"><span class="verb">${esc(line.verb)}</span><span class="who-b">${esc(line.bot)}</span><span class="arg">${esc(line.task)}</span></div></div></div>`;
+		case "note":
+			return `<div class="ln note"><span class="g">${ICON.back2}</span><div class="c"><p class="head">${esc(line.text)}</p>${line.detail ? `<pre class="out">${esc(line.detail)}</pre>` : ""}</div></div>`;
+		case "summary":
+			return `<div class="ln summary"><div class="c"><div class="rule">Resumo do que veio antes</div><p>${esc(line.text)}</p></div></div>`;
+		case "routine":
+			return `<div class="ln d routine"><span class="g">${ICON.clock}</span><div class="c"><div class="row"><span class="verb">rotina</span><span class="who-b">${esc(line.name)}</span><span class="arg">começou</span></div>${full ? `<pre class="out">${esc(line.prompt)}</pre>` : ""}</div></div>`;
+		case "approval": {
+			const ok = line.outcome === "approved";
+			return `<div class="ln d appr ${ok ? "approved" : "denied"}"><span class="g">${ok ? ICON.check : ICON.x}</span><div class="c"><div class="row"><span class="verb">${ok ? "você aprovou" : "você recusou"}</span><code class="nm">${esc(line.tool)}</code></div>${full ? kv(line.input) : ""}</div></div>`;
+		}
+		case "setting":
+			return `<div class="ln d"><span class="g">${ICON.grid}</span><div class="c"><div class="row"><span class="verb">${esc(line.text)}</span></div></div></div>`;
+		case "warning":
+			return `<div class="ln warn"><span class="g">${ICON.warn}</span><div class="c"><p>${esc(line.text)}</p></div></div>`;
+		case "error": {
+			const last = index === bot.lines.length - 1 && bot.live.failed && bot.live.turn === "idle";
+			return `<div class="ln err"><span class="g">${ICON.err}</span><div class="c"><p>${esc(line.text)}</p>${last ? `<button type="button" class="retry" data-retry>${ICON.retry}Tentar de novo</button>` : ""}</div></div>`;
+		}
+		case "stopped":
+			return `<div class="ln stopped"><span class="g">${ICON.stop}</span><div class="c"><p>${esc(line.text)}</p></div></div>`;
+		default:
+			return "";
+	}
+}
+
+function startersFor(bot) {
+	const ideas = [
+		["web", "Pesquise o que mudou no Electron 44"],
+		["gmail", "Resuma meus emails não lidos de hoje"],
+		["routines", "Toda manhã às 8h, leia minha agenda e avise se houver conflito"],
+		["computer", "Leia a Pasta e me diga do que se trata o projeto"],
+	];
+	return ideas.filter(([tool]) => bot.tools.includes(tool)).slice(0, 3).map(([, text]) => text);
+}
+
+function emptyHTML(bot) {
+	const model = modelOf(bot);
+	const starters = startersFor(bot);
+	return `<div class="empty">
+		<h1>${esc(bot.name)}</h1>
+		<p class="lede">Ainda não há conversa. Diga o que ${esc(bot.name)} deve fazer; o que for durável vira Memória e vale para os próximos turnos.</p>
+		${starters.length ? `<div class="starters">${starters.map((text) => `<button type="button" data-suggest="${esc(text)}">${ICON.prompt}<span>${esc(text)}</span></button>`).join("")}</div>` : ""}
+		<p class="setup">Usa <b>${esc(model.label)}</b> com esforço ${EFFORT_LABEL[bot.model.effort]}, no modo ${MODE_LABEL[bot.mode]}, com ${plural(bot.tools.length, "grupo", "grupos")} de tools e ${bot.folder ? `a Pasta <b>${esc(bot.folder)}</b>` : "sem Pasta"}. <button type="button" class="link" data-scope="settings">Mudar ajustes</button></p>
+	</div>`;
+}
+
+let stuck = true;
+
+function renderLines(force) {
+	const bot = cur();
+	const scroll = $("#scroll");
+	const stick = force || stuck;
+	const box = $("#lines");
+	box.className = `frame lines lv-${state.level}`;
+	if (!bot.lines.length && bot.live.turn === "idle") {
+		box.innerHTML = emptyHTML(bot);
+	} else {
+		box.innerHTML = bot.lines.map((line, index) => lineHTML(line, index, bot, state.level)).join("");
+	}
+	if (stick) scroll.scrollTop = scroll.scrollHeight;
+}
+
+function renderDeck() {
+	const bot = cur();
+	const live = bot.live;
+	const rows = [];
+	if (live.turn === "thinking" || live.turn === "working") {
+		const tool = live.turn === "working" && live.tool ? `<code class="nm">${esc(live.tool.name)}</code><span class="arg">${esc(argText(live.tool.input))}</span>` : "";
+		rows.push(`<div class="drow turn"><span class="g"><span class="spin"></span></span><div class="dc"><span class="lab">${live.turn === "thinking" ? "Pensando" : "Trabalhando"}</span>${tool}<span class="clk" data-clock="turn:${bot.id}">${clock(live.seconds)}</span><button type="button" class="stop" data-stop>${ICON.stop}Parar</button></div></div>`);
+	}
+	if (live.team.length) {
+		const mates = live.team.map((mate) => {
+			const working = mate.state === "working";
+			const tail = working ? `${mate.tool ? `<code class="nm">${esc(mate.tool)}</code>` : ""}<span class="clk" data-clock="team:${bot.id}:${esc(mate.name)}">${clock(mate.seconds)}</span>` : `<span class="ok">terminou</span>`;
+			return `<span class="mate" data-tip="${esc(mate.name)}: ${esc(mate.task)}"><span class="dot s-${working ? "working" : "done"}"></span><b>${esc(mate.name)}</b><span class="task">${esc(mate.task)}</span>${tail}</span>`;
+		}).join("");
+		rows.push(`<div class="drow"><span class="g">${ICON.team}</span><div class="dc"><span class="lab">Equipe</span><span class="mates">${mates}</span></div></div>`);
+	}
+	if (live.queue.length) {
+		rows.push(`<div class="drow"><span class="g">${ICON.queue}</span><div class="dc"><span class="lab">Na fila</span>${live.queue.map((text) => `<span class="qi" data-tip="Entra quando o turno acabar">${esc(text)}</span>`).join("")}</div></div>`);
+	}
+	$("#deck").innerHTML = rows.join("");
+}
+
+let approvalKey = "";
+
+function renderDock() {
+	const bot = cur();
+	const approval = bot.live.turn === "waiting" ? bot.live.approval : null;
+	const box = $("#approval");
+	box.hidden = !approval;
+	$("#composer").hidden = Boolean(approval);
+	const key = approval ? `${bot.id}:${approval.tool}` : "";
+	if (approval && key !== approvalKey) {
+		box.innerHTML = `<span class="g">${ICON.shield}</span><div>
+			<div class="ap-head"><p><b>${esc(bot.name)}</b> quer usar <code>${esc(approval.tool)}</code></p><span class="clk" data-clock="turn:${bot.id}">${clock(bot.live.seconds)}</span></div>
+			<dl class="ap-kv">${Object.entries(approval.input).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+			<div class="ap-act"><button type="button" class="yes" data-approve>Aprovar<kbd>1</kbd></button><button type="button" class="no" data-deny>Recusar<kbd>2</kbd></button><span class="hint">Nada acontece até você decidir.</span></div>
+		</div>`;
+	}
+	approvalKey = key;
+	const busy = bot.live.turn !== "idle";
+	input.placeholder = busy ? `${bot.name} está trabalhando; o que você escrever entra na Fila` : `Fale com ${bot.name}`;
+	renderChips();
+	paintSend();
+}
+
+function renderChips() {
+	const bot = cur();
+	const model = modelOf(bot);
+	$("#chips").innerHTML = `
+		<button type="button" class="chip" data-scope="model" data-tip="Modelo e esforço">${ICON.cpu}<span>${esc(model.label)}</span><span class="dim">${EFFORT_LABEL[bot.model.effort]}</span></button>
+		<button type="button" class="chip" data-scope="mode" data-tip="${esc(MODE_HINT[bot.mode])}">${ICON.mode}<span>${MODE_LABEL[bot.mode]}</span></button>
+		${bot.folder ? `<button type="button" class="chip opt" data-scope="folder" data-tip="Pasta">${ICON.folder}<span>${esc(bot.folder)}</span></button>` : ""}
+		<button type="button" class="chip opt" data-scope="settings" data-tip="Tools, Pasta e Memória">${ICON.sliders}<span>Ajustes</span></button>
+		<span class="sp"></span>
+		<span class="hint">Shift Enter quebra a linha</span>
+		<button type="button" class="chip" id="levelChip" data-cycle data-tip="Detalhe  Ctrl O">${ICON.eye}<span>Detalhe</span><span class="dim">${LEVEL_LABEL[state.level]}</span></button>`;
+}
+
+function paintSend() {
+	const send = $("#send");
+	send.innerHTML = ICON.send;
+	send.classList.toggle("on", input.value.trim().length > 0);
+}
+
+function renderAll(force) {
+	renderTop();
+	renderLines(force);
+	renderDeck();
+	renderDock();
+	if (pal.open) renderPalette();
+}
+
+function changed(bot) {
+	renderTop();
+	if (bot.id === state.current) {
+		renderLines(false);
+		renderDeck();
+		renderDock();
+	}
+	if (pal.open) renderPalette();
+}
+
+function focusMain() {
+	const bot = cur();
+	if (bot.live.turn === "waiting" && bot.live.approval) {
+		$("#approval").focus();
+	} else {
+		input.focus();
+	}
+}
+
+function selectBot(id) {
+	if (id === state.current) return;
+	cur().draft = input.value;
+	state.current = id;
+	input.value = cur().draft;
+	approvalKey = "";
+	renderAll(true);
+	focusMain();
+}
+
+let toastTimer = 0;
+
+function toast(text) {
+	const el = $("#toast");
+	el.textContent = text;
+	el.classList.add("show");
+	clearTimeout(toastTimer);
+	toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+function setLevel(level) {
+	state.level = level;
+	renderLines(false);
+	renderChips();
+	const chip = $("#levelChip");
+	chip?.classList.remove("flash");
+	void chip?.offsetWidth;
+	chip?.classList.add("flash");
+	toast(`Detalhe ${LEVEL_LABEL[level]}: ${LEVEL_HINT[level]}`);
+}
+
+function cycleLevel() {
+	setLevel(LEVELS[(LEVELS.indexOf(state.level) + 1) % LEVELS.length]);
+	if (pal.open) renderPalette();
+}
+
+async function stream(bot, run, blocks) {
+	const line = { kind: "reply", html: "" };
+	bot.lines.push(line);
+	for (const block of blocks) {
+		await sleep(M.demoTurn.blockMs);
+		if (run.stop) return;
+		line.html += block;
+		changed(bot);
+	}
+}
+
+function finish(bot, run) {
+	if (runs.get(bot.id) !== run) return;
+	runs.delete(bot.id);
+	Object.assign(bot.live, { turn: "idle", tool: null, seconds: 0 });
+	if (bot.live.queue.length) {
+		for (const text of bot.live.queue.splice(0)) bot.lines.push({ kind: "you", text });
+		runTurn(bot);
+		return;
+	}
+	changed(bot);
+}
+
+async function runTurn(bot) {
+	const run = { stop: false };
+	runs.set(bot.id, run);
+	const live = bot.live;
+	Object.assign(live, { failed: null, turn: "thinking", tool: null, seconds: 0 });
+	changed(bot);
+	await sleep(M.demoTurn.thinkingMs);
+	if (run.stop) return;
+	for (const step of M.demoTurn.steps) {
+		live.turn = "working";
+		live.tool = { name: step.name, input: step.input };
+		changed(bot);
+		await sleep(step.ms);
+		if (run.stop) return;
+		bot.lines.push({ kind: "tool", name: step.name, input: step.input, result: step.result });
+		changed(bot);
+	}
+	live.turn = "thinking";
+	live.tool = null;
+	changed(bot);
+	await stream(bot, run, M.demoTurn.replyBlocks);
+	if (run.stop) return;
+	finish(bot, run);
+}
+
+function endLiveTurnSoon(bot) {
+	const run = runs.get(bot.id);
+	if (!run || !run.live || run.ending) return;
+	run.ending = true;
+	setTimeout(() => {
+		if (run.stop || !bot.live.tool) return;
+		bot.lines.push({ kind: "tool", name: bot.live.tool.name, input: bot.live.tool.input });
+		finish(bot, run);
+	}, 2600);
+}
+
+function stopTurn(bot) {
+	if (bot.live.turn === "idle") return;
+	const run = runs.get(bot.id);
+	if (run) run.stop = true;
+	runs.delete(bot.id);
+	bot.lines = bot.lines.filter((line) => !(line.kind === "reply" && !line.html));
+	const dropped = bot.live.queue.length;
+	Object.assign(bot.live, { turn: "idle", tool: null, approval: null, queue: [], seconds: 0 });
+	bot.lines.push({ kind: "stopped", text: "Interrompido." });
+	changed(bot);
+	if (dropped) toast(`${plural(dropped, "mensagem da Fila foi descartada", "mensagens da Fila foram descartadas")}.`);
+	if (bot.id === state.current) focusMain();
+}
+
+async function decide(bot, approved) {
+	const approval = bot.live.approval;
+	if (bot.live.turn !== "waiting" || !approval) return;
+	const run = { stop: false };
+	runs.set(bot.id, run);
+	const outcome = M.approvalOutcomes[approved ? "approved" : "denied"];
+	bot.lines.push({ kind: "approval", tool: approval.tool, input: approval.input, outcome: approved ? "approved" : "denied" });
+	bot.live.approval = null;
+	if (approved) {
+		Object.assign(bot.live, { turn: "working", tool: { name: approval.tool, input: approval.input } });
+		changed(bot);
+		focusMain();
+		await sleep(900);
+		if (run.stop) return;
+		bot.lines.push({ kind: "tool", name: approval.tool, input: { to: approval.input.to }, result: outcome.result });
+	}
+	Object.assign(bot.live, { turn: "thinking", tool: null });
+	changed(bot);
+	focusMain();
+	await stream(bot, run, [outcome.replyHtml]);
+	if (run.stop) return;
+	finish(bot, run);
+}
+
+function send() {
+	const bot = cur();
+	const text = input.value.trim();
+	if (!text) return;
+	input.value = "";
+	bot.draft = "";
+	paintSend();
+	if (bot.live.turn !== "idle") {
+		bot.live.queue.push(text);
+		endLiveTurnSoon(bot);
+		changed(bot);
+		return;
+	}
+	bot.lines.push({ kind: "you", text });
+	renderLines(true);
+	runTurn(bot);
+}
+
+function retry() {
+	const bot = cur();
+	bot.live.failed = null;
+	runTurn(bot);
+}
+
+function nameError(name) {
+	if (name.length > 40) return "Use até 40 caracteres.";
+	if (state.bots.some((bot) => bot.name.toLowerCase() === name.toLowerCase())) return `Já existe um bot chamado ${name}.`;
+	return null;
+}
+
+function createBot(name) {
+	const model = M.models[0];
+	const bot = {
+		id: `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`,
+		name,
+		model: { id: model.id, effort: model.efforts[model.efforts.length - 1] },
+		mode: "autonomous",
+		tools: M.toolGroups.map((group) => group.id),
+		folder: null,
+		memories: 0,
+		lastAt: null,
+		preview: null,
+		live: { turn: "idle", seconds: 0, approval: null, queue: [], team: [], failed: null },
+		lines: [],
+		draft: "",
+	};
+	state.bots.push(bot);
+	closePalette();
+	selectBot(bot.id);
+	toast(`${name} criado.`);
+}
+
+function setModel(id, effort) {
+	const bot = cur();
+	bot.model = { id, effort };
+	const label = `${modelOf(bot).label} ${EFFORT_LABEL[effort]}`;
+	toast(bot.live.turn === "idle" ? `Modelo: ${label}.` : `Modelo: ${label}. Vale a partir da próxima resposta.`);
+	changed(bot);
+}
+
+function setMode(mode) {
+	const bot = cur();
+	bot.mode = mode;
+	toast(`Modo ${MODE_LABEL[mode]}: ${MODE_HINT[mode]}.`);
+	changed(bot);
+}
+
+function toggleTool(id) {
+	const bot = cur();
+	const group = M.toolGroups.find((entry) => entry.id === id);
+	const on = bot.tools.includes(id);
+	bot.tools = on ? bot.tools.filter((tool) => tool !== id) : M.toolGroups.map((entry) => entry.id).filter((tool) => tool === id || bot.tools.includes(tool));
+	bot.lines.push({ kind: "setting", text: `grupo ${group.label} ${on ? "desligado" : "ligado"}` });
+	changed(bot);
+}
+
+function setFolder(folder) {
+	const bot = cur();
+	bot.folder = folder;
+	toast(folder ? `Pasta: ${folder}` : "Sem Pasta: as tools rodam a partir de $HOME.");
+	changed(bot);
+}
+
+function askMemory() {
+	closePalette();
+	input.value = "O que você guardou na Memória?";
+	paintSend();
+	input.focus();
+}
+
+function botItem(bot) {
+	const s = stateOf(bot);
+	const here = bot.id === state.current;
+	return {
+		group: "Bots",
+		label: bot.name,
+		hint: here ? "aberto agora" : bot.preview || "",
+		meta: STATE_LABEL[s],
+		metaClass: `s-${s}`,
+		lead: `<span class="dot s-${s}"></span>`,
+		current: here,
+		keys: STATE_LABEL[s],
+		run: () => selectBot(bot.id),
+	};
+}
+
+function nowItems(bot) {
+	const group = "Agora";
+	if (bot.live.turn === "waiting" && bot.live.approval) {
+		return [
+			{ group, label: `Aprovar ${bot.live.approval.tool}`, lead: ICON.check, meta: "<kbd>1</kbd>", run: () => decide(bot, true) },
+			{ group, label: `Recusar ${bot.live.approval.tool}`, lead: ICON.x, meta: "<kbd>2</kbd>", run: () => decide(bot, false) },
+			{ group, label: "Parar o turno", lead: ICON.stop, keys: "interromper cancelar", run: () => stopTurn(bot) },
+		];
+	}
+	if (bot.live.turn !== "idle") {
+		return [{ group, label: "Parar o turno", hint: bot.live.queue.length ? "descarta a Fila" : "", lead: ICON.stop, keys: "interromper cancelar", run: () => stopTurn(bot) }];
+	}
+	if (bot.live.failed) {
+		return [{ group, label: "Tentar de novo", hint: "roda o último pedido outra vez", lead: ICON.retry, run: retry }];
+	}
+	return [];
+}
+
+function settingsItems(bot, group) {
+	return [
+		{ group, label: "Modelo", meta: `${esc(modelOf(bot).label)} ${EFFORT_LABEL[bot.model.effort]}`, lead: ICON.cpu, keys: "esforço", go: "model" },
+		{ group, label: "Modo", meta: MODE_LABEL[bot.mode], lead: ICON.mode, keys: "normal autônomo aprovação", go: "mode" },
+		{ group, label: "Grupos de tools", meta: `${bot.tools.length} de ${M.toolGroups.length}`, lead: ICON.grid, keys: "ferramentas", go: "tools" },
+		{ group, label: "Pasta", meta: esc(bot.folder || "sem Pasta"), lead: ICON.folder, keys: "diretório projeto", go: "folder" },
+		{ group, label: "Memória", hint: bot.memories ? "peça ao bot para ver ou esquecer" : "nada guardado ainda", meta: plural(bot.memories, "memória", "memórias"), lead: ICON.memory, run: askMemory },
+	];
+}
+
+function detailItems() {
+	return LEVELS.map((level) => ({
+		group: "Detalhe",
+		label: `Detalhe ${LEVEL_LABEL[level]}`,
+		hint: LEVEL_HINT[level],
+		lead: ICON.eye,
+		meta: level === state.level ? ICON.check : "",
+		current: level === state.level,
+		run: () => setLevel(level),
+	}));
+}
+
+function searchOnlyItems(bot) {
+	const models = M.models.map((model) => ({
+		label: `Modelo ${model.label}`,
+		lead: ICON.cpu,
+		meta: model.id === bot.model.id ? ICON.check : "",
+		hidden: true,
+		...(model.efforts.length > 1 ? { go: "effort", ctx: { model: model.id } } : { run: () => setModel(model.id, model.efforts[0]) }),
+	}));
+	const modes = Object.keys(MODE_LABEL).map((mode) => ({ label: `Modo ${MODE_LABEL[mode]}`, hint: MODE_HINT[mode], lead: ICON.mode, meta: mode === bot.mode ? ICON.check : "", hidden: true, run: () => setMode(mode) }));
+	const tools = M.toolGroups.map((group) => {
+		const on = bot.tools.includes(group.id);
+		return { label: `${on ? "Desligar" : "Ligar"} ${group.label}`, hint: group.hint, lead: `<span class="box${on ? " on" : ""}"></span>`, keys: `grupo tools ${group.id}`, hidden: true, run: () => toggleTool(group.id) };
+	});
+	return [...models, ...modes, ...tools];
+}
+
+const SCOPES = {
+	root: {
+		placeholder: "Buscar bots, ajustes e comandos",
+		items: () => {
+			const bot = cur();
+			return [
+				...nowItems(bot),
+				...state.bots.map(botItem),
+				{ group: "Bots", label: "Novo bot", lead: ICON.plus, keys: "criar", go: "newbot" },
+				...settingsItems(bot, `Ajustes de ${bot.name}`),
+				...detailItems(),
+				...searchOnlyItems(bot),
+			];
+		},
+	},
+	bots: {
+		title: "Bots",
+		placeholder: "Buscar bot",
+		items: () => [...state.bots.map((bot) => ({ ...botItem(bot), group: null })), { label: "Novo bot", lead: ICON.plus, keys: "criar", go: "newbot" }],
+	},
+	settings: {
+		title: () => `Ajustes de ${cur().name}`,
+		placeholder: "Buscar ajuste",
+		items: () => settingsItems(cur()),
+	},
+	model: {
+		title: "Modelo",
+		placeholder: "Buscar modelo",
+		items: () => M.models.map((model) => ({
+			label: model.label,
+			hint: model.efforts.map((effort) => EFFORT_LABEL[effort]).join(", "),
+			lead: ICON.cpu,
+			meta: model.id === cur().model.id ? `${EFFORT_LABEL[cur().model.effort]} ${ICON.check}` : "",
+			current: model.id === cur().model.id,
+			...(model.efforts.length > 1 ? { go: "effort", ctx: { model: model.id } } : { run: () => setModel(model.id, model.efforts[0]) }),
+		})),
+	},
+	effort: {
+		title: () => `Esforço do ${M.models.find((model) => model.id === pal.ctx.model).label}`,
+		placeholder: "Escolha o esforço",
+		items: () => {
+			const model = M.models.find((entry) => entry.id === pal.ctx.model);
+			const bot = cur();
+			return model.efforts.map((effort) => {
+				const here = bot.model.id === model.id && bot.model.effort === effort;
+				return { label: EFFORT_LABEL[effort], hint: effort === "max" ? "mais lento, pensa mais" : effort === "low" ? "mais rápido" : "", lead: ICON.bolt, meta: here ? ICON.check : "", current: here, run: () => setModel(model.id, effort) };
+			});
+		},
+	},
+	mode: {
+		title: "Modo",
+		placeholder: "Escolha o modo",
+		items: () => Object.keys(MODE_LABEL).map((mode) => ({ label: MODE_LABEL[mode], hint: MODE_HINT[mode], lead: ICON.mode, meta: mode === cur().mode ? ICON.check : "", current: mode === cur().mode, run: () => setMode(mode) })),
+	},
+	tools: {
+		title: "Grupos de tools",
+		placeholder: "Buscar grupo",
+		items: () => M.toolGroups.map((group) => {
+			const on = cur().tools.includes(group.id);
+			return { label: group.label, hint: group.hint, lead: `<span class="box${on ? " on" : ""}"></span>`, meta: on ? "ligado" : "desligado", keys: group.id, keep: true, run: () => toggleTool(group.id) };
+		}),
+	},
+	folder: {
+		title: "Pasta",
+		placeholder: "Digite um caminho, ex.: ~/projects/app",
+		entry: true,
+		items: () => {
+			const bot = cur();
+			const typed = pal.q.trim();
+			const known = [...new Set(state.bots.map((entry) => entry.folder).filter(Boolean))];
+			const out = [];
+			if (!bot.tools.includes("computer")) out.push({ label: "O grupo Computador está desligado; a Pasta só vale com ele.", lead: ICON.warn, disabled: true, cls: "warnrow" });
+			if (typed && !known.includes(typed)) out.push({ label: `Usar ${typed}`, lead: ICON.folder, run: () => setFolder(typed) });
+			for (const folder of known) {
+				if (typed && !fuzzy(typed, folder)) continue;
+				out.push({ label: folder, lead: ICON.folder, meta: bot.folder === folder ? ICON.check : "", current: bot.folder === folder, run: () => setFolder(folder) });
+			}
+			out.push({ label: "Sem Pasta", hint: "as tools rodam a partir de $HOME", lead: ICON.home, meta: bot.folder ? "" : ICON.check, current: !bot.folder, run: () => setFolder(null) });
+			return out;
+		},
+	},
+	newbot: {
+		title: "Novo bot",
+		placeholder: "Nome do bot",
+		entry: true,
+		items: () => {
+			const name = pal.q.trim();
+			if (!name) return [{ label: "Digite um nome e aperte Enter", hint: "ele abre vazio, pronto para conversar", lead: ICON.plus, disabled: true }];
+			const error = nameError(name);
+			if (error) return [{ label: error, lead: ICON.warn, disabled: true, cls: "bad" }];
+			return [{ label: `Criar ${name}`, hint: "modo autônomo, todos os grupos de tools", lead: ICON.plus, run: () => createBot(name) }];
+		},
+	},
+};
+
+const GROUP_KEYS = { Bots: "<span class=\"keys\"><kbd>Ctrl</kbd><kbd>E</kbd></span>", Detalhe: "<span class=\"keys\"><kbd>Ctrl</kbd><kbd>O</kbd></span>" };
+
+function fold(text) {
+	return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+function fuzzy(query, text) {
+	const t = fold(text);
+	const q = fold(query).replace(/\s+/g, " ").trim();
+	if (!q) return { score: 0, hits: [] };
+	const at = t.indexOf(q);
+	if (at >= 0) {
+		const start = at === 0 || " -_./:".includes(t[at - 1]);
+		return { score: 200 + (at === 0 ? 40 : 0) + (start ? 20 : 0) - t.length * 0.1, hits: [...q].map((_, k) => at + k) };
+	}
+	const chars = q.replace(/ /g, "");
+	const hits = [];
+	let from = 0;
+	let prev = -2;
+	let score = 0;
+	for (const ch of chars) {
+		const i = t.indexOf(ch, from);
+		if (i < 0) return null;
+		const start = i === 0 || " -_./:".includes(t[i - 1]);
+		score += 1 + (i === prev + 1 ? 5 : 0) + (start ? 4 : 0);
+		hits.push(i);
+		prev = i;
+		from = i + 1;
+	}
+	return { score: score - hits[0] * 0.2 - t.length * 0.05, hits };
+}
+
+function highlight(label, hits) {
+	if (!hits || !hits.length) return esc(label);
+	const set = new Set(hits);
+	let out = "";
+	let open = false;
+	[...label].forEach((ch, i) => {
+		const on = set.has(i);
+		if (on && !open) out += "<mark>";
+		if (!on && open) out += "</mark>";
+		open = on;
+		out += esc(ch);
+	});
+	return open ? `${out}</mark>` : out;
+}
+
+function listItems() {
+	const scope = SCOPES[pal.scope];
+	const items = scope.items();
+	if (scope.entry) return items;
+	if (!pal.q.trim()) return items.filter((item) => !item.hidden);
+	const found = [];
+	for (const item of items) {
+		const inLabel = fuzzy(pal.q, item.label);
+		const inKeys = !inLabel && item.keys ? fuzzy(pal.q, item.keys) : null;
+		if (inLabel) found.push({ ...item, hits: inLabel.hits, score: inLabel.score, group: null });
+		else if (inKeys) found.push({ ...item, hits: [], score: inKeys.score - 60, group: null });
+	}
+	return found.sort((a, b) => b.score - a.score).slice(0, 40);
+}
+
+function itemHTML(item, index) {
+	const cls = ["it", item.disabled ? "off" : "", item.cls || "", index === pal.sel ? "sel" : ""].filter(Boolean).join(" ");
+	return `<div class="${cls}" role="option" data-i="${index}" aria-selected="${index === pal.sel}">
+		<span class="lead">${item.lead || ""}</span>
+		<span class="lb">${highlight(item.label, item.hits)}</span>
+		${item.hint ? `<span class="ht">${esc(item.hint)}</span>` : ""}
+		${item.meta ? `<span class="meta ${item.metaClass || ""}">${item.meta}</span>` : ""}
+	</div>`;
+}
+
+function firstSelectable(items, preferCurrent) {
+	if (preferCurrent) {
+		const here = items.findIndex((item) => item.current && !item.disabled);
+		if (here >= 0) return here;
+	}
+	const safe = items.findIndex((item) => !item.disabled && item.group !== "Agora");
+	return safe >= 0 ? safe : items.findIndex((item) => !item.disabled);
+}
+
+function renderPalette(resetSel) {
+	const scope = SCOPES[pal.scope];
+	const title = typeof scope.title === "function" ? scope.title() : scope.title;
+	const crumb = $("#crumb");
+	crumb.hidden = !title;
+	crumb.innerHTML = title ? `${ICON.back}<span>${esc(title)}</span>` : "";
+	$("#picon").innerHTML = title ? "" : ICON.search;
+	$("#picon").hidden = Boolean(title);
+	$("#q").placeholder = scope.placeholder;
+	const items = listItems();
+	pal.items = items;
+	if (resetSel) pal.sel = firstSelectable(items, pal.scope !== "root" && !pal.q);
+	if (pal.sel >= items.length || items[pal.sel]?.disabled) pal.sel = firstSelectable(items, false);
+	let html = "";
+	let group = null;
+	items.forEach((item, index) => {
+		if (item.group && item.group !== group) {
+			group = item.group;
+			html += `<div class="gh"><span>${esc(group)}</span>${GROUP_KEYS[group] || ""}</div>`;
+		}
+		html += itemHTML(item, index);
+	});
+	if (!items.length) html = `<div class="none">Nada encontrado para “${esc(pal.q)}”.</div>`;
+	$("#plist").innerHTML = html;
+	$("#plist .it.sel")?.scrollIntoView({ block: "nearest" });
+}
+
+function paintSel() {
+	for (const el of document.querySelectorAll("#plist .it")) {
+		const on = Number(el.dataset.i) === pal.sel;
+		el.classList.toggle("sel", on);
+		el.setAttribute("aria-selected", on);
+	}
+	$("#plist .it.sel")?.scrollIntoView({ block: "nearest" });
+}
+
+function move(step) {
+	const n = pal.items.length;
+	if (!n) return;
+	if (pal.sel < 0 && pal.items.every((item) => item.disabled)) return;
+	let i = pal.sel < 0 ? (step > 0 ? -1 : 0) : pal.sel;
+	for (let k = 0; k < n; k++) {
+		i = (i + step + n) % n;
+		if (!pal.items[i].disabled) break;
+	}
+	pal.sel = i;
+	paintSel();
+}
+
+function go(scope, ctx, push) {
+	if (push) pal.stack.push({ scope: pal.scope, ctx: pal.ctx });
+	pal.scope = scope;
+	pal.ctx = ctx || {};
+	pal.q = "";
+	$("#q").value = "";
+	renderPalette(true);
+	$("#q").focus();
+}
+
+function openPalette(scope, ctx) {
+	pal.open = true;
+	pal.stack = [];
+	$("#scrim").hidden = false;
+	hideTip();
+	go(scope || "root", ctx);
+}
+
+function closePalette() {
+	if (!pal.open) return;
+	pal.open = false;
+	$("#scrim").hidden = true;
+	focusMain();
+}
+
+function choose(index) {
+	const item = pal.items[index];
+	if (!item || item.disabled) return;
+	if (item.go) {
+		go(item.go, item.ctx, true);
+		return;
+	}
+	if (item.keep) {
+		item.run();
+		renderPalette(false);
+		return;
+	}
+	closePalette();
+	item.run();
+}
+
+$("#q").addEventListener("input", (event) => {
+	pal.q = event.target.value;
+	renderPalette(true);
+});
+
+$("#q").addEventListener("keydown", (event) => {
+	if (event.key === "ArrowDown" || (event.key === "n" && event.ctrlKey)) {
+		event.preventDefault();
+		move(1);
+	} else if (event.key === "ArrowUp" || (event.key === "p" && event.ctrlKey)) {
+		event.preventDefault();
+		move(-1);
+	} else if (event.key === "Enter") {
+		event.preventDefault();
+		choose(pal.sel);
+	} else if (event.key === "Escape") {
+		event.preventDefault();
+		closePalette();
+	} else if (event.key === "Backspace" && !event.target.value && pal.scope !== "root") {
+		event.preventDefault();
+		back();
+	} else if (event.key === "Tab") {
+		event.preventDefault();
+	}
+});
+
+$("#plist").addEventListener("mousemove", (event) => {
+	const el = event.target.closest(".it");
+	if (!el || el.classList.contains("off")) return;
+	const index = Number(el.dataset.i);
+	if (index !== pal.sel) {
+		pal.sel = index;
+		paintSel();
+	}
+});
+
+$("#plist").addEventListener("click", (event) => {
+	const el = event.target.closest(".it");
+	if (el) choose(Number(el.dataset.i));
+	$("#q").focus();
+});
+
+function back() {
+	const prev = pal.stack.pop();
+	if (prev) go(prev.scope, prev.ctx);
+	else go("root");
+}
+
+$("#crumb").addEventListener("click", back);
+
+$("#scrim").addEventListener("mousedown", (event) => {
+	if (event.target === event.currentTarget) closePalette();
+});
+
+$("#who").addEventListener("click", () => openPalette("bots"));
+$("#cmd").addEventListener("click", () => openPalette("root"));
+
+$("#fleet").addEventListener("click", (event) => {
+	const el = event.target.closest("button");
+	if (!el) return;
+	if (el.dataset.new !== undefined) openPalette("newbot");
+	else selectBot(el.dataset.bot);
+});
+
+$("#composer").addEventListener("submit", (event) => {
+	event.preventDefault();
+	send();
+	input.focus();
+});
+
+input.addEventListener("keydown", (event) => {
+	if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+		event.preventDefault();
+		send();
+	}
+});
+
+input.addEventListener("input", paintSend);
+
+document.addEventListener("click", (event) => {
+	const el = event.target.closest("[data-scope], [data-cycle], [data-stop], [data-approve], [data-deny], [data-retry], [data-suggest], .md a");
+	if (!el) return;
+	if (el.matches(".md a")) {
+		event.preventDefault();
+		toast(`Abre no navegador: ${el.getAttribute("href")}`);
+		return;
+	}
+	const bot = cur();
+	if (el.dataset.scope) openPalette(el.dataset.scope);
+	else if (el.dataset.cycle !== undefined) cycleLevel();
+	else if (el.dataset.stop !== undefined) stopTurn(bot);
+	else if (el.dataset.approve !== undefined) decide(bot, true);
+	else if (el.dataset.deny !== undefined) decide(bot, false);
+	else if (el.dataset.retry !== undefined) retry();
+	else if (el.dataset.suggest) {
+		input.value = el.dataset.suggest;
+		paintSend();
+		input.focus();
+	}
+});
+
+document.addEventListener("keydown", (event) => {
+	const key = event.key.toLowerCase();
+	if (event.ctrlKey && !event.altKey && !event.shiftKey && key === "k") {
+		event.preventDefault();
+		if (pal.open) closePalette();
+		else openPalette("root");
+		return;
+	}
+	if (event.ctrlKey && !event.altKey && !event.shiftKey && key === "e") {
+		event.preventDefault();
+		if (pal.open && pal.scope === "bots") closePalette();
+		else openPalette("bots");
+		return;
+	}
+	if (event.ctrlKey && !event.altKey && !event.shiftKey && key === "o") {
+		event.preventDefault();
+		cycleLevel();
+		return;
+	}
+	if (pal.open || event.ctrlKey || event.metaKey || event.altKey) return;
+	const typing = event.target.closest?.("input, textarea");
+	const bot = cur();
+	if (!typing && bot.live.turn === "waiting" && bot.live.approval) {
+		if (event.key === "1") {
+			event.preventDefault();
+			decide(bot, true);
+		} else if (event.key === "2") {
+			event.preventDefault();
+			decide(bot, false);
+		}
+		return;
+	}
+	if (!typing && event.key.length === 1 && event.target === document.body && !$("#composer").hidden) input.focus();
+});
+
+const tip = $("#tip");
+
+function hideTip() {
+	tip.hidden = true;
+}
+
+function showTip(el) {
+	let html;
+	if (el.dataset.bot) {
+		const bot = byId(el.dataset.bot);
+		const s = stateOf(bot);
+		const status = statusOf(bot);
+		html = `<b>${esc(bot.name)}</b> ${status.text}${status.clock ? ` ${clock(bot.live.seconds)}` : ""}${bot.preview && s !== "working" ? `<span class="p">${esc(bot.preview)}</span>` : ""}${bot.live.tool && s === "working" ? `<span class="p">${esc(bot.live.tool.name)} ${esc(argText(bot.live.tool.input))}</span>` : ""}`;
+	} else {
+		html = esc(el.dataset.tip);
+	}
+	tip.innerHTML = html;
+	tip.hidden = false;
+	const r = el.getBoundingClientRect();
+	const w = tip.offsetWidth;
+	const h = tip.offsetHeight;
+	const below = r.top < window.innerHeight / 2;
+	const left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+	tip.style.left = `${left}px`;
+	tip.style.top = `${below ? r.bottom + 8 : r.top - h - 8}px`;
+}
+
+document.addEventListener("mouseover", (event) => {
+	const el = event.target.closest?.("[data-bot], [data-tip]");
+	if (el && !pal.open) showTip(el);
+	else hideTip();
+});
+document.addEventListener("focusin", (event) => {
+	const el = event.target.closest?.("#fleet [data-bot]");
+	if (el) showTip(el);
+	else hideTip();
+});
+document.addEventListener("mouseleave", hideTip);
+
+setInterval(() => {
+	for (const bot of state.bots) {
+		if (bot.live.turn !== "idle") bot.live.seconds++;
+		for (const mate of bot.live.team) if (mate.state === "working") mate.seconds++;
+	}
+	for (const el of document.querySelectorAll("[data-clock]")) el.textContent = clockFor(el.dataset.clock);
+}, 1000);
+
+for (const bot of state.bots) {
+	if (bot.live.turn === "working") runs.set(bot.id, { stop: false, live: true });
+}
+
+$("#scroll").addEventListener("scroll", (event) => {
+	const el = event.currentTarget;
+	stuck = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+});
+
+const pin = new ResizeObserver(() => {
+	if (stuck) $("#scroll").scrollTop = $("#scroll").scrollHeight;
+});
+pin.observe($("#lines"));
+pin.observe($("#scroll"));
+
+renderAll(true);
+input.focus();
+</script>
+</body>
+</html>

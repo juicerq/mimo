@@ -1,0 +1,3102 @@
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>mimo · abas e atividade</title>
+		<style>
+			:root {
+				--strip: #121110;
+				--ground: #1a1917;
+				--panel: #1e1d1b;
+				--card: #272523;
+				--lift: #2f2d2a;
+				--line: #3a3733;
+				--line-soft: #2b2926;
+				--ink: #f2eee8;
+				--soft: #c2bcb3;
+				--faint: #8d877e;
+				--ghost: #625d56;
+				--work: #62c6bb;
+				--wait: #ebb54c;
+				--fail: #f07d82;
+				--work-soft: rgb(98 198 187 / 0.12);
+				--wait-soft: rgb(235 181 76 / 0.13);
+				--fail-soft: rgb(240 125 130 / 0.09);
+				--sans: "Fira Sans", "Adwaita Sans", "Noto Sans", system-ui, sans-serif;
+				--mono: "Adwaita Mono", "Noto Sans Mono", "DejaVu Sans Mono", monospace;
+				color-scheme: dark;
+				scrollbar-color: var(--line) transparent;
+				background: var(--strip);
+				color: var(--soft);
+				font: 14px/1.5 var(--sans);
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				height: 100%;
+				margin: 0;
+			}
+
+			button,
+			input,
+			select,
+			textarea {
+				font: inherit;
+				color: inherit;
+			}
+
+			button {
+				margin: 0;
+				padding: 0;
+				background: none;
+				border: 0;
+				cursor: pointer;
+			}
+
+			p,
+			h1,
+			h3,
+			ul,
+			ol,
+			dl,
+			dd {
+				margin: 0;
+			}
+
+			ul,
+			ol {
+				padding: 0;
+				list-style: none;
+			}
+
+			code {
+				font-family: var(--mono);
+			}
+
+			:focus-visible {
+				outline: 2px solid #8fd8cf;
+				outline-offset: 2px;
+			}
+
+			.i {
+				flex: none;
+				display: block;
+			}
+
+			[hidden] {
+				display: none !important;
+			}
+
+			.app {
+				display: grid;
+				grid-template-rows: 44px minmax(0, 1fr);
+				height: 100vh;
+			}
+
+			.strip {
+				position: relative;
+				z-index: 30;
+				display: flex;
+				align-items: flex-end;
+				min-width: 0;
+				padding-right: 12px;
+				background: var(--strip);
+			}
+
+			.tabs {
+				display: flex;
+				align-items: flex-end;
+				gap: 2px;
+				min-width: 0;
+				height: 100%;
+				padding: 0 10px;
+				overflow-x: auto;
+				scrollbar-width: none;
+			}
+
+			.tab {
+				position: relative;
+				display: flex;
+				align-items: center;
+				gap: 9px;
+				flex: 0 1 auto;
+				width: 164px;
+				min-width: 74px;
+				height: 36px;
+				padding: 0 14px;
+				color: var(--faint);
+				font-weight: 500;
+				font-size: 13px;
+				white-space: nowrap;
+				border-radius: 10px 10px 0 0;
+				transition: background-color 120ms, color 120ms;
+			}
+
+			.tab .name {
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.tab:hover {
+				color: var(--soft);
+				background: rgb(26 25 23 / 0.5);
+			}
+
+			.tab[aria-selected="true"] {
+				color: var(--ink);
+				background: var(--ground);
+			}
+
+			.tab[aria-selected="true"]::before,
+			.tab[aria-selected="true"]::after {
+				content: "";
+				position: absolute;
+				bottom: 0;
+				width: 10px;
+				height: 10px;
+				pointer-events: none;
+			}
+
+			.tab[aria-selected="true"]::before {
+				left: -10px;
+				background: radial-gradient(circle at 0 0, transparent 9.5px, var(--ground) 10px);
+			}
+
+			.tab[aria-selected="true"]::after {
+				right: -10px;
+				background: radial-gradient(circle at 100% 0, transparent 9.5px, var(--ground) 10px);
+			}
+
+			.tab:focus-visible {
+				outline-offset: -3px;
+			}
+
+			.mark {
+				display: grid;
+				place-items: center;
+				flex: none;
+				width: 10px;
+				height: 10px;
+			}
+
+			.mark.wait,
+			.dot {
+				width: 8px;
+				height: 8px;
+				border-radius: 50%;
+				background: var(--wait);
+				box-shadow: 0 0 0 3px var(--wait-soft);
+			}
+
+			.mark.fail {
+				color: var(--fail);
+			}
+
+			.mark.unread::before {
+				content: "";
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--ink);
+			}
+
+			.spin {
+				display: inline-block;
+				flex: none;
+				width: 10px;
+				height: 10px;
+				border: 1.75px solid rgb(98 198 187 / 0.3);
+				border-top-color: var(--work);
+				border-radius: 50%;
+				animation: rot 0.8s linear infinite;
+			}
+
+			@keyframes rot {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+
+			.add {
+				display: grid;
+				place-items: center;
+				flex: none;
+				width: 30px;
+				height: 30px;
+				margin: 0 0 3px 4px;
+				color: var(--faint);
+				border-radius: 8px;
+			}
+
+			.add:hover {
+				color: var(--ink);
+				background: var(--card);
+			}
+
+			.create {
+				position: relative;
+				flex: none;
+				display: flex;
+				align-items: center;
+				width: 172px;
+				height: 36px;
+				margin-left: 4px;
+				padding: 0 6px;
+				background: var(--ground);
+				border-radius: 10px 10px 0 0;
+			}
+
+			.create input {
+				width: 100%;
+				height: 26px;
+				padding: 0 8px;
+				color: var(--ink);
+				font-size: 13px;
+				background: var(--card);
+				border: 1px solid var(--line);
+				border-radius: 6px;
+				outline: none;
+			}
+
+			.create input:focus {
+				border-color: var(--faint);
+			}
+
+			.create-error {
+				position: absolute;
+				top: calc(100% + 8px);
+				left: 0;
+				width: max-content;
+				max-width: 260px;
+				padding: 7px 10px;
+				color: var(--ink);
+				font-size: 12.5px;
+				background: #3a2527;
+				border: 1px solid rgb(240 125 130 / 0.35);
+				border-radius: 8px;
+			}
+
+			.stage {
+				position: relative;
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) auto auto;
+				min-height: 0;
+				background: var(--ground);
+			}
+
+			.talk {
+				position: relative;
+				display: flex;
+				flex-direction: column;
+				min-width: 0;
+				min-height: 0;
+			}
+
+			.scroll {
+				flex: 1;
+				min-height: 0;
+				overflow-y: auto;
+			}
+
+			.flow {
+				display: flex;
+				flex-direction: column;
+				gap: 16px;
+				max-width: 700px;
+				min-height: 100%;
+				margin: 0 auto;
+				padding: 28px 32px 20px;
+			}
+
+			.flow > :first-child {
+				margin-top: auto;
+			}
+
+			.you {
+				display: flex;
+				justify-content: flex-end;
+				padding-left: 15%;
+			}
+
+			.bubble {
+				padding: 9px 14px;
+				color: var(--ink);
+				font-size: 15px;
+				white-space: pre-wrap;
+				overflow-wrap: anywhere;
+				background: var(--card);
+				border-radius: 16px 16px 6px 16px;
+			}
+
+			.reply {
+				color: #e4dfd8;
+				font-size: 15px;
+				line-height: 1.65;
+				overflow-wrap: anywhere;
+			}
+
+			.reply > * {
+				margin: 0 0 10px;
+			}
+
+			.reply > :last-child {
+				margin-bottom: 0;
+			}
+
+			.reply h2 {
+				margin: 6px 0 8px;
+				color: var(--ink);
+				font-size: 18px;
+				font-weight: 600;
+				line-height: 1.3;
+			}
+
+			.reply strong {
+				color: var(--ink);
+				font-weight: 600;
+			}
+
+			.reply ul,
+			.reply ol {
+				padding-left: 20px;
+				list-style: disc;
+			}
+
+			.reply li + li {
+				margin-top: 4px;
+			}
+
+			.reply li::marker {
+				color: var(--faint);
+			}
+
+			.reply code {
+				padding: 1px 5px;
+				color: var(--ink);
+				font-size: 13px;
+				background: var(--card);
+				border: 1px solid var(--line-soft);
+				border-radius: 5px;
+			}
+
+			.reply pre {
+				padding: 12px 14px;
+				overflow-x: auto;
+				background: var(--strip);
+				border: 1px solid var(--line-soft);
+				border-radius: 10px;
+			}
+
+			.reply pre code {
+				padding: 0;
+				font-size: 13px;
+				line-height: 1.6;
+				background: none;
+				border: 0;
+			}
+
+			.reply table {
+				display: block;
+				max-width: 100%;
+				overflow-x: auto;
+				font-size: 14px;
+				border-collapse: collapse;
+			}
+
+			.reply th,
+			.reply td {
+				padding: 6px 20px 6px 0;
+				text-align: left;
+				white-space: nowrap;
+			}
+
+			.reply th {
+				color: var(--soft);
+				font-weight: 500;
+				border-bottom: 1px solid var(--line);
+			}
+
+			.reply td {
+				border-bottom: 1px solid var(--line-soft);
+			}
+
+			.reply blockquote {
+				padding: 2px 0 2px 14px;
+				color: var(--soft);
+				border-left: 2px solid var(--line);
+			}
+
+			.reply a {
+				color: var(--ink);
+				text-decoration: underline;
+				text-decoration-color: var(--faint);
+				text-underline-offset: 3px;
+			}
+
+			.reply a:hover {
+				text-decoration-color: var(--ink);
+			}
+
+			.marker {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				width: 100%;
+				color: var(--faint);
+				font-size: 12.5px;
+				text-align: left;
+				border-radius: 6px;
+			}
+
+			.marker::after {
+				content: "";
+				flex: 1;
+				height: 1px;
+				background: var(--line-soft);
+			}
+
+			.marker:hover {
+				color: var(--soft);
+			}
+
+			.marker:hover::after {
+				background: var(--line);
+			}
+
+			.marker .fail {
+				color: var(--fail);
+			}
+
+			.routine {
+				display: flex;
+				align-items: baseline;
+				gap: 8px;
+				color: var(--faint);
+				font-size: 13px;
+			}
+
+			.routine .i {
+				align-self: center;
+			}
+
+			.routine b {
+				color: var(--soft);
+				font-weight: 500;
+			}
+
+			.inline-run {
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+			}
+
+			.istep {
+				padding: 2px 0 2px 14px;
+				border-left: 1px solid var(--line);
+			}
+
+			.istep-head {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				font-size: 13px;
+			}
+
+			.istep-head code {
+				color: var(--ink);
+				font-size: 12.5px;
+			}
+
+			.istep .kv,
+			.istep .result,
+			.istep .failed-text {
+				margin-top: 6px;
+			}
+
+			.istep.team {
+				color: var(--soft);
+				font-size: 13px;
+			}
+
+			.istep.team b {
+				color: var(--ink);
+				font-weight: 500;
+			}
+
+			.istep.team span {
+				color: var(--faint);
+			}
+
+			.kv {
+				display: grid;
+				grid-template-columns: auto minmax(0, 1fr);
+				gap: 2px 12px;
+				font-family: var(--mono);
+				font-size: 12px;
+			}
+
+			.kv dt {
+				color: var(--faint);
+			}
+
+			.kv dd {
+				color: var(--soft);
+				white-space: pre-wrap;
+				overflow-wrap: anywhere;
+			}
+
+			.result {
+				max-height: 11.5em;
+				margin: 0;
+				padding: 8px 10px;
+				overflow: auto;
+				color: var(--soft);
+				font: 12px/1.55 var(--mono);
+				white-space: pre-wrap;
+				overflow-wrap: anywhere;
+				background: var(--strip);
+				border-radius: 8px;
+			}
+
+			.failed-text {
+				color: var(--fail);
+				font-size: 13px;
+			}
+
+			.tag {
+				padding: 1px 7px;
+				color: var(--faint);
+				font-size: 11.5px;
+				white-space: nowrap;
+				background: var(--card);
+				border-radius: 999px;
+			}
+
+			.tag.wait {
+				color: var(--wait);
+				background: var(--wait-soft);
+			}
+
+			.tag.fail {
+				color: var(--fail);
+				background: var(--fail-soft);
+			}
+
+			.note {
+				padding: 10px 14px 12px;
+				background: var(--panel);
+				border: 1px solid var(--line-soft);
+				border-radius: 12px;
+			}
+
+			.note-head {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				color: var(--soft);
+				font-size: 14px;
+			}
+
+			.note-head b {
+				color: var(--ink);
+				font-weight: 500;
+			}
+
+			.note pre {
+				margin: 6px 0 0;
+				color: var(--soft);
+				font: 12.5px/1.6 var(--mono);
+				white-space: pre-wrap;
+			}
+
+			.summary .rule {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				color: var(--faint);
+				font-size: 12.5px;
+			}
+
+			.summary .rule::before,
+			.summary .rule::after {
+				content: "";
+				flex: 1;
+				height: 1px;
+				background: var(--line-soft);
+			}
+
+			.summary p {
+				margin-top: 8px;
+				color: var(--faint);
+				font-size: 14px;
+				line-height: 1.6;
+			}
+
+			.sys {
+				display: flex;
+				align-items: flex-start;
+				gap: 10px;
+				color: var(--soft);
+				font-size: 14px;
+			}
+
+			.sys .i {
+				margin-top: 3px;
+			}
+
+			.sys.warn .i {
+				color: var(--wait);
+			}
+
+			.sys.err {
+				padding: 10px 12px;
+				color: var(--ink);
+				background: var(--fail-soft);
+				border: 1px solid rgb(240 125 130 / 0.22);
+				border-radius: 10px;
+			}
+
+			.sys.err .i {
+				color: var(--fail);
+			}
+
+			.sys.err p + p {
+				margin-top: 2px;
+				color: var(--soft);
+			}
+
+			.sys.stop {
+				color: var(--faint);
+				font-size: 13.5px;
+			}
+
+			.live-mark {
+				display: inline-flex;
+				align-items: center;
+				align-self: flex-start;
+				gap: 9px;
+				padding: 5px 10px 5px 9px;
+				color: var(--soft);
+				font-size: 13px;
+				background: var(--card);
+				border-radius: 999px;
+			}
+
+			.live-mark code {
+				color: var(--ink);
+				font-size: 12.5px;
+			}
+
+			.live-mark:hover {
+				background: var(--lift);
+			}
+
+			.empty {
+				display: flex;
+				flex-direction: column;
+				gap: 14px;
+				margin: auto 0;
+				padding-bottom: 24px;
+			}
+
+			.empty h1 {
+				color: var(--ink);
+				font-size: 40px;
+				font-weight: 300;
+				line-height: 1.1;
+				letter-spacing: -0.01em;
+			}
+
+			.empty > p {
+				max-width: 46ch;
+				color: var(--soft);
+				font-size: 15px;
+				line-height: 1.6;
+			}
+
+			.ideas {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+			}
+
+			.ideas button {
+				padding: 7px 12px;
+				color: var(--soft);
+				font-size: 13.5px;
+				text-align: left;
+				border: 1px solid var(--line);
+				border-radius: 999px;
+			}
+
+			.ideas button:hover {
+				color: var(--ink);
+				background: var(--card);
+			}
+
+			.empty .setup {
+				max-width: 64ch;
+				color: var(--faint);
+				font-size: 13px;
+			}
+
+			.link {
+				color: var(--soft);
+				text-decoration: underline;
+				text-decoration-color: var(--ghost);
+				text-underline-offset: 3px;
+			}
+
+			.link:hover {
+				color: var(--ink);
+			}
+
+			.composer {
+				padding: 6px 32px 18px;
+			}
+
+			.box {
+				max-width: 636px;
+				margin: 0 auto;
+				padding: 10px 10px 8px 14px;
+				background: var(--card);
+				border: 1px solid var(--line-soft);
+				border-radius: 16px;
+				transition: border-color 120ms;
+			}
+
+			.box:focus-within {
+				border-color: var(--line);
+			}
+
+			.box textarea {
+				display: block;
+				width: 100%;
+				max-height: 180px;
+				padding: 0;
+				color: var(--ink);
+				font-size: 15px;
+				line-height: 1.5;
+				background: transparent;
+				border: 0;
+				outline: none;
+				resize: none;
+			}
+
+			.box textarea::placeholder {
+				color: var(--faint);
+			}
+
+			.box-row {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				margin-top: 6px;
+			}
+
+			.chips {
+				display: flex;
+				gap: 2px;
+				flex: 1;
+				min-width: 0;
+				margin-left: -6px;
+				overflow: hidden;
+			}
+
+			.chip {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				flex: none;
+				height: 26px;
+				padding: 0 7px;
+				color: var(--faint);
+				font-size: 12.5px;
+				white-space: nowrap;
+				border-radius: 6px;
+			}
+
+			.chip:hover {
+				color: var(--soft);
+				background: var(--lift);
+			}
+
+			.chip small {
+				color: var(--ghost);
+				font-size: inherit;
+			}
+
+			.chip:hover small {
+				color: var(--faint);
+			}
+
+			.send {
+				display: grid;
+				place-items: center;
+				flex: none;
+				width: 32px;
+				height: 32px;
+				color: var(--strip);
+				background: var(--ink);
+				border-radius: 50%;
+			}
+
+			.send:disabled {
+				color: var(--ghost);
+				background: var(--lift);
+				cursor: default;
+			}
+
+			.rail {
+				display: none;
+				flex-direction: column;
+				align-items: center;
+				gap: 4px;
+				width: 48px;
+				padding: 8px 0 12px;
+				background: var(--panel);
+				border-left: 1px solid var(--line-soft);
+			}
+
+			.rail-btn {
+				position: relative;
+				display: grid;
+				place-items: center;
+				width: 34px;
+				height: 34px;
+				color: var(--faint);
+				border-radius: 8px;
+			}
+
+			.rail-btn:hover {
+				color: var(--ink);
+				background: var(--lift);
+			}
+
+			.rail-btn .count {
+				position: absolute;
+				top: 2px;
+				right: 1px;
+				min-width: 15px;
+				height: 15px;
+				padding: 0 4px;
+				color: var(--strip);
+				font-size: 10px;
+				font-weight: 600;
+				line-height: 15px;
+				background: var(--soft);
+				border-radius: 8px;
+			}
+
+			.rail-live {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 6px;
+				padding: 8px 0 4px;
+				color: var(--work);
+				font-size: 11px;
+				font-variant-numeric: tabular-nums;
+				border-top: 1px solid var(--line-soft);
+				width: 34px;
+			}
+
+			.rail-live.wait {
+				color: var(--wait);
+			}
+
+			.rail-live.fail {
+				color: var(--fail);
+			}
+
+			.rail .grow {
+				flex: 1;
+			}
+
+			.rail-sep {
+				width: 20px;
+				height: 1px;
+				margin: 4px 0;
+				background: var(--line-soft);
+			}
+
+			.panel {
+				display: none;
+				flex-direction: column;
+				width: 324px;
+				min-height: 0;
+				background: var(--panel);
+				border-left: 1px solid var(--line-soft);
+			}
+
+			.app:not(.panel-open) .rail {
+				display: flex;
+			}
+
+			.app.panel-open .panel {
+				display: flex;
+			}
+
+			.scrim {
+				display: none;
+				position: absolute;
+				inset: 0;
+				z-index: 15;
+				background: rgb(0 0 0 / 0.4);
+			}
+
+			.panel-head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 10px 8px 10px 12px;
+				border-bottom: 1px solid var(--line-soft);
+			}
+
+			.seg {
+				display: inline-flex;
+				gap: 2px;
+				padding: 2px;
+				background: var(--strip);
+				border-radius: 8px;
+			}
+
+			.seg button {
+				height: 26px;
+				padding: 0 10px;
+				color: var(--faint);
+				font-size: 12.5px;
+				font-weight: 500;
+				border-radius: 6px;
+			}
+
+			.seg button:hover {
+				color: var(--soft);
+			}
+
+			.seg [aria-pressed="true"],
+			.seg [aria-checked="true"] {
+				color: var(--ink);
+				background: var(--lift);
+			}
+
+			.icon-btn {
+				display: grid;
+				place-items: center;
+				width: 30px;
+				height: 30px;
+				color: var(--faint);
+				border-radius: 8px;
+			}
+
+			.icon-btn:hover {
+				color: var(--ink);
+				background: var(--lift);
+			}
+
+			.panel-body {
+				flex: 1;
+				min-height: 0;
+				overflow-y: auto;
+				font-size: 13px;
+			}
+
+			.block {
+				padding: 16px;
+			}
+
+			.block + .block {
+				border-top: 1px solid var(--line-soft);
+			}
+
+			.block h3 {
+				display: flex;
+				align-items: baseline;
+				gap: 8px;
+				margin-bottom: 10px;
+				color: var(--soft);
+				font-size: 12.5px;
+				font-weight: 500;
+			}
+
+			.block h3 small {
+				color: var(--faint);
+				font-size: inherit;
+				font-weight: 400;
+			}
+
+			.sec-head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 8px;
+				margin-bottom: 12px;
+			}
+
+			.sec-head h3 {
+				margin: 0;
+			}
+
+			.sec-head .seg button {
+				height: 24px;
+				padding: 0 8px;
+				font-size: 12px;
+			}
+
+			.hint {
+				color: var(--faint);
+				font-size: 12.5px;
+				line-height: 1.5;
+			}
+
+			.now-top {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 8px;
+			}
+
+			.now-state {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				color: var(--soft);
+				font-size: 13px;
+				font-weight: 500;
+			}
+
+			.now.working .now-state {
+				color: var(--work);
+			}
+
+			.now.waiting .now-state {
+				color: var(--wait);
+			}
+
+			.now.failed .now-state {
+				color: var(--fail);
+			}
+
+			.clock {
+				margin: 10px 0 8px;
+				color: var(--ink);
+				font-size: 44px;
+				font-weight: 300;
+				line-height: 1;
+				letter-spacing: -0.02em;
+				font-variant-numeric: tabular-nums;
+			}
+
+			.now-tool {
+				display: flex;
+				align-items: baseline;
+				gap: 8px;
+				min-width: 0;
+				color: var(--faint);
+				font-size: 12.5px;
+			}
+
+			.now-tool code {
+				flex: none;
+				color: var(--ink);
+				font-size: 12.5px;
+			}
+
+			.now-tool span {
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.now-note {
+				margin-top: 6px;
+				color: var(--faint);
+				font-size: 12.5px;
+				line-height: 1.5;
+			}
+
+			.now.failed .now-note:first-of-type {
+				color: var(--soft);
+			}
+
+			.thread {
+				height: 2px;
+				margin-top: 16px;
+				background: linear-gradient(90deg, transparent, var(--work), transparent) no-repeat;
+				background-size: 40% 100%;
+				border-radius: 2px;
+				animation: sweep 1.8s ease-in-out infinite;
+			}
+
+			@keyframes sweep {
+				from {
+					background-position: -100% 0;
+				}
+				to {
+					background-position: 200% 0;
+				}
+			}
+
+			.btn {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+				height: 32px;
+				padding: 0 12px;
+				color: var(--ink);
+				font-size: 13px;
+				font-weight: 500;
+				border: 1px solid var(--line);
+				border-radius: 8px;
+			}
+
+			.btn:hover {
+				background: var(--lift);
+			}
+
+			.btn.primary {
+				color: var(--strip);
+				background: var(--ink);
+				border-color: var(--ink);
+			}
+
+			.btn.primary:hover {
+				background: #fffdf9;
+			}
+
+			.btn.sm {
+				gap: 6px;
+				height: 28px;
+				padding: 0 10px;
+				color: var(--soft);
+				font-size: 12.5px;
+			}
+
+			.btn.sm:hover {
+				color: var(--ink);
+			}
+
+			kbd {
+				display: inline-grid;
+				place-items: center;
+				min-width: 18px;
+				height: 18px;
+				padding: 0 4px;
+				font: 500 11px/1 var(--sans);
+				border: 1px solid currentColor;
+				border-radius: 4px;
+				opacity: 0.6;
+			}
+
+			.ask {
+				margin-top: 14px;
+				padding: 12px;
+				background: var(--wait-soft);
+				border: 1px solid rgb(235 181 76 / 0.28);
+				border-radius: 10px;
+			}
+
+			.ask-title {
+				color: var(--soft);
+				font-size: 13px;
+			}
+
+			.ask-title b {
+				color: var(--ink);
+				font-weight: 500;
+			}
+
+			.ask-title code {
+				color: var(--ink);
+			}
+
+			.ask .kv {
+				margin: 10px 0 12px;
+				gap: 4px 12px;
+			}
+
+			.ask .kv dd {
+				color: var(--ink);
+			}
+
+			.ask-actions {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 8px;
+			}
+
+			.kids {
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+			}
+
+			.kid {
+				display: grid;
+				grid-template-columns: 10px minmax(0, 1fr) auto;
+				align-items: baseline;
+				gap: 2px 10px;
+			}
+
+			.kid > .spin,
+			.kid > .i {
+				align-self: center;
+			}
+
+			.kid .i {
+				color: var(--faint);
+			}
+
+			.kid-name {
+				color: var(--ink);
+				font-weight: 500;
+			}
+
+			.kid-now {
+				display: flex;
+				align-items: baseline;
+				gap: 6px;
+				color: var(--faint);
+				font-size: 12px;
+				font-variant-numeric: tabular-nums;
+			}
+
+			.kid-now code {
+				color: var(--soft);
+				font-size: 12px;
+			}
+
+			.kid-task {
+				grid-column: 2 / -1;
+				color: var(--faint);
+				font-size: 12.5px;
+			}
+
+			.queue {
+				display: flex;
+				flex-direction: column;
+				align-items: flex-end;
+				gap: 6px;
+				margin-bottom: 10px;
+			}
+
+			.queue li {
+				max-width: 92%;
+				padding: 7px 12px;
+				color: var(--soft);
+				overflow-wrap: anywhere;
+				white-space: pre-wrap;
+				border: 1px dashed var(--line);
+				border-radius: 14px 14px 5px 14px;
+			}
+
+			.group + .group {
+				margin-top: 16px;
+			}
+
+			.group-head {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				width: 100%;
+				margin-bottom: 6px;
+				color: var(--faint);
+				font-size: 12.5px;
+				text-align: left;
+				border-radius: 6px;
+			}
+
+			.group-head span {
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.group-head:hover {
+				color: var(--soft);
+			}
+
+			.steps {
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+				padding-left: 6px;
+				border-left: 1px solid var(--line-soft);
+				margin-left: 6px;
+			}
+
+			.step-row {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				width: 100%;
+				min-height: 28px;
+				padding: 4px 6px;
+				text-align: left;
+				border-radius: 6px;
+			}
+
+			button.step-row:hover {
+				background: var(--card);
+			}
+
+			.step-mark {
+				display: grid;
+				place-items: center;
+				flex: none;
+				width: 14px;
+				color: var(--faint);
+			}
+
+			.step.is-failed .step-mark,
+			.step.is-denied .step-mark {
+				color: var(--fail);
+			}
+
+			.step-name {
+				flex: none;
+				color: var(--ink);
+				font-size: 12px;
+			}
+
+			.step-sum {
+				flex: 1;
+				min-width: 0;
+				overflow: hidden;
+				color: var(--faint);
+				font-size: 12.5px;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.step-text {
+				flex: 1;
+				min-width: 0;
+				color: var(--soft);
+			}
+
+			.step-text b {
+				color: var(--ink);
+				font-weight: 500;
+			}
+
+			.step-task {
+				padding: 0 6px 4px 28px;
+				color: var(--faint);
+				font-size: 12.5px;
+			}
+
+			.step-body {
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+				padding: 2px 6px 8px 28px;
+			}
+
+			.step-body .result {
+				max-height: 9em;
+			}
+
+			.settings {
+				padding: 16px;
+			}
+
+			.settings-title {
+				margin-bottom: 18px;
+				color: var(--soft);
+				font-size: 13px;
+			}
+
+			.settings-title b {
+				color: var(--ink);
+				font-weight: 500;
+			}
+
+			.field {
+				margin: 0 -8px;
+				padding: 6px 8px;
+				border-radius: 10px;
+			}
+
+			.field + .field {
+				margin-top: 12px;
+			}
+
+			.field-label {
+				display: block;
+				margin-bottom: 8px;
+				color: var(--soft);
+				font-size: 12.5px;
+				font-weight: 500;
+			}
+
+			.field .hint {
+				margin-top: 6px;
+			}
+
+			.select {
+				width: 100%;
+				height: 34px;
+				padding: 0 10px;
+				color: var(--ink);
+				font-size: 13px;
+				background: var(--card);
+				border: 1px solid var(--line);
+				border-radius: 8px;
+			}
+
+			.field .seg {
+				display: flex;
+				margin-top: 8px;
+			}
+
+			.field .seg button {
+				flex: 1;
+			}
+
+			.choice {
+				display: flex;
+				gap: 10px;
+				padding: 8px 10px;
+				border: 1px solid var(--line-soft);
+				border-radius: 8px;
+				cursor: pointer;
+			}
+
+			.choice + .choice {
+				margin-top: 6px;
+			}
+
+			.choice:has(input:checked) {
+				background: var(--card);
+				border-color: var(--line);
+			}
+
+			.choice input {
+				margin: 3px 0 0;
+				accent-color: var(--ink);
+			}
+
+			.choice b {
+				display: block;
+				color: var(--ink);
+				font-weight: 500;
+			}
+
+			.choice small {
+				display: block;
+				color: var(--faint);
+				font-size: 12px;
+				line-height: 1.45;
+			}
+
+			.checks .choice {
+				border-color: transparent;
+				padding: 5px 6px;
+			}
+
+			.checks .choice:has(input:checked) {
+				background: none;
+				border-color: transparent;
+			}
+
+			.checks .choice:hover {
+				background: var(--card);
+			}
+
+			.checks .choice + .choice {
+				margin-top: 0;
+			}
+
+			.folder {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+
+			.folder code {
+				flex: 1;
+				min-width: 0;
+				overflow: hidden;
+				color: var(--ink);
+				font-size: 12.5px;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.folder .none {
+				flex: 1;
+				color: var(--faint);
+			}
+
+			.folder input {
+				flex: 1;
+				min-width: 0;
+				height: 30px;
+				padding: 0 8px;
+				color: var(--ink);
+				font: 12.5px var(--mono);
+				background: var(--card);
+				border: 1px solid var(--line);
+				border-radius: 6px;
+				outline: none;
+			}
+
+			.folder input:focus {
+				border-color: var(--faint);
+			}
+
+			.memory {
+				color: var(--ink);
+			}
+
+			.flash {
+				animation: flash 1.4s ease-out;
+			}
+
+			@keyframes flash {
+				from {
+					background-color: rgb(98 198 187 / 0.18);
+				}
+				to {
+					background-color: transparent;
+				}
+			}
+
+			.toast {
+				position: fixed;
+				top: 54px;
+				left: 50%;
+				z-index: 50;
+				max-width: calc(100% - 32px);
+				padding: 8px 14px;
+				color: var(--ink);
+				font-size: 13px;
+				background: #34312d;
+				border-radius: 999px;
+				box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+				opacity: 0;
+				pointer-events: none;
+				transform: translate(-50%, -4px);
+				transition: opacity 160ms, transform 160ms;
+			}
+
+			.toast.show {
+				opacity: 1;
+				transform: translate(-50%, 0);
+			}
+
+			.menu {
+				position: fixed;
+				z-index: 60;
+				display: flex;
+				flex-direction: column;
+				min-width: 180px;
+				padding: 4px;
+				background: #2a2826;
+				border: 1px solid var(--line);
+				border-radius: 10px;
+				box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+			}
+
+			.menu[hidden] {
+				display: none;
+			}
+
+			.menu button {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				height: 32px;
+				padding: 0 10px;
+				color: var(--soft);
+				font-size: 13px;
+				text-align: left;
+				border-radius: 6px;
+			}
+
+			.menu button:hover,
+			.menu button:focus-visible {
+				color: var(--ink);
+				background: var(--lift);
+				outline: none;
+			}
+
+			.menu b {
+				color: var(--ink);
+				font-weight: 500;
+			}
+
+			@media (max-width: 859px) {
+				.app .rail {
+					display: flex;
+				}
+
+				.app.panel-open .panel {
+					position: absolute;
+					top: 0;
+					right: 0;
+					bottom: 0;
+					z-index: 20;
+					width: min(336px, calc(100% - 40px));
+					box-shadow: -18px 0 48px rgb(0 0 0 / 0.5);
+				}
+
+				.app.panel-open .scrim {
+					display: block;
+				}
+
+				.flow {
+					padding: 20px 20px 16px;
+				}
+
+				.composer {
+					padding: 4px 20px 14px;
+				}
+			}
+
+			@media (max-height: 480px) {
+				.flow {
+					padding-top: 14px;
+					padding-bottom: 10px;
+				}
+
+				.composer {
+					padding-bottom: 10px;
+				}
+
+				.box {
+					padding-top: 8px;
+					padding-bottom: 6px;
+				}
+
+				.box-row {
+					margin-top: 4px;
+				}
+
+				.clock {
+					margin: 6px 0;
+					font-size: 34px;
+				}
+
+				.empty {
+					gap: 10px;
+					padding-bottom: 0;
+				}
+
+				.empty h1 {
+					font-size: 28px;
+				}
+
+				.empty > p {
+					font-size: 14px;
+				}
+
+				.ideas {
+					gap: 6px;
+				}
+
+				.ideas button {
+					padding: 5px 10px;
+					font-size: 12.5px;
+				}
+
+				.ideas button:nth-child(n + 3) {
+					display: none;
+				}
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.spin,
+				.thread,
+				.flash {
+					animation: none;
+				}
+
+				.thread {
+					background-position: 50% 0;
+					opacity: 0.5;
+				}
+
+				.toast,
+				.tab {
+					transition: none;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="app" id="app">
+			<header class="strip">
+				<div class="tabs" id="tabs" role="tablist" aria-label="Bots"></div>
+				<form class="create" id="create" hidden>
+					<input id="create-input" maxlength="40" placeholder="nome do bot" aria-label="Nome do novo bot" autocomplete="off" />
+					<p class="create-error" id="create-error" role="alert" hidden></p>
+				</form>
+				<button class="add" id="add" type="button" data-action="create" aria-label="Novo bot" title="Novo bot"></button>
+			</header>
+			<main class="stage">
+				<section class="talk" aria-label="Conversa">
+					<div class="scroll" id="scroll">
+						<div class="flow" id="flow"></div>
+					</div>
+					<form class="composer" id="composer">
+						<div class="box">
+							<textarea id="input" rows="1" aria-label="Mensagem"></textarea>
+							<div class="box-row">
+								<div class="chips" id="chips"></div>
+								<button class="send" id="send" type="submit" aria-label="Enviar" title="Enviar (Enter)"></button>
+							</div>
+						</div>
+					</form>
+				</section>
+				<nav class="rail" id="rail" aria-label="Atividade recolhida"></nav>
+				<div class="scrim" data-action="close-panel"></div>
+				<aside class="panel" id="panel" aria-label="Atividade"></aside>
+			</main>
+		</div>
+		<div class="menu" id="menu" role="menu" hidden></div>
+		<div class="toast" id="toast" role="status" aria-live="polite"></div>
+		<script src="data.js"></script>
+		<script>
+			const D = window.MIMO;
+			const LEVELS = ["off", "brief", "full"];
+			const LEVEL_LABEL = { off: "oculto", brief: "breve", full: "completo" };
+			const EFFORT_LABEL = { low: "baixo", medium: "médio", high: "alto", max: "máximo" };
+			const DETAIL_KINDS = new Set(["tool", "team", "approval"]);
+			const NARROW = 860;
+
+			const ICONS = {
+				plus: '<path d="M8 3.5v9M3.5 8h9"/>',
+				sliders: '<path d="M2.5 4.5h6.5M12.5 4.5h1M2.5 11.5h2M8 11.5h5.5"/><circle cx="10.75" cy="4.5" r="1.75"/><circle cx="6.25" cy="11.5" r="1.75"/>',
+				panel: '<rect x="2" y="3" width="12" height="10" rx="2"/><path d="M10 3v10"/>',
+				stop: '<rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" stroke="none"/>',
+				up: '<path d="M8 13V3.5M4 7.5l4-4 4 4"/>',
+				check: '<path d="M3.5 8.5l3 3 6-7"/>',
+				x: '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>',
+				team: '<circle cx="6" cy="5.5" r="2.25"/><path d="M2 13c.4-2.2 1.9-3.5 4-3.5s3.6 1.3 4 3.5"/><path d="M10.5 3.5a2.25 2.25 0 010 4M11.8 9.7c1.1.5 1.9 1.6 2.2 3.3"/>',
+				queue: '<path d="M2 9.5l1.6-5a1 1 0 011-.75h6.8a1 1 0 011 .75l1.6 5V12a1 1 0 01-1 1H3a1 1 0 01-1-1z"/><path d="M2 9.5h3.25l.75 1.5h4l.75-1.5H14"/>',
+				eye: '<path d="M1.75 8s2.25-4.25 6.25-4.25S14.25 8 14.25 8 12 12.25 8 12.25 1.75 8 1.75 8z"/><circle cx="8" cy="8" r="1.75"/>',
+				tool: '<path d="M9.9 2.4a3.1 3.1 0 00-3.6 4.1L2.6 10.2a1.3 1.3 0 001.9 1.9l3.7-3.7a3.1 3.1 0 004.1-3.6L10.4 6.7 9 6.3l-.4-1.4z"/>',
+				clock: '<circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.2l2 1.3"/>',
+				warn: '<path d="M8 2.75l5.75 10H2.25z"/><path d="M8 6.75v2.75M8 11.3v.2"/>',
+				folder: '<path d="M2 4.5a1 1 0 011-1h3.2L7.7 5H13a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1z"/>',
+				chip: '<rect x="4" y="4" width="8" height="8" rx="1.5"/><path d="M6.5 1.75V4M9.5 1.75V4M6.5 12v2.25M9.5 12v2.25M1.75 6.5H4M1.75 9.5H4M12 6.5h2.25M12 9.5h2.25"/>',
+				bolt: '<path d="M9 1.75L3.75 9H8l-1 5.25L12.25 7H8z"/>',
+				shield: '<path d="M8 2l5 2v3.8c0 3-2.1 5-5 6.2-2.9-1.2-5-3.2-5-6.2V4z"/>',
+				speech: '<path d="M3 3.5h10a1 1 0 011 1v6a1 1 0 01-1 1H7l-3 2.5v-2.5H3a1 1 0 01-1-1v-6a1 1 0 011-1z"/>',
+				dash: '<path d="M4 8h8"/>',
+			};
+
+			function icon(name, size = 16) {
+				return `<svg class="i" width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+			}
+
+			function esc(value) {
+				return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+			}
+
+			function fmt(ms) {
+				const total = Math.max(0, Math.floor(ms / 1000));
+				const hours = Math.floor(total / 3600);
+				const minutes = Math.floor((total % 3600) / 60);
+				const seconds = String(total % 60).padStart(2, "0");
+				return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${seconds}` : `${minutes}:${seconds}`;
+			}
+
+			function clockNow() {
+				const d = new Date();
+				return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+			}
+
+			function joinPt(list) {
+				if (list.length < 2) {
+					return list.join("");
+				}
+				return `${list.slice(0, -1).join(", ")} e ${list[list.length - 1]}`;
+			}
+
+			function capital(text) {
+				return text.charAt(0).toUpperCase() + text.slice(1);
+			}
+
+			function brief(input) {
+				const entry = Object.entries(input ?? {})[0];
+				if (!entry) {
+					return "";
+				}
+				const [key, value] = entry;
+				const text = String(value).replace(/^https?:\/\/(www\.)?/, "");
+				return ["query", "url", "command", "path", "to"].includes(key) ? text : `${key} ${text}`;
+			}
+
+			const start = Date.now();
+			const state = {
+				bots: D.bots.map((source) => {
+					const bot = structuredClone(source);
+					bot.live.startedAt = start - bot.live.seconds * 1000;
+					for (const kid of bot.live.team) {
+						kid.startedAt = start - kid.seconds * 1000;
+					}
+					bot.live.tool = bot.live.tool ?? null;
+					bot.unread = false;
+					bot.draft = "";
+					bot.timers = [];
+					return bot;
+				}),
+				current: "gemeio",
+				level: "brief",
+				panelOpen: window.innerWidth >= NARROW,
+				panelMode: "activity",
+				autoPanel: false,
+				dismissed: null,
+				creating: false,
+				open: new Set(),
+				folderEditing: false,
+				menuFor: null,
+				forceBottom: true,
+			};
+
+			const $ = (id) => document.getElementById(id);
+			const app = $("app");
+			const tabsEl = $("tabs");
+			const flowEl = $("flow");
+			const scrollEl = $("scroll");
+			const panelEl = $("panel");
+			const railEl = $("rail");
+			const input = $("input");
+			const chipsEl = $("chips");
+			const sendBtn = $("send");
+			const createForm = $("create");
+			const createInput = $("create-input");
+			const createError = $("create-error");
+			const menuEl = $("menu");
+			const toastEl = $("toast");
+
+			$("add").innerHTML = icon("plus");
+			sendBtn.innerHTML = icon("up");
+
+			function cur() {
+				return state.bots.find((bot) => bot.id === state.current);
+			}
+
+			function busy(bot) {
+				return bot.live.turn !== "idle" || Boolean(bot.live.approval);
+			}
+
+			function teamWorking(bot) {
+				return bot.live.team.some((kid) => kid.state === "working");
+			}
+
+			function stateOf(bot) {
+				if (bot.live.approval) {
+					return "waiting";
+				}
+				if (bot.live.turn !== "idle" || teamWorking(bot)) {
+					return "working";
+				}
+				if (bot.live.failed) {
+					return "failed";
+				}
+				return "idle";
+			}
+
+			function stateLabel(bot) {
+				const live = bot.live;
+				if (live.approval) {
+					return "esperando sua Aprovação";
+				}
+				if (live.turn === "thinking") {
+					return "pensando";
+				}
+				if (live.turn === "working") {
+					return live.tool ? `trabalhando com ${live.tool.name}` : "trabalhando";
+				}
+				if (teamWorking(bot)) {
+					return "a Equipe está trabalhando";
+				}
+				if (live.failed) {
+					return "o último Turno falhou";
+				}
+				if (bot.unread) {
+					return "resposta nova";
+				}
+				return "parado";
+			}
+
+			function items(bot) {
+				const out = [];
+				let run = null;
+				bot.lines.forEach((line, index) => {
+					if (DETAIL_KINDS.has(line.kind)) {
+						if (!run) {
+							run = { type: "run", id: `${bot.id}-${index}`, start: index, lines: [] };
+							out.push(run);
+						}
+						run.lines.push({ line, index });
+						return;
+					}
+					run = null;
+					out.push({ type: "line", line, index });
+				});
+				for (const item of out) {
+					if (item.type === "run") {
+						item.steps = stepsOf(bot, item);
+						item.trigger = triggerOf(bot, item.start);
+					}
+				}
+				return out;
+			}
+
+			function stepsOf(bot, run) {
+				const steps = [];
+				const last = bot.lines.length - 1;
+				const list = run.lines;
+				for (let i = 0; i < list.length; i++) {
+					const { line, index } = list[i];
+					const next = list[i + 1]?.line;
+					const key = `${bot.id}:${index}`;
+					if (line.kind === "team") {
+						if (line.verb === "criou" && next?.kind === "team" && next.verb === "delegou para" && next.bot === line.bot) {
+							steps.push({ kind: "team", key, verb: "both", bot: line.bot, task: line.task });
+							i++;
+							continue;
+						}
+						steps.push({ kind: "team", key, verb: line.verb, bot: line.bot, task: line.task });
+						continue;
+					}
+					if (line.kind === "tool") {
+						if (line.result === undefined && line.failed === undefined) {
+							if (next?.kind === "approval" && next.tool === line.name) {
+								continue;
+							}
+							if (index === last && bot.live.approval?.tool === line.name) {
+								steps.push({ kind: "tool", key, name: line.name, input: bot.live.approval.input, state: "waiting" });
+								continue;
+							}
+							steps.push({ kind: "tool", key, name: line.name, input: line.input, state: index === last && busy(bot) ? "running" : "cut" });
+							continue;
+						}
+						steps.push({ kind: "tool", key, name: line.name, input: line.input, result: line.result, failed: line.failed, state: line.failed ? "failed" : "ok" });
+						continue;
+					}
+					if (line.kind === "approval") {
+						const approved = line.outcome === "approved";
+						if (approved && next?.kind === "tool" && next.name === line.tool && (next.result !== undefined || next.failed !== undefined)) {
+							steps.push({ kind: "tool", key, name: line.tool, input: line.input, result: next.result, failed: next.failed, approval: "approved", state: next.failed ? "failed" : "ok" });
+							i++;
+							continue;
+						}
+						const running = approved && index === last && busy(bot);
+						steps.push({ kind: "tool", key, name: line.tool, input: line.input, approval: line.outcome, state: approved ? (running ? "running" : "ok") : "denied" });
+					}
+				}
+				return steps;
+			}
+
+			function triggerOf(bot, start) {
+				for (let i = start - 1; i >= 0; i--) {
+					const line = bot.lines[i];
+					if (line.kind === "you") {
+						return { kind: "you", text: line.text };
+					}
+					if (line.kind === "routine") {
+						return { kind: "routine", name: line.name };
+					}
+				}
+				return null;
+			}
+
+			function runParts(run) {
+				const tools = run.steps.filter((step) => step.kind === "tool");
+				const team = run.steps.filter((step) => step.kind === "team");
+				const unique = (list) => [...new Set(list)];
+				const delegated = unique(team.filter((step) => step.verb !== "criou").map((step) => step.bot));
+				const created = unique(team.filter((step) => step.verb === "criou").map((step) => step.bot));
+				const parts = [];
+				if (delegated.length) {
+					parts.push({ text: `delegou para ${joinPt(delegated)}` });
+				} else if (created.length) {
+					parts.push({ text: `criou ${joinPt(created)}` });
+				}
+				if (tools.length) {
+					parts.push({ text: `${tools.length} ${tools.length === 1 ? "tool" : "tools"}` });
+				}
+				const failed = tools.filter((step) => step.state === "failed").length;
+				if (failed) {
+					parts.push({ text: failed === 1 ? "1 falhou" : `${failed} falharam`, tone: "fail" });
+				}
+				if (tools.some((step) => step.approval === "approved")) {
+					parts.push({ text: "aprovada por você" });
+				}
+				if (tools.some((step) => step.approval === "denied")) {
+					parts.push({ text: "negada por você", tone: "fail" });
+				}
+				return parts
+					.map((part, index) => {
+						const text = esc(index === 0 ? capital(part.text) : part.text);
+						return part.tone ? `<span class="${part.tone}">${text}</span>` : text;
+					})
+					.join(", ");
+			}
+
+			function kv(inputObject) {
+				if (!inputObject) {
+					return "";
+				}
+				const rows = Object.entries(inputObject)
+					.map(([key, value]) => `<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`)
+					.join("");
+				return `<dl class="kv">${rows}</dl>`;
+			}
+
+			function stepMark(step) {
+				switch (step.state) {
+					case "ok":
+						return icon("check", 14);
+					case "failed":
+					case "denied":
+						return icon("x", 14);
+					case "waiting":
+						return '<span class="dot"></span>';
+					case "running":
+						return '<span class="spin"></span>';
+					default:
+						return icon("dash", 14);
+				}
+			}
+
+			function stepTag(step) {
+				if (step.state === "waiting") {
+					return '<span class="tag wait">espera Aprovação</span>';
+				}
+				if (step.state === "failed") {
+					return '<span class="tag fail">falhou</span>';
+				}
+				if (step.approval === "denied") {
+					return '<span class="tag fail">negada</span>';
+				}
+				if (step.approval === "approved") {
+					return '<span class="tag">aprovada</span>';
+				}
+				if (step.state === "cut") {
+					return '<span class="tag">interrompida</span>';
+				}
+				return "";
+			}
+
+			function stepOutput(step) {
+				if (step.failed) {
+					return `<p class="failed-text">${esc(step.failed)}</p>`;
+				}
+				if (step.result !== undefined) {
+					return `<pre class="result">${esc(step.result)}</pre>`;
+				}
+				return "";
+			}
+
+			function teamText(step) {
+				const who = `<b>${esc(step.bot)}</b>`;
+				if (step.verb === "both") {
+					return `criou ${who} e delegou`;
+				}
+				return step.verb === "criou" ? `criou ${who}` : `delegou para ${who}`;
+			}
+
+			function inlineStep(step) {
+				if (step.kind === "team") {
+					return `<div class="istep team">${teamText(step)}: <span>${esc(step.task)}</span></div>`;
+				}
+				return `<div class="istep"><div class="istep-head"><code>${esc(step.name)}</code>${stepTag(step)}</div>${kv(step.input)}${stepOutput(step)}</div>`;
+			}
+
+			function lineHTML(line) {
+				switch (line.kind) {
+					case "you":
+						return `<div class="you"><div class="bubble">${esc(line.text)}</div></div>`;
+					case "reply":
+						return `<div class="reply">${line.html}</div>`;
+					case "note":
+						return `<div class="note"><p class="note-head">${icon("team", 14)}<span>${esc(line.text)}</span></p>${line.detail ? `<pre>${esc(line.detail)}</pre>` : ""}</div>`;
+					case "summary":
+						return `<div class="summary"><p class="rule">Resumo do que veio antes</p><p>${esc(line.text)}</p></div>`;
+					case "warning":
+						return `<div class="sys warn">${icon("warn", 15)}<p>${esc(line.text)}</p></div>`;
+					case "error":
+						return `<div class="sys err">${icon("x", 15)}<div><p>O Turno falhou.</p><p>${esc(line.text)}</p></div></div>`;
+					case "stopped":
+						return `<div class="sys stop">${icon("stop", 14)}<p>Interrompido.</p></div>`;
+					case "routine":
+						if (state.level === "off") {
+							return "";
+						}
+						return `<p class="routine">${icon("clock", 14)}<span>Rotina <b>${esc(line.name)}</b></span><span>${esc(line.prompt)}</span></p>`;
+					default:
+						return "";
+				}
+			}
+
+			function liveMark(bot) {
+				const live = bot.live;
+				if (live.approval) {
+					return `<button class="live-mark" data-action="open-panel"><span class="dot"></span>Esperando sua Aprovação para <code>${esc(live.approval.tool)}</code></button>`;
+				}
+				if (live.turn === "thinking") {
+					return '<button class="live-mark" data-action="open-panel"><span class="spin"></span>Pensando</button>';
+				}
+				if (live.turn === "working" && live.tool) {
+					return `<button class="live-mark" data-action="open-panel"><span class="spin"></span>Trabalhando com <code>${esc(live.tool.name)}</code></button>`;
+				}
+				return "";
+			}
+
+			function modelOf(bot) {
+				return D.models.find((model) => model.id === bot.model.id) ?? D.models[0];
+			}
+
+			function toolLabels(bot) {
+				return D.toolGroups.filter((group) => bot.tools.includes(group.id)).map((group) => group.label);
+			}
+
+			function emptyHTML(bot) {
+				const groups = toolLabels(bot);
+				const mode = bot.mode === "autonomous" ? "em Modo autônomo" : "em Modo normal";
+				const tools = groups.length ? `com ${joinPt(groups)}` : "sem Grupos de tools";
+				const ideas = [
+					bot.tools.includes("gmail") && "Resume meus emails não lidos de hoje",
+					bot.tools.includes("routines") && "Todo dia às 8h, me manda a previsão do tempo",
+					bot.tools.includes("computer") && "Lista os maiores arquivos em ~/Downloads",
+					bot.tools.includes("web") && "Pesquisa voos para Lisboa em outubro",
+				]
+					.filter(Boolean)
+					.slice(0, 3);
+				return `<div class="empty">
+					<h1>${esc(bot.name)}</h1>
+					<p>Bot novo, sem conversa ainda. O jeito dele se forma com o uso: comece pedindo alguma coisa.</p>
+					${ideas.length ? `<div class="ideas">${ideas.map((idea) => `<button type="button" data-action="idea" data-text="${esc(idea)}">${esc(idea)}</button>`).join("")}</div>` : ""}
+					<p class="setup">Usa ${esc(modelOf(bot).label)} no esforço ${EFFORT_LABEL[bot.model.effort]}, ${mode}, ${esc(tools)}. <button type="button" class="link" data-action="open-settings">Ajustar</button></p>
+				</div>`;
+			}
+
+			function renderFlow() {
+				const bot = cur();
+				const atBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 48;
+				if (!bot.lines.length && !busy(bot)) {
+					flowEl.innerHTML = emptyHTML(bot);
+					scrollEl.scrollTop = 0;
+					state.forceBottom = false;
+					return;
+				}
+				const out = [];
+				for (const item of items(bot)) {
+					if (item.type === "line") {
+						out.push(lineHTML(item.line));
+						continue;
+					}
+					if (state.level === "off" || !item.steps.length) {
+						continue;
+					}
+					const marker = `<button class="marker" id="m-${item.id}" data-action="goto-group" data-run="${item.id}" title="Ver na Atividade">${icon("tool", 14)}<span>${runParts(item)}</span></button>`;
+					if (state.level === "brief") {
+						out.push(marker);
+						continue;
+					}
+					out.push(`<div class="inline-run">${marker}${item.steps.map(inlineStep).join("")}</div>`);
+				}
+				out.push(liveMark(bot));
+				flowEl.innerHTML = out.join("");
+				if (atBottom || state.forceBottom) {
+					scrollEl.scrollTop = scrollEl.scrollHeight;
+				}
+				state.forceBottom = false;
+			}
+
+			function markHTML(bot) {
+				const kind = stateOf(bot);
+				if (kind === "working") {
+					return '<span class="mark"><span class="spin"></span></span>';
+				}
+				if (kind === "waiting") {
+					return '<span class="mark"><span class="dot"></span></span>';
+				}
+				if (kind === "failed") {
+					return `<span class="mark fail">${icon("x", 12)}</span>`;
+				}
+				if (bot.unread) {
+					return '<span class="mark unread"></span>';
+				}
+				return "";
+			}
+
+			function renderTabs() {
+				const focused = tabsEl.contains(document.activeElement);
+				tabsEl.innerHTML = state.bots
+					.map((bot) => {
+						const selected = bot.id === state.current;
+						const label = stateLabel(bot);
+						return `<button class="tab" role="tab" id="tab-${bot.id}" type="button" aria-selected="${selected}" tabindex="${selected ? 0 : -1}" data-action="select" data-id="${bot.id}" title="${esc(`${bot.name}: ${label}`)}" aria-label="${esc(`${bot.name}, ${label}`)}">${markHTML(bot)}<span class="name">${esc(bot.name)}</span></button>`;
+					})
+					.join("");
+				if (focused) {
+					$(`tab-${state.current}`)?.focus();
+				}
+			}
+
+			function nowHTML(bot) {
+				const live = bot.live;
+				if (live.approval) {
+					const approval = live.approval;
+					return `<section class="block now waiting" id="now">
+						<div class="now-top"><p class="now-state"><span class="dot"></span>Esperando aprovação</p><button class="btn sm" type="button" data-action="stop" title="Parar o Turno">${icon("stop", 12)}Parar</button></div>
+						<p class="clock" data-since="${live.startedAt}" title="Tempo deste Turno">${fmt(Date.now() - live.startedAt)}</p>
+						<div class="ask">
+							<p class="ask-title"><b>${esc(bot.name)}</b> quer usar <code>${esc(approval.tool)}</code></p>
+							${kv(approval.input)}
+							<div class="ask-actions">
+								<button class="btn primary" type="button" data-action="approve">Aprovar <kbd>1</kbd></button>
+								<button class="btn" type="button" data-action="deny">Negar <kbd>2</kbd></button>
+							</div>
+						</div>
+					</section>`;
+				}
+				if (live.turn !== "idle") {
+					const label = live.turn === "thinking" ? "Pensando" : "Trabalhando";
+					const detail = live.tool
+						? `<p class="now-tool"><code>${esc(live.tool.name)}</code><span>${esc(brief(live.tool.input))}</span></p>`
+						: live.writing
+							? '<p class="now-tool">Escrevendo a resposta</p>'
+							: "";
+					return `<section class="block now working" id="now">
+						<div class="now-top"><p class="now-state"><span class="spin"></span>${label}</p><button class="btn sm" type="button" data-action="stop" title="Parar o Turno">${icon("stop", 12)}Parar</button></div>
+						<p class="clock" data-since="${live.startedAt}" title="Tempo deste Turno">${fmt(Date.now() - live.startedAt)}</p>
+						${detail}
+						<div class="thread" aria-hidden="true"></div>
+					</section>`;
+				}
+				if (live.failed) {
+					return `<section class="block now failed" id="now">
+						<p class="now-state">${icon("x", 14)}O último Turno falhou</p>
+						<p class="now-note">${esc(live.failed)}</p>
+						<p class="now-note">Mande uma mensagem para tentar de novo.</p>
+					</section>`;
+				}
+				const last = bot.lastAt ? (bot.lastAt === "ontem" ? "Última resposta ontem." : `Última resposta às ${bot.lastAt}.`) : "Ainda sem conversa.";
+				const note = teamWorking(bot) ? "A Equipe segue trabalhando sozinha." : last;
+				return `<section class="block now idle" id="now"><p class="now-state">Parado</p><p class="now-note">${note}</p></section>`;
+			}
+
+			function teamHTML(bot) {
+				const team = bot.live.team;
+				if (!team.length) {
+					return "";
+				}
+				const active = team.filter((kid) => kid.state === "working").length;
+				const rows = team
+					.map((kid) => {
+						const working = kid.state === "working";
+						const now = working
+							? `<span class="kid-now">${kid.tool ? `<code>${esc(kid.tool)}</code>` : ""}<span data-since="${kid.startedAt}">${fmt(Date.now() - kid.startedAt)}</span></span>`
+							: `<span class="kid-now">${kid.state === "failed" ? "falhou" : "terminou"}</span>`;
+						const mark = working ? '<span class="spin"></span>' : icon(kid.state === "failed" ? "x" : "check", 12);
+						return `<li class="kid">${mark}<span class="kid-name">${esc(kid.name)}</span>${now}<span class="kid-task">${esc(kid.task)}</span></li>`;
+					})
+					.join("");
+				const count = active ? `${active} trabalhando` : "todos terminaram";
+				return `<section class="block" id="team"><h3>Equipe <small>${count}</small></h3><ul class="kids">${rows}</ul></section>`;
+			}
+
+			function queueHTML(bot) {
+				const queue = bot.live.queue;
+				if (!queue.length) {
+					return "";
+				}
+				const rows = queue.map((text) => `<li>${esc(text)}</li>`).join("");
+				return `<section class="block" id="queue"><h3>Fila <small>${queue.length} ${queue.length === 1 ? "mensagem" : "mensagens"}</small></h3><ol class="queue">${rows}</ol><p class="hint">Entra quando este Turno terminar. Parar descarta a Fila.</p></section>`;
+			}
+
+			function detailHTML(bot) {
+				const control = `<div class="seg" role="radiogroup" aria-label="Detalhe" title="Detalhe (Ctrl+O)">${LEVELS.map((level) => `<button type="button" role="radio" id="level-${level}" aria-checked="${level === state.level}" data-action="set-level" data-level="${level}">${LEVEL_LABEL[level]}</button>`).join("")}</div>`;
+				const head = `<div class="sec-head"><h3 title="Ctrl+O troca o nível">Detalhe</h3>${control}</div>`;
+				if (state.level === "off") {
+					return `<section class="block" id="detail">${head}<p class="hint">Tools e Equipe ficam ocultas aqui e na conversa.</p></section>`;
+				}
+				const runs = items(bot).filter((item) => item.type === "run" && item.steps.length);
+				if (!runs.length) {
+					return `<section class="block" id="detail">${head}<p class="hint">Nenhuma tool usada ainda. Cada tool, Rotina e ação da Equipe aparece aqui.</p></section>`;
+				}
+				const groups = runs
+					.reverse()
+					.map((run) => {
+						const trigger = run.trigger;
+						const headLabel = !trigger
+							? `${icon("speech", 13)}<span>Antes</span>`
+							: trigger.kind === "routine"
+								? `${icon("clock", 13)}<span>Rotina ${esc(trigger.name)}</span>`
+								: `${icon("speech", 13)}<span>${esc(trigger.text)}</span>`;
+						const steps = run.steps.map(stepRow).join("");
+						return `<div class="group" id="g-${run.id}"><button class="group-head" type="button" data-action="goto-run" data-run="${run.id}" title="Ver na conversa">${headLabel}</button><ul class="steps">${steps}</ul></div>`;
+					})
+					.join("");
+				return `<section class="block" id="detail">${head}${groups}</section>`;
+			}
+
+			function stepRow(step) {
+				if (step.kind === "team") {
+					return `<li class="step team"><div class="step-row"><span class="step-mark">${icon("team", 13)}</span><span class="step-text">${teamText(step)}</span></div><p class="step-task">${esc(step.task)}</p></li>`;
+				}
+				const full = state.level === "full";
+				const open = full || state.open.has(step.key);
+				const inner = `<span class="step-mark">${stepMark(step)}</span><code class="step-name">${esc(step.name)}</code><span class="step-sum">${open ? "" : esc(brief(step.input))}</span>${stepTag(step)}`;
+				const row = full
+					? `<div class="step-row">${inner}</div>`
+					: `<button class="step-row" type="button" id="step-${step.key.replace(":", "-")}" data-action="toggle-step" data-key="${step.key}" aria-expanded="${open}">${inner}</button>`;
+				const body = open ? `<div class="step-body">${kv(step.input)}${stepOutput(step)}</div>` : "";
+				return `<li class="step is-${step.state}">${row}${body}</li>`;
+			}
+
+			function settingsHTML(bot) {
+				const model = modelOf(bot);
+				const options = D.models.map((entry) => `<option value="${entry.id}" ${entry.id === model.id ? "selected" : ""}>${esc(entry.label)}</option>`).join("");
+				const efforts = model.efforts
+					.map((effort) => `<button type="button" role="radio" id="effort-${effort}" aria-checked="${effort === bot.model.effort}" data-action="set-effort" data-effort="${effort}">${EFFORT_LABEL[effort]}</button>`)
+					.join("");
+				const modes = [
+					{ id: "autonomous", title: "Autônomo", text: "Age sem pedir Aprovação. Você revisa as ações depois." },
+					{ id: "normal", title: "Normal", text: "Pede Aprovação antes de enviar emails, apagar Rotinas e mexer no computador." },
+				]
+					.map(
+						(mode) =>
+							`<label class="choice"><input type="radio" name="mode" id="mode-${mode.id}" value="${mode.id}" ${bot.mode === mode.id ? "checked" : ""} data-change="mode" /><span><b>${mode.title}</b><small>${mode.text}</small></span></label>`,
+					)
+					.join("");
+				const groups = D.toolGroups
+					.map(
+						(group) =>
+							`<label class="choice"><input type="checkbox" id="tools-${group.id}" value="${group.id}" ${bot.tools.includes(group.id) ? "checked" : ""} data-change="tools" /><span><b>${esc(group.label)}</b><small>${esc(group.hint)}</small></span></label>`,
+					)
+					.join("");
+				const folder = state.folderEditing
+					? `<div class="folder"><input id="set-folder" value="${esc(bot.folder ?? "")}" placeholder="~/projetos/site" aria-label="Pasta" /><button class="btn sm" type="button" data-action="folder-save">Salvar</button></div><p class="hint">Deixe vazio para usar ~ ($HOME). Enter salva, Esc cancela.</p>`
+					: `<div class="folder">${bot.folder ? `<code title="${esc(bot.folder)}">${esc(bot.folder)}</code>` : '<span class="none">Nenhuma. As tools rodam em ~</span>'}<button class="btn sm" type="button" id="set-folder" data-action="folder-edit">${bot.folder ? "Trocar" : "Escolher"}</button></div><p class="hint">${bot.tools.includes("computer") ? "Onde as tools de Computador rodam." : "Só vale com o grupo Computador ligado."}</p>`;
+				const memories = bot.memories === 0 ? "Nenhuma memória ainda." : bot.memories === 1 ? "1 memória guardada." : `${bot.memories} memórias guardadas.`;
+				return `<div class="settings">
+					<p class="settings-title">Ajustes de <b>${esc(bot.name)}</b></p>
+					<div class="field" id="field-model"><label class="field-label" for="set-model">Modelo</label><select class="select" id="set-model" data-change="model">${options}</select><div class="seg" role="radiogroup" aria-label="Esforço">${efforts}</div><p class="hint">Vale para as próximas respostas.</p></div>
+					<div class="field" id="field-mode"><span class="field-label">Modo</span>${modes}</div>
+					<div class="field" id="field-tools"><span class="field-label">Grupos de tools</span><div class="checks">${groups}</div></div>
+					<div class="field" id="field-folder"><span class="field-label">Pasta</span>${folder}</div>
+					<div class="field" id="field-memory"><span class="field-label">Memória</span><p class="memory">${memories}</p><p class="hint">Fatos e preferências que ${esc(bot.name)} lembra entre Turnos.</p></div>
+				</div>`;
+			}
+
+			function renderPanel(force = false) {
+				if (!state.panelOpen) {
+					panelEl.innerHTML = "";
+					return;
+				}
+				if (state.panelMode === "settings" && !force) {
+					return;
+				}
+				const bot = cur();
+				const body = panelEl.querySelector(".panel-body");
+				const scrollTop = body ? body.scrollTop : 0;
+				const focusId = panelEl.contains(document.activeElement) ? document.activeElement.id : "";
+				const activity = state.panelMode === "activity";
+				const content = activity ? `${nowHTML(bot)}${teamHTML(bot)}${queueHTML(bot)}${detailHTML(bot)}` : settingsHTML(bot);
+				panelEl.innerHTML = `<div class="panel-head">
+						<div class="seg" role="tablist" aria-label="Painel">
+							<button type="button" id="mode-activity" aria-pressed="${activity}" data-action="panel-mode" data-mode="activity">Atividade</button>
+							<button type="button" id="mode-settings" aria-pressed="${!activity}" data-action="panel-mode" data-mode="settings" title="Ajustes do bot (Ctrl+,)">Ajustes</button>
+						</div>
+						<button class="icon-btn" type="button" id="panel-close" data-action="close-panel" aria-label="Recolher painel" title="Recolher painel (Ctrl+B)">${icon("panel")}</button>
+					</div>
+					<div class="panel-body">${content}</div>`;
+				panelEl.querySelector(".panel-body").scrollTop = scrollTop;
+				if (focusId) {
+					$(focusId)?.focus();
+				}
+			}
+
+			function renderRail() {
+				const bot = cur();
+				const live = bot.live;
+				const kind = stateOf(bot);
+				let liveBlock = "";
+				if (busy(bot)) {
+					const mark = live.approval ? '<span class="dot"></span>' : '<span class="spin"></span>';
+					liveBlock = `<button class="rail-live ${live.approval ? "wait" : ""}" type="button" data-action="open-panel" title="${esc(capital(stateLabel(bot)))}">${mark}<span data-since="${live.startedAt}">${fmt(Date.now() - live.startedAt)}</span></button>
+						<button class="rail-btn" type="button" data-action="stop" aria-label="Parar o Turno" title="Parar o Turno">${icon("stop", 14)}</button>`;
+				} else if (kind === "failed") {
+					liveBlock = `<button class="rail-live fail" type="button" data-action="open-panel" title="O último Turno falhou">${icon("x", 14)}</button>`;
+				}
+				const activeKids = live.team.filter((kid) => kid.state === "working").length;
+				const team = live.team.length
+					? `<button class="rail-btn" type="button" data-action="open-panel" data-target="team" aria-label="Equipe" title="Equipe: ${activeKids} trabalhando">${icon("team")}${activeKids ? `<span class="count">${activeKids}</span>` : ""}</button>`
+					: "";
+				const queue = live.queue.length
+					? `<button class="rail-btn" type="button" data-action="open-panel" data-target="queue" aria-label="Fila" title="Fila: ${live.queue.length}">${icon("queue")}<span class="count">${live.queue.length}</span></button>`
+					: "";
+				railEl.innerHTML = `<button class="rail-btn" type="button" data-action="open-panel" aria-label="Abrir Atividade" title="Abrir Atividade (Ctrl+B)">${icon("panel")}</button>
+					${liveBlock}${team}${queue}
+					<span class="grow"></span>
+					<button class="rail-btn" type="button" data-action="cycle-level" aria-label="Detalhe: ${LEVEL_LABEL[state.level]}" title="Detalhe: ${LEVEL_LABEL[state.level]} (Ctrl+O)">${icon("eye")}</button>
+					<button class="rail-btn" type="button" data-action="open-settings" aria-label="Ajustes" title="Ajustes (Ctrl+,)">${icon("sliders")}</button>`;
+			}
+
+			function renderComposer() {
+				const bot = cur();
+				const model = modelOf(bot);
+				const folderName = bot.folder ? bot.folder.split("/").filter(Boolean).pop() : "";
+				chipsEl.innerHTML = `<button class="chip" type="button" data-action="open-settings" data-field="model" title="Modelo e esforço">${icon("chip", 14)}<span>${esc(model.label)}</span><small>${EFFORT_LABEL[bot.model.effort]}</small></button>
+					<button class="chip" type="button" data-action="open-settings" data-field="mode" title="Modo">${icon(bot.mode === "autonomous" ? "bolt" : "shield", 14)}<span>${bot.mode === "autonomous" ? "Autônomo" : "Normal"}</span></button>
+					${bot.folder ? `<button class="chip" type="button" data-action="open-settings" data-field="folder" title="Pasta: ${esc(bot.folder)}">${icon("folder", 14)}<span>${esc(folderName)}</span></button>` : ""}`;
+				input.placeholder = busy(bot) ? "Escreva: vai para a Fila e entra depois deste Turno" : `Mensagem para ${bot.name}`;
+				sendBtn.disabled = !input.value.trim();
+				sendBtn.title = busy(bot) ? "Pôr na Fila (Enter)" : "Enviar (Enter)";
+			}
+
+			function syncPanel() {
+				const bot = cur();
+				const approval = bot.live.approval;
+				if (approval && !state.panelOpen && state.dismissed !== approval) {
+					state.panelOpen = true;
+					state.panelMode = "activity";
+					state.autoPanel = true;
+				}
+				if (!approval && state.autoPanel) {
+					state.panelOpen = false;
+					state.autoPanel = false;
+				}
+				app.classList.toggle("panel-open", state.panelOpen);
+			}
+
+			function render() {
+				syncPanel();
+				renderTabs();
+				renderFlow();
+				renderRail();
+				renderPanel(true);
+				renderComposer();
+			}
+
+			function update(bot) {
+				renderTabs();
+				if (bot && bot.id !== state.current) {
+					return;
+				}
+				syncPanel();
+				renderFlow();
+				renderRail();
+				renderPanel();
+				renderComposer();
+			}
+
+			function later(bot, ms, fn) {
+				const id = setTimeout(() => {
+					bot.timers = bot.timers.filter((timer) => timer !== id);
+					fn();
+				}, ms);
+				bot.timers.push(id);
+			}
+
+			function startTurn(bot, messages) {
+				for (const text of messages) {
+					bot.lines.push({ kind: "you", text });
+				}
+				bot.live.failed = null;
+				bot.live.turn = "thinking";
+				bot.live.tool = null;
+				bot.live.writing = false;
+				bot.live.startedAt = Date.now();
+				if (bot.id === state.current) {
+					state.forceBottom = true;
+				}
+				update(bot);
+				later(bot, D.demoTurn.thinkingMs, () => runStep(bot, 0));
+			}
+
+			function runStep(bot, index) {
+				const step = D.demoTurn.steps[index];
+				if (!step) {
+					streamReply(bot, D.demoTurn.replyBlocks, D.demoTurn.blockMs);
+					return;
+				}
+				bot.live.turn = "working";
+				bot.live.tool = { name: step.name, input: step.input };
+				update(bot);
+				later(bot, step.ms, () => {
+					bot.lines.push({ kind: "tool", name: step.name, input: step.input, result: step.result });
+					runStep(bot, index + 1);
+				});
+			}
+
+			function streamReply(bot, blocks, ms) {
+				bot.live.turn = "working";
+				bot.live.tool = null;
+				bot.live.writing = true;
+				const line = { kind: "reply", html: "" };
+				bot.lines.push(line);
+				let index = 0;
+				const next = () => {
+					line.html += blocks[index++];
+					update(bot);
+					if (index < blocks.length) {
+						later(bot, ms, next);
+						return;
+					}
+					later(bot, 300, () => finishTurn(bot));
+				};
+				later(bot, 200, next);
+			}
+
+			function finishTurn(bot) {
+				bot.live.turn = "idle";
+				bot.live.writing = false;
+				bot.live.tool = null;
+				bot.lastAt = clockNow();
+				if (bot.live.queue.length) {
+					startTurn(bot, bot.live.queue.splice(0));
+					return;
+				}
+				if (bot.id !== state.current) {
+					bot.unread = true;
+				}
+				update(bot);
+			}
+
+			function stopTurn(bot) {
+				if (!busy(bot)) {
+					return;
+				}
+				bot.timers.forEach(clearTimeout);
+				bot.timers = [];
+				bot.lines.push({ kind: "stopped" });
+				bot.live.turn = "idle";
+				bot.live.tool = null;
+				bot.live.writing = false;
+				bot.live.approval = null;
+				bot.live.queue = [];
+				bot.lastAt = clockNow();
+				update(bot);
+			}
+
+			function decide(bot, approved) {
+				const approval = bot.live.approval;
+				if (!approval) {
+					return;
+				}
+				bot.live.approval = null;
+				bot.lines.push({ kind: "approval", tool: approval.tool, input: approval.input, outcome: approved ? "approved" : "denied" });
+				const outcome = D.approvalOutcomes[approved ? "approved" : "denied"];
+				if (approved) {
+					bot.live.turn = "working";
+					bot.live.tool = { name: approval.tool, input: approval.input };
+					update(bot);
+					later(bot, 900, () => {
+						bot.lines.push({ kind: "tool", name: approval.tool, input: approval.input, result: outcome.result });
+						streamReply(bot, [outcome.replyHtml], 300);
+					});
+				} else {
+					bot.live.turn = "thinking";
+					update(bot);
+					later(bot, 700, () => streamReply(bot, [outcome.replyHtml], 300));
+				}
+				toast(approved ? `Aprovado: ${approval.tool}` : `Negado: ${approval.tool}`);
+			}
+
+			function send() {
+				const text = input.value.trim();
+				if (!text) {
+					return;
+				}
+				const bot = cur();
+				input.value = "";
+				bot.draft = "";
+				autosize();
+				if (busy(bot)) {
+					bot.live.queue.push(text);
+					if (!state.panelOpen) {
+						toast("Na Fila. Entra quando este Turno terminar.");
+					}
+					update(bot);
+					return;
+				}
+				startTurn(bot, [text]);
+			}
+
+			function select(id, focusComposer = true) {
+				if (id === state.current) {
+					if (focusComposer) {
+						input.focus();
+					}
+					return;
+				}
+				cur().draft = input.value;
+				state.current = id;
+				const bot = cur();
+				bot.unread = false;
+				input.value = bot.draft;
+				autosize();
+				state.forceBottom = true;
+				state.folderEditing = false;
+				state.dismissed = null;
+				if (bot.live.approval) {
+					state.panelMode = "activity";
+				}
+				if (state.autoPanel && !bot.live.approval) {
+					state.panelOpen = false;
+					state.autoPanel = false;
+				}
+				render();
+				$(`tab-${id}`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+				if (focusComposer) {
+					input.focus();
+				}
+			}
+
+			function setPanel(open) {
+				state.panelOpen = open;
+				state.autoPanel = false;
+				if (!open && cur().live.approval) {
+					state.dismissed = cur().live.approval;
+				}
+				syncPanel();
+				renderRail();
+				renderPanel(true);
+			}
+
+			function narrow() {
+				return window.innerWidth < NARROW;
+			}
+
+			function openPanel(mode = "activity") {
+				state.panelMode = mode;
+				state.panelOpen = true;
+				state.autoPanel = false;
+				syncPanel();
+				renderRail();
+				renderPanel(true);
+			}
+
+			function setLevel(level) {
+				state.level = level;
+				renderFlow();
+				renderRail();
+				if (state.panelMode === "activity") {
+					renderPanel(true);
+				}
+				if (!state.panelOpen || state.panelMode !== "activity") {
+					toast(`Detalhe: ${LEVEL_LABEL[level]}`);
+				}
+			}
+
+			function cycleLevel() {
+				setLevel(LEVELS[(LEVELS.indexOf(state.level) + 1) % LEVELS.length]);
+			}
+
+			function flash(el) {
+				if (!el) {
+					return;
+				}
+				el.classList.remove("flash");
+				void el.offsetWidth;
+				el.classList.add("flash");
+			}
+
+			function openSettings(field) {
+				openPanel("settings");
+				if (field) {
+					const target = $(`field-${field}`);
+					target?.scrollIntoView({ block: "center" });
+					flash(target);
+					$(field === "mode" ? `mode-${cur().mode}` : `set-${field}`)?.focus();
+				}
+			}
+
+			function startCreate() {
+				state.creating = true;
+				createForm.hidden = false;
+				$("add").hidden = true;
+				createError.hidden = true;
+				createInput.value = "";
+				createInput.focus();
+				createForm.scrollIntoView({ inline: "nearest" });
+			}
+
+			function endCreate() {
+				state.creating = false;
+				createForm.hidden = true;
+				$("add").hidden = false;
+				createError.hidden = true;
+			}
+
+			function createBot() {
+				const name = createInput.value.trim();
+				if (!name) {
+					createError.textContent = "Dê um nome ao bot.";
+					createError.hidden = false;
+					return;
+				}
+				if (state.bots.some((bot) => bot.name.toLowerCase() === name.toLowerCase())) {
+					createError.textContent = `Já existe um bot chamado ${name}.`;
+					createError.hidden = false;
+					return;
+				}
+				let id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "bot";
+				while (state.bots.some((bot) => bot.id === id)) {
+					id += "-1";
+				}
+				state.bots.push({
+					id,
+					name,
+					model: { id: "gpt-5.6-luna", effort: "max" },
+					mode: "autonomous",
+					tools: D.toolGroups.map((group) => group.id),
+					folder: null,
+					memories: 0,
+					lastAt: null,
+					preview: null,
+					live: { turn: "idle", seconds: 0, startedAt: Date.now(), tool: null, approval: null, queue: [], team: [], failed: null },
+					lines: [],
+					unread: false,
+					draft: "",
+					timers: [],
+				});
+				endCreate();
+				select(id);
+			}
+
+			let toastTimer = 0;
+			function toast(text) {
+				toastEl.textContent = text;
+				toastEl.classList.add("show");
+				clearTimeout(toastTimer);
+				toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
+			}
+
+			function closeMenu() {
+				if (!menuEl.hidden) {
+					menuEl.hidden = true;
+					state.menuFor = null;
+				}
+			}
+
+			function autosize() {
+				input.style.height = "auto";
+				input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+				sendBtn.disabled = !input.value.trim();
+			}
+
+			function saveFolder() {
+				const value = $("set-folder").value.trim();
+				cur().folder = value || null;
+				state.folderEditing = false;
+				renderPanel(true);
+				renderComposer();
+				$("set-folder")?.focus();
+				toast(value ? `Pasta: ${value}` : "Sem Pasta. As tools rodam em ~");
+			}
+
+			document.addEventListener("click", (event) => {
+				const link = event.target.closest(".reply a");
+				if (link) {
+					event.preventDefault();
+					toast(`Abriria no navegador: ${link.textContent}`);
+					return;
+				}
+				const el = event.target.closest("[data-action]");
+				if (!event.target.closest("#menu")) {
+					closeMenu();
+				}
+				if (!el) {
+					return;
+				}
+				const bot = cur();
+				switch (el.dataset.action) {
+					case "select":
+						select(el.dataset.id, true);
+						break;
+					case "create":
+						closeMenu();
+						startCreate();
+						break;
+					case "open-panel": {
+						openPanel("activity");
+						const target = $(el.dataset.target ?? "now");
+						target?.scrollIntoView({ block: "nearest" });
+						flash(target);
+						break;
+					}
+					case "close-panel":
+						setPanel(false);
+						input.focus();
+						break;
+					case "panel-mode":
+						state.panelMode = el.dataset.mode;
+						state.folderEditing = false;
+						renderPanel(true);
+						break;
+					case "stop":
+						stopTurn(bot);
+						break;
+					case "approve":
+						decide(bot, true);
+						break;
+					case "deny":
+						decide(bot, false);
+						break;
+					case "set-level":
+						setLevel(el.dataset.level);
+						break;
+					case "cycle-level":
+						cycleLevel();
+						break;
+					case "toggle-step": {
+						const key = el.dataset.key;
+						state.open.has(key) ? state.open.delete(key) : state.open.add(key);
+						renderPanel(true);
+						break;
+					}
+					case "goto-group": {
+						openPanel("activity");
+						const group = $(`g-${el.dataset.run}`);
+						group?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+						flash(group);
+						break;
+					}
+					case "goto-run": {
+						if (narrow()) {
+							setPanel(false);
+						}
+						const marker = $(`m-${el.dataset.run}`);
+						marker?.scrollIntoView({ block: "center", behavior: "smooth" });
+						flash(marker);
+						break;
+					}
+					case "open-settings":
+						openSettings(el.dataset.field);
+						break;
+					case "menu-settings":
+						closeMenu();
+						select(state.menuFor ?? state.current, false);
+						openSettings();
+						break;
+					case "idea":
+						input.value = el.dataset.text;
+						autosize();
+						input.focus();
+						break;
+					case "set-effort":
+						bot.model.effort = el.dataset.effort;
+						renderPanel(true);
+						renderComposer();
+						break;
+					case "folder-edit":
+						state.folderEditing = true;
+						renderPanel(true);
+						$("set-folder")?.focus();
+						$("set-folder")?.select();
+						break;
+					case "folder-save":
+						saveFolder();
+						break;
+				}
+			});
+
+			document.addEventListener("change", (event) => {
+				const el = event.target;
+				const bot = cur();
+				switch (el.dataset.change) {
+					case "model": {
+						const model = D.models.find((entry) => entry.id === el.value);
+						bot.model.id = model.id;
+						if (!model.efforts.includes(bot.model.effort)) {
+							bot.model.effort = model.efforts[model.efforts.length - 1];
+						}
+						break;
+					}
+					case "mode":
+						bot.mode = el.value;
+						break;
+					case "tools":
+						bot.tools = el.checked ? [...bot.tools, el.value] : bot.tools.filter((tool) => tool !== el.value);
+						break;
+					default:
+						return;
+				}
+				renderPanel(true);
+				renderComposer();
+				if (!bot.lines.length) {
+					renderFlow();
+				}
+			});
+
+			document.addEventListener("contextmenu", (event) => {
+				const tab = event.target.closest(".tab");
+				if (!tab) {
+					return;
+				}
+				event.preventDefault();
+				const bot = state.bots.find((entry) => entry.id === tab.dataset.id);
+				state.menuFor = bot.id;
+				menuEl.innerHTML = `<button type="button" role="menuitem" data-action="menu-settings">${icon("sliders", 14)}<span>Ajustes de <b>${esc(bot.name)}</b></span></button><button type="button" role="menuitem" data-action="create">${icon("plus", 14)}<span>Novo bot</span></button>`;
+				menuEl.hidden = false;
+				const x = Math.min(event.clientX, window.innerWidth - menuEl.offsetWidth - 8);
+				menuEl.style.left = `${x}px`;
+				menuEl.style.top = `${event.clientY + 4}px`;
+				menuEl.querySelector("button").focus();
+			});
+
+			tabsEl.addEventListener("keydown", (event) => {
+				const index = state.bots.findIndex((bot) => bot.id === state.current);
+				const steps = { ArrowLeft: -1, ArrowRight: 1 };
+				if (event.key in steps) {
+					event.preventDefault();
+					const next = (index + steps[event.key] + state.bots.length) % state.bots.length;
+					select(state.bots[next].id, false);
+					$(`tab-${state.current}`)?.focus();
+					return;
+				}
+				if (event.key === "Home" || event.key === "End") {
+					event.preventDefault();
+					select(state.bots[event.key === "Home" ? 0 : state.bots.length - 1].id, false);
+					$(`tab-${state.current}`)?.focus();
+					return;
+				}
+				if (event.key === "Enter" || event.key === "Escape") {
+					event.preventDefault();
+					input.focus();
+				}
+			});
+
+			createForm.addEventListener("submit", (event) => {
+				event.preventDefault();
+				createBot();
+			});
+
+			createInput.addEventListener("input", () => {
+				createError.hidden = true;
+			});
+
+			createInput.addEventListener("keydown", (event) => {
+				if (event.key === "Escape") {
+					event.preventDefault();
+					endCreate();
+					input.focus();
+				}
+			});
+
+			createInput.addEventListener("blur", () => {
+				if (!createInput.value.trim()) {
+					endCreate();
+				}
+			});
+
+			$("composer").addEventListener("submit", (event) => {
+				event.preventDefault();
+				send();
+				input.focus();
+			});
+
+			input.addEventListener("input", autosize);
+
+			input.addEventListener("keydown", (event) => {
+				if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+					event.preventDefault();
+					send();
+				}
+			});
+
+			panelEl.addEventListener("keydown", (event) => {
+				if (event.target.id !== "set-folder" || event.target.tagName !== "INPUT") {
+					return;
+				}
+				if (event.key === "Enter") {
+					event.preventDefault();
+					saveFolder();
+				}
+				if (event.key === "Escape") {
+					event.preventDefault();
+					event.stopPropagation();
+					state.folderEditing = false;
+					renderPanel(true);
+					$("set-folder")?.focus();
+				}
+			});
+
+			function canUseDigits(target) {
+				if (target === input) {
+					return !input.value;
+				}
+				return !target.closest("input, textarea, select");
+			}
+
+			document.addEventListener("keydown", (event) => {
+				const key = event.key.toLowerCase();
+				if (event.ctrlKey && !event.altKey && key === "o") {
+					event.preventDefault();
+					cycleLevel();
+					return;
+				}
+				if (event.ctrlKey && !event.altKey && key === "e") {
+					event.preventDefault();
+					if (tabsEl.contains(document.activeElement)) {
+						input.focus();
+					} else {
+						$(`tab-${state.current}`)?.focus();
+					}
+					return;
+				}
+				if (event.ctrlKey && !event.altKey && key === "b") {
+					event.preventDefault();
+					setPanel(!state.panelOpen);
+					return;
+				}
+				if (event.ctrlKey && event.key === ",") {
+					event.preventDefault();
+					openSettings();
+					return;
+				}
+				if (event.key === "Escape") {
+					if (!menuEl.hidden) {
+						closeMenu();
+						return;
+					}
+					if (state.panelOpen && narrow()) {
+						setPanel(false);
+						input.focus();
+					}
+					return;
+				}
+				if (!event.ctrlKey && !event.altKey && !event.metaKey && (event.key === "1" || event.key === "2")) {
+					const bot = cur();
+					const visible = state.panelOpen && state.panelMode === "activity";
+					if (bot.live.approval && visible && canUseDigits(event.target)) {
+						event.preventDefault();
+						decide(bot, event.key === "1");
+					}
+				}
+			});
+
+			window.addEventListener("resize", () => {
+				syncPanel();
+			});
+
+			setInterval(() => {
+				const now = Date.now();
+				for (const el of document.querySelectorAll("[data-since]")) {
+					el.textContent = fmt(now - Number(el.dataset.since));
+				}
+			}, 1000);
+
+			render();
+			input.focus();
+		</script>
+	</body>
+</html>

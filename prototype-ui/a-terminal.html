@@ -1,0 +1,2380 @@
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>mimo</title>
+		<style>
+			:root {
+				--ground: #0b0b0c;
+				--side: #0d0d0f;
+				--raise: #151518;
+				--raise2: #1c1c20;
+				--line: #202024;
+				--t1: #f2f2f3;
+				--t2: #d9d9da;
+				--t3: #c0c0c2;
+				--t4: #a7a7a9;
+				--t5: #8d8d90;
+				--t6: #747477;
+				--t7: #5b5b5f;
+				--t8: #424246;
+				--need: #f2bd5b;
+				--need-ink: #1b1406;
+				--need-wash: rgb(242 189 91 / 0.055);
+				--need-edge: rgb(242 189 91 / 0.3);
+				--fail: #ec7c6d;
+				--mono: ui-monospace, "JetBrains Mono", "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+				color-scheme: dark;
+				scrollbar-color: var(--t8) transparent;
+				scrollbar-width: thin;
+				color: var(--t3);
+				background: var(--ground);
+				font: 13px/1.6 var(--mono);
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				height: 100%;
+				margin: 0;
+			}
+
+			p,
+			h1,
+			h2,
+			h3,
+			dl,
+			dd,
+			pre {
+				margin: 0;
+			}
+
+			h1,
+			h2,
+			h3 {
+				font-size: inherit;
+			}
+
+			button,
+			input,
+			textarea {
+				font: inherit;
+				color: inherit;
+				background: none;
+				border: 0;
+				padding: 0;
+			}
+
+			button {
+				cursor: pointer;
+				text-align: left;
+			}
+
+			kbd {
+				font: inherit;
+				color: var(--t5);
+			}
+
+			small {
+				font-size: inherit;
+			}
+
+			:focus-visible {
+				outline: 1px solid var(--t5);
+				outline-offset: 2px;
+				border-radius: 3px;
+			}
+
+			.dim {
+				color: var(--t6);
+			}
+
+			.nm {
+				color: var(--t4);
+			}
+
+			.app {
+				display: grid;
+				grid-template-columns: 212px minmax(0, 1fr);
+				height: 100vh;
+			}
+
+			.bar {
+				display: flex;
+				flex-direction: column;
+				min-height: 0;
+				background: var(--side);
+				border-right: 1px solid var(--line);
+			}
+
+			.bar-head,
+			.head {
+				display: flex;
+				align-items: center;
+				flex: none;
+				height: 44px;
+				border-bottom: 1px solid var(--line);
+			}
+
+			.bar-head {
+				justify-content: space-between;
+				padding: 0 8px 0 16px;
+			}
+
+			.brand {
+				color: var(--t5);
+			}
+
+			.add {
+				display: grid;
+				place-items: center;
+				width: 26px;
+				height: 26px;
+				color: var(--t5);
+				border-radius: 4px;
+			}
+
+			.add:hover {
+				color: var(--t1);
+				background: var(--raise);
+			}
+
+			.new {
+				padding: 10px 8px 4px;
+			}
+
+			.new input {
+				width: 100%;
+				padding: 5px 8px;
+				color: var(--t1);
+				background: var(--raise);
+				border: 1px solid var(--t8);
+				border-radius: 4px;
+				outline: none;
+			}
+
+			.new p {
+				padding: 4px 2px 0;
+				color: var(--t7);
+				font-size: 12px;
+			}
+
+			.new p.bad {
+				color: var(--fail);
+			}
+
+			.list {
+				flex: 1;
+				min-height: 0;
+				padding: 8px 6px;
+				overflow-y: auto;
+			}
+
+			.bot {
+				display: grid;
+				grid-template-columns: 2ch minmax(0, 1fr) auto;
+				column-gap: 6px;
+				width: 100%;
+				padding: 6px 8px 7px;
+				border-radius: 5px;
+			}
+
+			.bot + .bot {
+				margin-top: 2px;
+			}
+
+			.bot:hover {
+				background: #121215;
+			}
+
+			.bot[aria-selected="true"] {
+				background: var(--raise);
+			}
+
+			.bot .mk {
+				color: var(--t3);
+			}
+
+			.bot .name {
+				overflow: hidden;
+				color: var(--t4);
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+
+			.bot[aria-selected="true"] .name {
+				color: var(--t1);
+			}
+
+			.bot .when {
+				color: var(--t7);
+				font-size: 11.5px;
+				font-variant-numeric: tabular-nums;
+			}
+
+			.bot .sub {
+				grid-column: 2 / 4;
+				overflow: hidden;
+				color: var(--t6);
+				font-size: 12px;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+
+			.need {
+				color: var(--need);
+			}
+
+			.bad {
+				color: var(--fail);
+			}
+
+			.keys {
+				flex: none;
+				display: grid;
+				grid-template-columns: max-content 1fr;
+				column-gap: 1.5ch;
+				padding: 12px 16px 14px;
+				color: var(--t7);
+				font-size: 12px;
+				border-top: 1px solid var(--line);
+			}
+
+			.conv {
+				position: relative;
+				display: grid;
+				grid-template-rows: auto minmax(0, 1fr) auto;
+				min-width: 0;
+				min-height: 0;
+			}
+
+			.head {
+				gap: 10px;
+				min-width: 0;
+				padding: 0 12px 0 24px;
+			}
+
+			.head h1 {
+				flex: none;
+				color: var(--t1);
+				font-weight: 700;
+			}
+
+			.meta {
+				display: flex;
+				gap: 2px;
+				min-width: 0;
+				overflow: hidden;
+			}
+
+			.chip {
+				flex: none;
+				padding: 2px 7px;
+				color: var(--t6);
+				white-space: nowrap;
+				border-radius: 4px;
+			}
+
+			.chip:hover {
+				color: var(--t2);
+				background: var(--raise);
+			}
+
+			.chip .dim {
+				color: var(--t7);
+			}
+
+			.chip.c-folder {
+				flex: 0 1 auto;
+				min-width: 6ch;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.head .push {
+				flex: 1;
+			}
+
+			.lvl {
+				display: flex;
+				align-items: center;
+				flex: none;
+				color: var(--t7);
+			}
+
+			.lvl > span {
+				margin-right: 1ch;
+			}
+
+			.lvl button {
+				padding: 2px 0;
+				color: var(--t6);
+			}
+
+			.lvl button::before {
+				content: " ";
+				white-space: pre;
+			}
+
+			.lvl button::after {
+				content: " ";
+				white-space: pre;
+			}
+
+			.lvl button:hover {
+				color: var(--t2);
+			}
+
+			.lvl button[aria-checked="true"] {
+				color: var(--t1);
+			}
+
+			.lvl button[aria-checked="true"]::before {
+				content: "[";
+				color: var(--t7);
+			}
+
+			.lvl button[aria-checked="true"]::after {
+				content: "]";
+				color: var(--t7);
+			}
+
+			.lvl-min {
+				display: none;
+				flex: none;
+				padding: 2px 6px;
+				color: var(--t5);
+				border-radius: 4px;
+			}
+
+			.gear {
+				flex: none;
+				padding: 3px 9px;
+				color: var(--t4);
+				border: 1px solid var(--t8);
+				border-radius: 4px;
+			}
+
+			.gear:hover,
+			.lvl-min:hover {
+				color: var(--t1);
+				border-color: var(--t7);
+			}
+
+			.scroll {
+				display: flex;
+				flex-direction: column;
+				min-height: 0;
+				overflow-y: auto;
+			}
+
+			.lines {
+				width: 100%;
+				max-width: calc(92ch + 48px);
+				margin-top: auto;
+				padding: 20px 24px 10px;
+			}
+
+			.ln {
+				display: grid;
+				grid-template-columns: 3ch minmax(0, 1fr);
+				margin: 8px 0;
+				overflow-wrap: anywhere;
+			}
+
+			.ln > .g {
+				color: var(--t7);
+			}
+
+			.lines > :first-child {
+				margin-top: 0;
+			}
+
+			.ln.you {
+				margin: 26px -12px 12px;
+				padding: 7px 12px;
+				color: var(--t1);
+				white-space: pre-wrap;
+				background: var(--raise);
+				border-radius: 5px;
+			}
+
+			.ln.you > .g {
+				color: var(--t5);
+			}
+
+			.ln.reply {
+				margin: 12px 0;
+			}
+
+			.ln.tool,
+			.ln.team,
+			.ln.rot,
+			.ln.appr {
+				margin: 3px 0;
+				color: var(--t6);
+			}
+
+			.fold {
+				max-width: 100%;
+				color: inherit;
+				text-align: left;
+			}
+
+			.fold:hover,
+			.fold:hover .nm {
+				color: var(--t2);
+			}
+
+			.ln.tool .why {
+				margin-left: 1.5ch;
+				color: var(--t4);
+			}
+
+			.ln.tool.bad > .g {
+				color: var(--fail);
+			}
+
+			.ln.tool.need > .g {
+				color: var(--need);
+			}
+
+			.ln.tool.run > .g {
+				color: var(--t3);
+			}
+
+			.ln.team > .g {
+				color: var(--t8);
+			}
+
+			.ln.team b,
+			.ln.note b,
+			.ln.rot b {
+				color: var(--t4);
+				font-weight: 400;
+			}
+
+			.ln.note {
+				color: var(--t3);
+			}
+
+			.ln.note > .g {
+				color: var(--t5);
+			}
+
+			.ln.sum .fold {
+				color: var(--t6);
+			}
+
+			.ln.warn,
+			.ln.err {
+				color: var(--t1);
+			}
+
+			.ln.warn > .g {
+				color: var(--t3);
+			}
+
+			.ln.err > .g {
+				color: var(--fail);
+			}
+
+			.ln.stopped {
+				color: var(--t5);
+			}
+
+			.retry {
+				margin-top: 6px;
+				padding: 3px 10px;
+				color: var(--t2);
+				border: 1px solid var(--t8);
+				border-radius: 4px;
+			}
+
+			.retry:hover {
+				color: var(--t1);
+				border-color: var(--t6);
+			}
+
+			.io {
+				display: grid;
+				gap: 4px;
+				margin: 3px 0 8px;
+			}
+
+			.kv {
+				display: grid;
+				grid-template-columns: max-content minmax(0, 1fr);
+				column-gap: 2ch;
+			}
+
+			.kv dt {
+				color: var(--t7);
+			}
+
+			.kv dd {
+				color: var(--t5);
+			}
+
+			.out {
+				padding: 1px 0 1px 1.5ch;
+				color: var(--t5);
+				font: inherit;
+				white-space: pre-wrap;
+				border-left: 1px solid var(--t8);
+			}
+
+			.ln.note .out {
+				margin-top: 4px;
+				color: var(--t4);
+			}
+
+			.md {
+				color: var(--t2);
+			}
+
+			.md > * {
+				margin: 0 0 0.75em;
+			}
+
+			.md > :last-child {
+				margin-bottom: 0;
+			}
+
+			.md h2 {
+				color: var(--t1);
+				font-weight: 700;
+			}
+
+			.md h2::before {
+				content: "## ";
+				color: var(--t7);
+				font-weight: 400;
+			}
+
+			.md strong {
+				color: var(--t1);
+			}
+
+			.md ul,
+			.md ol {
+				padding-left: 2ch;
+			}
+
+			.md ul li::marker {
+				content: "- ";
+				color: var(--t7);
+			}
+
+			.md li + li {
+				margin-top: 2px;
+			}
+
+			.md code {
+				padding: 0 0.4ch;
+				color: var(--t1);
+				font: inherit;
+				background: var(--raise2);
+				border-radius: 3px;
+			}
+
+			.md pre {
+				padding: 8px 12px;
+				overflow-x: auto;
+				background: #101013;
+				border: 1px solid var(--line);
+				border-radius: 5px;
+			}
+
+			.md pre code {
+				padding: 0;
+				color: var(--t3);
+				background: none;
+			}
+
+			.md table {
+				border-collapse: collapse;
+			}
+
+			.md th {
+				color: var(--t5);
+				font-weight: 400;
+				text-align: left;
+				border-bottom: 1px solid var(--t8);
+			}
+
+			.md th,
+			.md td {
+				padding: 3px 3ch 3px 0;
+			}
+
+			.md td {
+				border-bottom: 1px solid var(--line);
+			}
+
+			.md blockquote {
+				margin-left: 0;
+				padding-left: 1.5ch;
+				color: var(--t4);
+				border-left: 2px solid var(--t8);
+			}
+
+			.md a {
+				color: var(--t1);
+				text-decoration: underline;
+				text-decoration-color: var(--t7);
+				text-underline-offset: 3px;
+			}
+
+			.md a:hover {
+				text-decoration-color: var(--t3);
+			}
+
+			.caret {
+				display: inline-block;
+				width: 0.6ch;
+				height: 1.1em;
+				margin-left: 2px;
+				vertical-align: text-bottom;
+				background: var(--t3);
+				animation: blink 1s steps(1) infinite;
+			}
+
+			@keyframes blink {
+				50% {
+					opacity: 0;
+				}
+			}
+
+			.ask {
+				display: grid;
+				grid-template-columns: 3ch minmax(0, 1fr);
+				row-gap: 8px;
+				margin: 14px -12px 6px;
+				padding: 11px 12px 12px;
+				background: var(--need-wash);
+				border: 1px solid var(--need-edge);
+				border-radius: 6px;
+			}
+
+			.ask > * {
+				grid-column: 2;
+			}
+
+			.ask > .g {
+				grid-column: 1;
+				color: var(--need);
+			}
+
+			.ask header {
+				display: flex;
+				gap: 2ch;
+				justify-content: space-between;
+				color: var(--t1);
+			}
+
+			.ask header .tl {
+				color: var(--need);
+			}
+
+			.ask header .time {
+				flex: none;
+				color: var(--t6);
+				font-variant-numeric: tabular-nums;
+			}
+
+			.ask .kv dt {
+				color: var(--t6);
+			}
+
+			.ask .kv dd {
+				color: var(--t2);
+			}
+
+			.acts {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: 8px 10px;
+				margin-top: 4px;
+			}
+
+			.acts button {
+				display: inline-flex;
+				gap: 1.2ch;
+				padding: 4px 12px;
+				border-radius: 4px;
+			}
+
+			.acts .yes {
+				color: var(--need-ink);
+				font-weight: 700;
+				background: var(--need);
+			}
+
+			.acts .yes kbd {
+				color: rgb(27 20 6 / 0.55);
+			}
+
+			.acts .yes:hover {
+				background: #f7cc78;
+			}
+
+			.acts .no {
+				color: var(--t2);
+				border: 1px solid var(--t8);
+			}
+
+			.acts .no:hover {
+				color: var(--t1);
+				border-color: var(--t6);
+			}
+
+			.acts .dim {
+				color: var(--t7);
+			}
+
+			.empty {
+				display: grid;
+				gap: 14px;
+				padding-bottom: 6px;
+			}
+
+			.empty .hello {
+				color: var(--t1);
+			}
+
+			.ideas {
+				display: grid;
+				justify-items: start;
+				gap: 2px;
+				margin: 0 -12px;
+			}
+
+			.ideas button {
+				display: grid;
+				grid-template-columns: 3ch minmax(0, 1fr);
+				padding: 4px 12px;
+				color: var(--t4);
+				border-radius: 5px;
+			}
+
+			.ideas button .g {
+				color: var(--t7);
+			}
+
+			.ideas button:hover {
+				color: var(--t1);
+				background: var(--raise);
+			}
+
+			.facts {
+				display: grid;
+				grid-template-columns: max-content minmax(0, 1fr);
+				column-gap: 2ch;
+				row-gap: 2px;
+				color: var(--t5);
+			}
+
+			.facts dt {
+				color: var(--t7);
+			}
+
+			.facts button {
+				color: var(--t4);
+				text-align: left;
+			}
+
+			.facts button:hover {
+				color: var(--t1);
+			}
+
+			.foot {
+				width: 100%;
+				max-width: calc(92ch + 48px);
+				padding: 4px 24px 12px;
+			}
+
+			.dock {
+				display: grid;
+				gap: 2px;
+				margin: 2px 0 0;
+				padding: 8px 0;
+				line-height: 1.5;
+				border-top: 1px solid var(--line);
+			}
+
+			.dock:empty {
+				display: none;
+			}
+
+			.dock > div {
+				display: grid;
+				align-items: center;
+				column-gap: 1.5ch;
+				min-width: 0;
+			}
+
+			.dock .g {
+				color: var(--t3);
+			}
+
+			.dock > .st {
+				grid-template-columns: 3ch auto minmax(0, 1fr) auto auto;
+				column-gap: 0;
+			}
+
+			.st .lbl {
+				margin-right: 1.5ch;
+				color: var(--t1);
+			}
+
+			.st.waiting .lbl,
+			.st.waiting .g {
+				color: var(--need);
+			}
+
+			.st .what,
+			.mem .task,
+			.q .t {
+				overflow: hidden;
+				color: var(--t5);
+				white-space: nowrap;
+				text-overflow: ellipsis;
+			}
+
+			.st .what kbd {
+				color: var(--t3);
+			}
+
+			.time {
+				color: var(--t6);
+				font-variant-numeric: tabular-nums;
+			}
+
+			.st .time {
+				margin: 0 1.5ch;
+			}
+
+			.stop {
+				display: inline-flex;
+				gap: 1ch;
+				padding: 1px 8px;
+				color: var(--t2);
+				border: 1px solid var(--t8);
+				border-radius: 4px;
+			}
+
+			.stop kbd {
+				color: var(--t6);
+			}
+
+			.stop:hover,
+			.stop.armed {
+				color: var(--t1);
+				border-color: var(--fail);
+			}
+
+			.mem {
+				grid-template-columns: 3ch 1ch auto minmax(0, 1fr) auto;
+			}
+
+			.mem .g {
+				color: var(--t8);
+			}
+
+			.mem .mm {
+				color: var(--t3);
+			}
+
+			.mem .mm.done {
+				color: var(--t6);
+			}
+
+			.mem .who {
+				color: var(--t3);
+			}
+
+			.mem .task .nm {
+				color: var(--t4);
+			}
+
+			.q {
+				grid-template-columns: 3ch minmax(0, 1fr) auto auto;
+			}
+
+			.q .g {
+				color: var(--t7);
+			}
+
+			.q .t {
+				color: var(--t4);
+			}
+
+			.q .tag {
+				color: var(--t7);
+			}
+
+			.x {
+				width: 2.5ch;
+				color: var(--t6);
+				text-align: center;
+				border-radius: 3px;
+			}
+
+			.x:hover {
+				color: var(--t1);
+				background: var(--raise);
+			}
+
+			.compose {
+				position: relative;
+				display: grid;
+				grid-template-columns: 3ch minmax(0, 1fr);
+				margin: 0 -12px;
+				padding: 9px 12px;
+				background: var(--raise);
+				border: 1px solid var(--line);
+				border-radius: 6px;
+			}
+
+			.compose:focus-within {
+				border-color: var(--t8);
+			}
+
+			.compose .g {
+				color: var(--t5);
+			}
+
+			.compose textarea {
+				display: block;
+				width: 100%;
+				min-height: 1lh;
+				max-height: 8lh;
+				color: var(--t1);
+				resize: none;
+				outline: none;
+				field-sizing: content;
+			}
+
+			.compose textarea::placeholder {
+				color: var(--t7);
+			}
+
+			.hints {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0 2.5ch;
+				padding: 6px 0 0;
+				color: var(--t7);
+				font-size: 12px;
+			}
+
+			.hints kbd {
+				color: var(--t6);
+			}
+
+			.menu {
+				position: absolute;
+				bottom: calc(100% + 6px);
+				left: 0;
+				z-index: 1;
+				display: grid;
+				min-width: min(420px, calc(100% - 24px));
+				padding: 4px;
+				background: var(--raise);
+				border: 1px solid var(--t8);
+				border-radius: 6px;
+				box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
+			}
+
+			.menu[hidden] {
+				display: none;
+			}
+
+			.menu button {
+				display: grid;
+				grid-template-columns: 9ch minmax(0, 1fr);
+				padding: 3px 8px;
+				border-radius: 4px;
+			}
+
+			.menu button.on {
+				background: var(--raise2);
+			}
+
+			.menu button.on .nm {
+				color: var(--t1);
+			}
+
+			.scrim {
+				position: absolute;
+				inset: 44px 0 0;
+				background: rgb(6 6 7 / 0.6);
+			}
+
+			.panel {
+				position: absolute;
+				top: 52px;
+				right: 12px;
+				width: min(480px, calc(100% - 24px));
+				max-height: calc(100% - 64px);
+				overflow-y: auto;
+				padding: 4px 16px 14px;
+				background: var(--raise);
+				border: 1px solid var(--t8);
+				border-radius: 8px;
+				box-shadow: 0 20px 60px rgb(0 0 0 / 0.6);
+			}
+
+			.panel > header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 8px 0;
+			}
+
+			.panel h2 {
+				color: var(--t4);
+				font-weight: 400;
+			}
+
+			.panel h2 b {
+				color: var(--t1);
+			}
+
+			.panel .x {
+				width: auto;
+				padding: 1px 6px;
+			}
+
+			.row {
+				display: grid;
+				grid-template-columns: 9ch minmax(0, 1fr);
+				column-gap: 1ch;
+				padding: 7px 0;
+				border-top: 1px solid var(--line);
+				transition: background 0.4s;
+			}
+
+			.row.hit {
+				margin: 0 -16px;
+				padding-right: 16px;
+				padding-left: 16px;
+				background: var(--raise2);
+			}
+
+			.row h3 {
+				color: var(--t6);
+				font-weight: 400;
+			}
+
+			.ctl {
+				display: grid;
+				justify-items: start;
+				gap: 1px;
+				min-width: 0;
+			}
+
+			.opt {
+				display: grid;
+				grid-template-columns: 4ch minmax(0, 1fr);
+				width: 100%;
+				padding: 1px 0;
+				color: var(--t4);
+			}
+
+			.opt .box {
+				color: var(--t7);
+			}
+
+			.opt[aria-checked="true"] {
+				color: var(--t1);
+			}
+
+			.opt[aria-checked="true"] .box {
+				color: var(--t3);
+			}
+
+			.opt:hover {
+				color: var(--t1);
+			}
+
+			.opt small,
+			.ctl > small {
+				display: block;
+				color: var(--t6);
+			}
+
+			.opt small {
+				display: inline;
+				margin-left: 1.5ch;
+			}
+
+			.segs {
+				display: flex;
+				flex-wrap: wrap;
+			}
+
+			.segs button {
+				color: var(--t6);
+			}
+
+			.segs button::before,
+			.segs button::after {
+				content: " ";
+				white-space: pre;
+			}
+
+			.segs button[aria-checked="true"] {
+				color: var(--t1);
+			}
+
+			.segs button[aria-checked="true"]::before {
+				content: "[";
+				color: var(--t6);
+			}
+
+			.segs button[aria-checked="true"]::after {
+				content: "]";
+				color: var(--t6);
+			}
+
+			.segs button:hover {
+				color: var(--t1);
+			}
+
+			.pathline {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0 1.5ch;
+			}
+
+			.link {
+				color: var(--t5);
+				text-decoration: underline;
+				text-decoration-color: var(--t8);
+				text-underline-offset: 3px;
+			}
+
+			.link:hover {
+				color: var(--t1);
+			}
+
+			.path {
+				width: 100%;
+				padding: 2px 6px;
+				color: var(--t1);
+				background: var(--ground);
+				border: 1px solid var(--t8);
+				border-radius: 4px;
+				outline: none;
+			}
+
+			.panel .note {
+				padding-top: 10px;
+				color: var(--t7);
+				border-top: 1px solid var(--line);
+			}
+
+			.spin {
+				display: inline-block;
+				width: 1ch;
+				font-style: normal;
+			}
+
+			.spin::before {
+				content: "⠋";
+				animation: spin 0.8s steps(1) infinite;
+			}
+
+			@keyframes spin {
+				0% { content: "⠋"; }
+				10% { content: "⠙"; }
+				20% { content: "⠹"; }
+				30% { content: "⠸"; }
+				40% { content: "⠼"; }
+				50% { content: "⠴"; }
+				60% { content: "⠦"; }
+				70% { content: "⠧"; }
+				80% { content: "⠇"; }
+				90% { content: "⠏"; }
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.spin::before,
+				.caret {
+					animation: none;
+				}
+
+				.spin::before {
+					content: "●";
+				}
+
+				.row {
+					transition: none;
+				}
+			}
+
+			@media (max-width: 900px) {
+				.app {
+					grid-template-columns: 184px minmax(0, 1fr);
+				}
+
+				.meta .c-folder,
+				.meta .c-mem {
+					display: none;
+				}
+			}
+
+			@media (max-width: 760px) {
+				.app {
+					grid-template-columns: 136px minmax(0, 1fr);
+				}
+
+				.bar-head {
+					padding-left: 12px;
+				}
+
+				.bot {
+					padding: 5px 6px;
+				}
+
+				.bot .sub,
+				.bot .when,
+				.keys {
+					display: none;
+				}
+
+				.head {
+					padding-left: 16px;
+				}
+
+				.meta .c-model,
+				.lvl {
+					display: none;
+				}
+
+				.lvl-min {
+					display: inline-block;
+				}
+
+				.lines,
+				.foot {
+					padding-right: 16px;
+					padding-left: 16px;
+				}
+
+				.ln.you,
+				.ask,
+				.compose,
+				.ideas {
+					margin-right: -8px;
+					margin-left: -8px;
+				}
+
+				.ln.you,
+				.ask,
+				.compose {
+					padding-right: 8px;
+					padding-left: 8px;
+				}
+
+				.ln {
+					grid-template-columns: 2.5ch minmax(0, 1fr);
+				}
+
+				.st .time {
+					margin: 0 1ch;
+				}
+
+				.stop kbd,
+				.q .tag,
+				.acts .dim {
+					display: none;
+				}
+			}
+
+			@media (max-height: 520px) {
+				.bar-head,
+				.head {
+					height: 38px;
+				}
+
+				.scrim {
+					inset: 38px 0 0;
+				}
+
+				.panel {
+					top: 44px;
+					max-height: calc(100% - 52px);
+				}
+
+				.keys,
+				.hints {
+					display: none;
+				}
+
+				.foot {
+					padding-bottom: 10px;
+				}
+
+				.lines {
+					padding-top: 12px;
+				}
+
+				.ln.you {
+					margin-top: 18px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="app">
+			<nav class="bar" aria-label="Barra de bots">
+				<header class="bar-head">
+					<span class="brand">mimo</span>
+					<button class="add" type="button" data-act="add" title="Novo bot (Ctrl+N)" aria-label="Novo bot">+</button>
+				</header>
+				<form class="new" id="new" hidden>
+					<input id="new-name" maxlength="40" placeholder="nome do bot" autocomplete="off" spellcheck="false" aria-label="Nome do novo bot" />
+					<p id="new-hint">enter cria, esc cancela</p>
+				</form>
+				<div class="list" id="bots" role="listbox" aria-label="Bots"></div>
+				<footer class="keys" id="keys"></footer>
+			</nav>
+			<main class="conv">
+				<header class="head">
+					<h1 id="title"></h1>
+					<div class="meta" id="meta"></div>
+					<span class="push"></span>
+					<div class="lvl" id="lvl" role="radiogroup" aria-label="Detalhe, Ctrl+O"></div>
+					<button class="lvl-min" id="lvl-min" type="button" data-act="cycle-level" title="Detalhe (Ctrl+O)"></button>
+					<button class="gear" type="button" data-act="settings" data-field="model" title="Ajustes (Ctrl+,)">ajustes</button>
+				</header>
+				<div class="scroll" id="scroll"><div class="lines" id="lines"></div></div>
+				<div class="foot">
+					<div class="dock" id="dock" aria-live="polite"></div>
+					<div class="compose">
+						<div class="menu" id="menu" hidden></div>
+						<span class="g" aria-hidden="true">›</span>
+						<textarea id="input" rows="1" spellcheck="false" aria-label="Mensagem"></textarea>
+					</div>
+					<p class="hints" id="hints"></p>
+				</div>
+				<div id="panel"></div>
+			</main>
+		</div>
+		<script src="data.js"></script>
+		<script>
+			const M = window.MIMO;
+			const LEVELS = ["off", "brief", "full"];
+			const LEVEL_HINTS = {
+				off: "só a conversa",
+				brief: "mais tools e equipe, uma linha cada",
+				full: "mais a entrada e o resultado das tools",
+			};
+			const NEEDS = {
+				you: "off",
+				reply: "off",
+				note: "off",
+				warning: "off",
+				error: "off",
+				approval: "off",
+				stopped: "off",
+				tool: "brief",
+				team: "brief",
+				summary: "brief",
+				routine: "brief",
+			};
+			const ASK_LABELS = { to: "para", subject: "assunto", body: "texto" };
+			const MODES = {
+				normal: { label: "normal", hint: "pede aprovação antes de enviar, apagar ou mexer no computador" },
+				autonomous: { label: "autônomo", hint: "age sem pedir aprovação; você revisa depois" },
+			};
+			const COMMANDS = [
+				{ name: "/model", hint: "trocar o modelo", field: "model" },
+				{ name: "/effort", hint: "trocar o esforço", field: "effort" },
+				{ name: "/mode", hint: "modo normal ou autônomo", field: "mode" },
+				{ name: "/tools", hint: "ligar ou desligar grupos de tools", field: "tools" },
+				{ name: "/folder", hint: "escolher a pasta", field: "folder" },
+				{ name: "/new", hint: "criar um bot", field: null },
+			];
+			const IDEAS = {
+				web: "pesquisa o que mudou no Electron 44 e resume em 5 linhas",
+				gmail: "lê meus emails não lidos e me diz o que é urgente",
+				routines: "toda manhã às 8h, me avisa se a agenda tiver conflito",
+				team: "monta uma equipe para comparar três libs de gráfico",
+				computer: "lista os 10 maiores arquivos da pasta Downloads",
+			};
+			const SPIN = '<i class="spin" aria-hidden="true"></i>';
+
+			const $ = (selector) => document.querySelector(selector);
+			const input = $("#input");
+			const scroller = $("#scroll");
+			const list = $("#bots");
+			const menu = $("#menu");
+			const newForm = $("#new");
+			const newName = $("#new-name");
+			const newHint = $("#new-hint");
+
+			const ui = { selected: M.bots[0].id, level: "brief", panel: null, hit: null, folderEdit: false, escAt: 0, menuAt: 0, browsing: false };
+
+			const loadedAt = Date.now();
+			const bots = M.bots.map((source) => {
+				const copy = structuredClone(source);
+				const live = copy.live;
+				const lines = copy.lines;
+				if (live.turn === "working" && live.tool) {
+					lines.push({ kind: "tool", name: live.tool.name, input: live.tool.input });
+				}
+				return {
+					...copy,
+					lines,
+					turn: live.turn,
+					since: loadedAt - live.seconds * 1000,
+					tool: live.tool ?? null,
+					approval: live.approval,
+					queue: [...live.queue],
+					team: live.team.map((member) => ({ ...member, since: loadedAt - member.seconds * 1000 })),
+					failed: live.failed,
+					run: null,
+					draft: "",
+				};
+			});
+
+			function esc(text) {
+				return String(text).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+			}
+
+			function clock(ms) {
+				const seconds = Math.max(0, Math.floor(ms / 1000));
+				if (seconds < 60) {
+					return `${seconds}s`;
+				}
+				return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
+			}
+
+			function hhmm() {
+				const date = new Date();
+				return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+			}
+
+			function wait(ms) {
+				return new Promise((resolve) => setTimeout(resolve, ms));
+			}
+
+			function plain(html) {
+				const node = document.createElement("div");
+				node.innerHTML = html;
+				return node.textContent.trim();
+			}
+
+			function current() {
+				return bots.find((bot) => bot.id === ui.selected);
+			}
+
+			function modelOf(bot) {
+				return M.models.find((model) => model.id === bot.model.id);
+			}
+
+			function busy(bot) {
+				return bot.turn !== "idle";
+			}
+
+			function teamWorking(bot) {
+				return bot.team.some((member) => member.state === "working");
+			}
+
+			function shows(need) {
+				return LEVELS.indexOf(ui.level) >= LEVELS.indexOf(need);
+			}
+
+			function firstValue(input) {
+				const value = input && Object.values(input)[0];
+				return value == null ? "" : String(value);
+			}
+
+			function stateOf(bot) {
+				if (bot.approval) {
+					return "waiting";
+				}
+				if (busy(bot) || teamWorking(bot)) {
+					return "working";
+				}
+				if (bot.failed) {
+					return "failed";
+				}
+				if (!bot.lines.length) {
+					return "new";
+				}
+				return "idle";
+			}
+
+			const MARKS = {
+				waiting: { glyph: '<span class="need">⏸</span>', label: "esperando aprovação" },
+				working: { glyph: SPIN, label: "trabalhando" },
+				failed: { glyph: '<span class="bad">✗</span>', label: "falhou" },
+				new: { glyph: "", label: "sem conversa" },
+				idle: { glyph: "", label: "parado" },
+			};
+
+			function subOf(bot) {
+				const state = stateOf(bot);
+				if (state === "waiting") {
+					return `<span class="need">aprovar ${esc(bot.approval.tool)}</span>`;
+				}
+				if (bot.turn === "thinking") {
+					return "pensando";
+				}
+				if (bot.turn === "streaming") {
+					return "respondendo";
+				}
+				if (bot.turn === "working") {
+					return bot.tool ? esc(bot.tool.name) : "trabalhando";
+				}
+				if (state === "working") {
+					return "equipe trabalhando";
+				}
+				if (state === "failed") {
+					return `<span class="bad">${esc(bot.preview ?? "falhou")}</span>`;
+				}
+				if (state === "new") {
+					return "sem conversa ainda";
+				}
+				return esc(bot.preview ?? "");
+			}
+
+			function whenOf(bot) {
+				if (busy(bot)) {
+					return `<span data-since="${bot.since}">${clock(Date.now() - bot.since)}</span>`;
+				}
+				return esc(bot.lastAt ?? "");
+			}
+
+			function renderBar() {
+				const focused = list.contains(document.activeElement);
+				list.innerHTML = bots
+					.map((bot) => {
+						const mark = MARKS[stateOf(bot)];
+						const selected = bot.id === ui.selected;
+						return `<button class="bot" type="button" role="option" aria-selected="${selected}" tabindex="${selected ? 0 : -1}" data-act="bot" data-id="${bot.id}" aria-label="${esc(bot.name)}, ${mark.label}"><span class="mk" aria-hidden="true">${mark.glyph}</span><span class="name">${esc(bot.name)}</span><span class="when">${whenOf(bot)}</span><span class="sub">${subOf(bot)}</span></button>`;
+					})
+					.join("");
+				if (focused) {
+					focusBot();
+				}
+				renderKeys();
+			}
+
+			function renderKeys() {
+				const rows = ui.browsing
+					? [["↑ ↓", "troca de bot"], ["enter", "escreve"], ["esc", "volta"]]
+					: [["ctrl e", "bots"], ["ctrl o", "detalhe"], ["ctrl n", "novo bot"], ["ctrl ,", "ajustes"]];
+				$("#keys").innerHTML = rows.map(([key, label]) => `<kbd>${key}</kbd><span>${label}</span>`).join("");
+			}
+
+			function focusBot() {
+				list.querySelector('[aria-selected="true"]')?.focus();
+			}
+
+			function renderHead() {
+				const bot = current();
+				const model = modelOf(bot);
+				$("#title").textContent = bot.name;
+				const memories = bot.memories === 1 ? "1 memória" : `${bot.memories} memórias`;
+				$("#meta").innerHTML = [
+					`<button class="chip c-model" type="button" data-act="settings" data-field="model" title="Modelo e esforço">${esc(model.label)} <span class="dim">${esc(bot.model.effort)}</span></button>`,
+					`<button class="chip c-mode" type="button" data-act="settings" data-field="mode" title="Modo">modo ${MODES[bot.mode].label}</button>`,
+					`<button class="chip c-mem" type="button" data-act="settings" data-field="memory" title="Memória">${memories}</button>`,
+					`<button class="chip c-folder" type="button" data-act="settings" data-field="folder" title="${bot.folder ? `Pasta: ${esc(bot.folder)}` : "Pasta"}">${bot.folder ? esc(bot.folder) : '<span class="dim">sem pasta</span>'}</button>`,
+				].join("");
+				$("#lvl").innerHTML =
+					'<span>detalhe</span>' +
+					LEVELS.map((level) => `<button type="button" role="radio" aria-checked="${level === ui.level}" data-act="level" data-level="${level}" aria-label="${level}" title="${LEVEL_HINTS[level]} (Ctrl+O)">${level}</button>`).join("");
+				$("#lvl-min").textContent = `detalhe: ${ui.level}`;
+			}
+
+			function ioHtml(line) {
+				const rows = Object.entries(line.input ?? {})
+					.map(([key, value]) => `<dt>${esc(key)}</dt><dd>${esc(typeof value === "string" ? value : JSON.stringify(value))}</dd>`)
+					.join("");
+				const result = line.result != null ? `<pre class="out">${esc(line.result)}</pre>` : "";
+				if (!rows && !result) {
+					return "";
+				}
+				return `<div class="io">${rows ? `<dl class="kv">${rows}</dl>` : ""}${result}</div>`;
+			}
+
+			function toolHtml(line, index, bot, open) {
+				const last = index === bot.lines.length - 1;
+				const running = last && line.result == null && !line.failed && busy(bot);
+				let glyph = "⚙";
+				let tone = "";
+				if (line.failed) {
+					glyph = "✗";
+					tone = "bad";
+				} else if (running && bot.approval) {
+					glyph = "⏸";
+					tone = "need";
+				} else if (running) {
+					glyph = SPIN;
+					tone = "run";
+				}
+				const why = line.failed ? `<span class="why">${esc(line.failed)}</span>` : "";
+				return `<div class="ln tool ${tone}"><span class="g">${glyph}</span><div class="b"><button class="fold" type="button" data-act="toggle" data-i="${index}" aria-expanded="${open}"><span class="nm">${esc(line.name)}</span>${why}</button>${open ? ioHtml(line) : ""}</div></div>`;
+			}
+
+			function lineHtml(line, index, bot) {
+				if (!shows(NEEDS[line.kind])) {
+					return "";
+				}
+				const open = ui.level === "full" || Boolean(line.open);
+				switch (line.kind) {
+					case "you":
+						return `<div class="ln you"><span class="g">›</span><div class="b">${esc(line.text)}</div></div>`;
+					case "reply":
+						return `<div class="ln reply"><span class="g"></span><div class="b md">${line.html}${line.streaming ? '<i class="caret" aria-hidden="true"></i>' : ""}</div></div>`;
+					case "tool":
+						return toolHtml(line, index, bot, open);
+					case "team":
+						return `<div class="ln team"><span class="g">▌</span><div class="b">${esc(line.verb)} <b>${esc(line.bot)}</b> · ${esc(line.task)}</div></div>`;
+					case "note":
+						return `<div class="ln note"><span class="g">▌</span><div class="b"><p>${esc(line.text)}</p>${line.detail ? `<pre class="out">${esc(line.detail)}</pre>` : ""}</div></div>`;
+					case "summary":
+						return `<div class="ln sum"><span class="g"></span><div class="b"><button class="fold" type="button" data-act="toggle" data-i="${index}" aria-expanded="${open}">─ resumo do que veio antes ─</button>${open ? `<div class="io"><p class="out">${esc(line.text)}</p></div>` : ""}</div></div>`;
+					case "routine":
+						return `<div class="ln rot"><span class="g">↻</span><div class="b"><button class="fold" type="button" data-act="toggle" data-i="${index}" aria-expanded="${open}">rotina <b>${esc(line.name)}</b> começou</button>${open ? `<div class="io"><p class="out">${esc(line.prompt)}</p></div>` : ""}</div></div>`;
+					case "warning":
+						return `<div class="ln warn"><span class="g">⚠</span><div class="b">${esc(line.text)}</div></div>`;
+					case "error": {
+						const retry = bot.failed && index === bot.lines.length - 1 ? '<div><button class="retry" type="button" data-act="retry">tentar de novo</button></div>' : "";
+						return `<div class="ln err"><span class="g">✗</span><div class="b"><p>${esc(line.text)}</p>${retry}</div></div>`;
+					}
+					case "approval":
+						return `<div class="ln appr"><span class="g">⏸</span><div class="b"><button class="fold" type="button" data-act="toggle" data-i="${index}" aria-expanded="${open}">${line.outcome === "approved" ? "aprovado" : "negado"} <span class="nm">${esc(line.tool)}</span></button>${open ? ioHtml({ input: line.input }) : ""}</div></div>`;
+					case "stopped":
+						return `<div class="ln stopped"><span class="g">■</span><div class="b">Interrompido.</div></div>`;
+					default:
+						return "";
+				}
+			}
+
+			function askHtml(bot) {
+				const approval = bot.approval;
+				const rows = Object.entries(approval.input)
+					.map(([key, value]) => `<dt>${esc(ASK_LABELS[key] ?? key)}</dt><dd>${esc(value)}</dd>`)
+					.join("");
+				return `<section class="ask" aria-label="Aprovação pendente"><span class="g">⏸</span><header><p><b>${esc(bot.name)}</b> quer usar <span class="tl">${esc(approval.tool)}</span></p><span class="time">há <span data-since="${bot.since}">${clock(Date.now() - bot.since)}</span></span></header><dl class="kv">${rows}</dl><div class="acts"><button class="yes" type="button" data-act="approve"><kbd>1</kbd>Aprovar</button><button class="no" type="button" data-act="deny"><kbd>2</kbd>Negar</button><span class="dim">nada acontece até você responder</span></div></section>`;
+			}
+
+			function emptyHtml(bot) {
+				const ideas = Object.entries(IDEAS).filter(([tool]) => bot.tools.includes(tool)).map(([, idea]) => idea).slice(0, 3);
+				const groups = M.toolGroups.filter((group) => bot.tools.includes(group.id)).map((group) => group.label);
+				const mode = MODES[bot.mode];
+				return `<div class="empty"><div><p class="hello"><b>${esc(bot.name)}</b> está pronto e ainda não conversou com você.</p><p class="dim">Ele começa sem especialidade: o que você pedir vira o jeito dele de trabalhar.</p></div><div class="ideas">${ideas.map((idea) => `<button type="button" data-act="suggest" data-text="${esc(idea)}"><span class="g">›</span><span>${esc(idea)}</span></button>`).join("")}</div><dl class="facts"><dt>pode usar</dt><dd><button type="button" data-act="settings" data-field="tools">${groups.length ? esc(groups.join(", ")) : "nenhuma tool"}</button></dd><dt>modo</dt><dd><button type="button" data-act="settings" data-field="mode">${mode.label}: ${mode.hint}</button></dd><dt>pasta</dt><dd><button type="button" data-act="settings" data-field="folder">${bot.folder ? esc(bot.folder) : "nenhuma, roda a partir de ~"}</button></dd></dl></div>`;
+			}
+
+			function nearBottom() {
+				return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
+			}
+
+			function renderLines(stick = nearBottom()) {
+				const bot = current();
+				let html = bot.lines.map((line, index) => lineHtml(line, index, bot)).join("");
+				if (bot.approval) {
+					html += askHtml(bot);
+				}
+				if (!bot.lines.length && !busy(bot)) {
+					html = emptyHtml(bot);
+				}
+				const host = $("#lines");
+				host.innerHTML = html;
+				for (const caret of host.querySelectorAll(".caret")) {
+					let target = caret.previousElementSibling;
+					while (target?.lastElementChild && !["CODE", "A", "STRONG", "EM", "BR"].includes(target.lastElementChild.tagName)) {
+						target = target.lastElementChild;
+					}
+					target?.append(caret);
+				}
+				if (stick) {
+					scroller.scrollTop = scroller.scrollHeight;
+				}
+				ui.pinned = stick;
+			}
+
+			function dockHtml(bot) {
+				const rows = [];
+				if (busy(bot)) {
+					const states = {
+						thinking: ["pensando", ""],
+						working: ["trabalhando", bot.tool ? `<span class="nm">${esc(bot.tool.name)}</span> ${esc(firstValue(bot.tool.input))}` : ""],
+						waiting: ["esperando aprovação", bot.approval ? `<span class="nm">${esc(bot.approval.tool)}</span>` : ""],
+						streaming: ["respondendo", ""],
+					};
+					const [label, what] = states[bot.turn];
+					const glyph = bot.turn === "waiting" ? "⏸" : SPIN;
+					const armed = Date.now() - ui.escAt < 1500;
+					rows.push(
+						`<div class="st ${bot.turn}"><span class="g">${glyph}</span><span class="lbl">${label}</span><span class="what">${what}</span><span class="time" data-since="${bot.since}">${clock(Date.now() - bot.since)}</span><button class="stop${armed ? " armed" : ""}" type="button" data-act="stop" title="Parar o turno (Esc duas vezes)">${armed ? "esc de novo" : "parar"}<kbd>esc esc</kbd></button></div>`,
+					);
+				}
+				if (bot.team.length && (busy(bot) || teamWorking(bot))) {
+					if (!busy(bot)) {
+						rows.push(`<div class="st"><span class="g"></span><span class="lbl dim">equipe</span></div>`);
+					}
+					bot.team.forEach((member, index) => {
+						const done = member.state === "done";
+						const tree = index === bot.team.length - 1 ? "└" : "├";
+						const time = done ? '<span class="time">pronto</span>' : `<span class="time" data-since="${member.since}">${clock(Date.now() - member.since)}</span>`;
+						rows.push(
+							`<div class="mem"><span class="g">${tree}</span><span class="mm${done ? " done" : ""}">${done ? "✓" : SPIN}</span><span class="who">${esc(member.name)}</span><span class="task">${esc(member.task)}${member.tool ? `  <span class="nm">${esc(member.tool)}</span>` : ""}</span>${time}</div>`,
+						);
+					});
+				}
+				bot.queue.forEach((text, index) => {
+					rows.push(`<div class="q"><span class="g">›</span><span class="t">${esc(text)}</span><span class="tag">na fila</span><button class="x" type="button" data-act="unqueue" data-q="${index}" aria-label="Tirar da fila" title="Tirar da fila">×</button></div>`);
+				});
+				return rows.join("");
+			}
+
+			function renderFoot() {
+				const bot = current();
+				$("#dock").innerHTML = dockHtml(bot);
+				input.placeholder = busy(bot) ? `Fale com ${bot.name}; entra na fila` : `Fale com ${bot.name}`;
+				const hints = [["enter", "envia"], ["shift enter", "nova linha"], ["/", "comandos"]];
+				if (busy(bot)) {
+					hints.push(["esc esc", "para"]);
+				}
+				$("#hints").innerHTML = hints.map(([key, label]) => `<span><kbd>${key}</kbd> ${label}</span>`).join("");
+			}
+
+			function panelHtml(bot) {
+				const model = modelOf(bot);
+				const radio = (on) => `<span class="box" aria-hidden="true">${on ? "(•)" : "( )"}</span>`;
+				const check = (on) => `<span class="box" aria-hidden="true">${on ? "[x]" : "[ ]"}</span>`;
+				const hit = (field) => (ui.hit === field ? " hit" : "");
+				const models = M.models
+					.map((entry) => `<button class="opt" type="button" role="radio" aria-checked="${entry.id === bot.model.id}" data-act="set-model" data-v="${entry.id}" data-k="model-${entry.id}">${radio(entry.id === bot.model.id)}<span>${esc(entry.label)}</span></button>`)
+					.join("");
+				const efforts = model.efforts
+					.map((effort) => `<button type="button" role="radio" aria-checked="${effort === bot.model.effort}" data-act="set-effort" data-v="${effort}" data-k="effort-${effort}" aria-label="${effort}">${effort}</button>`)
+					.join("");
+				const modes = Object.entries(MODES)
+					.map(([id, mode]) => `<button class="opt" type="button" role="radio" aria-checked="${bot.mode === id}" data-act="set-mode" data-v="${id}" data-k="mode-${id}" aria-label="${mode.label}, ${mode.hint}">${radio(bot.mode === id)}<span>${mode.label}<small>${mode.hint}</small></span></button>`)
+					.join("");
+				const tools = M.toolGroups
+					.map((group) => {
+						const on = bot.tools.includes(group.id);
+						return `<button class="opt" type="button" role="checkbox" aria-checked="${on}" data-act="set-tool" data-v="${group.id}" data-k="tool-${group.id}" aria-label="${esc(group.label)}, ${esc(group.hint)}">${check(on)}<span>${esc(group.label)}<small>${esc(group.hint)}</small></span></button>`;
+					})
+					.join("");
+				const folder = ui.folderEdit
+					? `<input class="path" id="folder-input" value="${esc(bot.folder ?? "")}" placeholder="~/caminho/da/pasta" spellcheck="false" autocomplete="off" aria-label="Pasta" data-k="folder-input" /><small>enter salva, esc cancela</small>`
+					: `<div class="pathline"><span class="${bot.folder ? "" : "dim"}">${bot.folder ? esc(bot.folder) : "nenhuma, roda a partir de ~"}</span><button class="link" type="button" data-act="folder-edit" data-k="folder-edit">${bot.folder ? "trocar" : "escolher"}</button>${bot.folder ? '<button class="link" type="button" data-act="folder-clear" data-k="folder-clear">tirar</button>' : ""}</div>${bot.tools.includes("computer") ? "" : "<small>só vale com Computador ligado</small>"}`;
+				const memories = bot.memories === 0 ? "nenhuma ainda" : bot.memories === 1 ? "1 guardada" : `${bot.memories} guardadas`;
+				return `<div class="scrim" data-act="close"></div><section class="panel" role="dialog" aria-label="Ajustes de ${esc(bot.name)}"><header><h2>ajustes de <b>${esc(bot.name)}</b></h2><button class="x" type="button" data-act="close" aria-label="Fechar ajustes">esc</button></header><div class="row${hit("model")}" data-field="model"><h3>modelo</h3><div class="ctl" role="radiogroup" aria-label="Modelo">${models}</div></div><div class="row${hit("effort")}" data-field="effort"><h3>esforço</h3><div class="ctl"><div class="segs" role="radiogroup" aria-label="Esforço">${efforts}</div></div></div><div class="row${hit("mode")}" data-field="mode"><h3>modo</h3><div class="ctl" role="radiogroup" aria-label="Modo">${modes}</div></div><div class="row${hit("tools")}" data-field="tools"><h3>tools</h3><div class="ctl">${tools}</div></div><div class="row${hit("folder")}" data-field="folder"><h3>pasta</h3><div class="ctl">${folder}</div></div><div class="row${hit("memory")}" data-field="memory"><h3>memória</h3><div class="ctl"><span>${memories}</span><small>O bot guarda sozinho. Peça para ele lembrar ou esquecer algo.</small></div></div><p class="note">Vale a partir da próxima resposta.</p></section>`;
+			}
+
+			function renderPanel() {
+				const host = $("#panel");
+				if (!ui.panel) {
+					host.innerHTML = "";
+					return;
+				}
+				const key = document.activeElement?.dataset?.k;
+				const scrolled = host.querySelector(".panel")?.scrollTop ?? 0;
+				host.innerHTML = panelHtml(current());
+				host.querySelector(".panel").scrollTop = scrolled;
+				if (key) {
+					host.querySelector(`[data-k="${key}"]`)?.focus();
+				}
+			}
+
+			function render(force) {
+				const stick = force || nearBottom();
+				renderBar();
+				renderHead();
+				renderFoot();
+				renderLines(stick);
+				renderPanel();
+			}
+
+			function paint(bot) {
+				renderBar();
+				if (bot.id === ui.selected) {
+					const stick = nearBottom();
+					renderFoot();
+					renderLines(stick);
+				}
+			}
+
+			function select(id) {
+				if (id === ui.selected) {
+					return;
+				}
+				current().draft = input.value;
+				ui.selected = id;
+				ui.escAt = 0;
+				input.value = current().draft;
+				renderMenu();
+				render(true);
+			}
+
+			function cycleLevel() {
+				setLevel(LEVELS[(LEVELS.indexOf(ui.level) + 1) % LEVELS.length]);
+			}
+
+			function setLevel(level) {
+				ui.level = level;
+				for (const bot of bots) {
+					for (const line of bot.lines) {
+						delete line.open;
+					}
+				}
+				renderHead();
+				renderLines();
+			}
+
+			async function runTurn(bot) {
+				const run = {};
+				const demo = M.demoTurn;
+				bot.run = run;
+				bot.turn = "thinking";
+				bot.since = Date.now();
+				bot.tool = null;
+				bot.failed = null;
+				paint(bot);
+				await wait(demo.thinkingMs);
+				if (bot.run !== run) {
+					return;
+				}
+				for (const step of demo.steps) {
+					const line = { kind: "tool", name: step.name, input: step.input };
+					bot.lines.push(line);
+					bot.turn = "working";
+					bot.tool = { name: step.name, input: step.input };
+					paint(bot);
+					await wait(step.ms);
+					if (bot.run !== run) {
+						return;
+					}
+					line.result = step.result;
+					paint(bot);
+				}
+				await stream(bot, run, demo.replyBlocks, demo.blockMs);
+			}
+
+			async function stream(bot, run, blocks, ms) {
+				const line = { kind: "reply", html: "", streaming: true };
+				bot.turn = "streaming";
+				bot.tool = null;
+				bot.lines.push(line);
+				for (const block of blocks) {
+					line.html += block;
+					paint(bot);
+					await wait(ms);
+					if (bot.run !== run) {
+						line.streaming = false;
+						return;
+					}
+				}
+				line.streaming = false;
+				finish(bot);
+			}
+
+			function finish(bot) {
+				bot.run = null;
+				bot.turn = "idle";
+				bot.tool = null;
+				bot.lastAt = hhmm();
+				const reply = bot.lines.findLast((line) => line.kind === "reply");
+				if (reply) {
+					bot.preview = plain(reply.html);
+				}
+				if (bot.queue.length) {
+					for (const text of bot.queue.splice(0)) {
+						bot.lines.push({ kind: "you", text });
+					}
+					runTurn(bot);
+					return;
+				}
+				paint(bot);
+			}
+
+			function stop(bot) {
+				if (!busy(bot)) {
+					return;
+				}
+				for (const line of bot.lines) {
+					line.streaming = false;
+				}
+				bot.run = null;
+				bot.turn = "idle";
+				bot.tool = null;
+				bot.approval = null;
+				bot.queue = [];
+				bot.lines.push({ kind: "stopped" });
+				bot.lastAt = hhmm();
+				bot.preview = "Interrompido.";
+				ui.escAt = 0;
+				paint(bot);
+			}
+
+			async function decide(bot, approved) {
+				const approval = bot.approval;
+				if (!approval) {
+					return;
+				}
+				const run = {};
+				const outcomes = M.approvalOutcomes;
+				bot.approval = null;
+				bot.run = run;
+				bot.lines.push({ kind: "approval", tool: approval.tool, input: approval.input, outcome: approved ? "approved" : "denied" });
+				if (approved) {
+					bot.turn = "working";
+					bot.tool = { name: approval.tool, input: approval.input };
+					paint(bot);
+					await wait(900);
+					if (bot.run !== run) {
+						return;
+					}
+					bot.lines.push({ kind: "tool", name: approval.tool, input: { to: approval.input.to }, result: outcomes.approved.result });
+					bot.turn = "thinking";
+					bot.tool = null;
+					paint(bot);
+					await wait(500);
+					if (bot.run !== run) {
+						return;
+					}
+					await stream(bot, run, [outcomes.approved.replyHtml], M.demoTurn.blockMs);
+					return;
+				}
+				bot.turn = "thinking";
+				paint(bot);
+				await wait(700);
+				if (bot.run !== run) {
+					return;
+				}
+				await stream(bot, run, [outcomes.denied.replyHtml], M.demoTurn.blockMs);
+			}
+
+			function send() {
+				const text = input.value.trim();
+				if (!text) {
+					return;
+				}
+				const command = COMMANDS.find((entry) => entry.name === text);
+				if (command) {
+					runCommand(command);
+					return;
+				}
+				const bot = current();
+				input.value = "";
+				bot.draft = "";
+				renderMenu();
+				if (busy(bot)) {
+					bot.queue.push(text);
+					paint(bot);
+					return;
+				}
+				bot.lines.push({ kind: "you", text });
+				renderLines(true);
+				runTurn(bot);
+			}
+
+			function runCommand(command) {
+				input.value = "";
+				renderMenu();
+				if (command.field) {
+					openPanel(command.field);
+					return;
+				}
+				openNew();
+			}
+
+			function renderMenu() {
+				const text = input.value;
+				const matches = /^\/\S*$/.test(text) ? COMMANDS.filter((command) => command.name.startsWith(text)) : [];
+				ui.matches = matches;
+				if (!matches.length) {
+					menu.hidden = true;
+					menu.innerHTML = "";
+					return;
+				}
+				ui.menuAt = Math.min(ui.menuAt, matches.length - 1);
+				menu.hidden = false;
+				menu.innerHTML = matches
+					.map((command, index) => `<button type="button" class="${index === ui.menuAt ? "on" : ""}" data-act="cmd" data-cmd="${command.name}" tabindex="-1"><span class="nm">${command.name}</span><span class="dim">${command.hint}</span></button>`)
+					.join("");
+			}
+
+			function openPanel(field) {
+				ui.panel = true;
+				ui.hit = field;
+				ui.folderEdit = false;
+				if (document.activeElement) {
+					document.activeElement.blur();
+				}
+				renderPanel();
+				const row = $(`#panel [data-field="${field}"]`);
+				row?.scrollIntoView({ block: "nearest" });
+				(row?.querySelector('[aria-checked="true"]') ?? row?.querySelector("button, input") ?? $("#panel .x"))?.focus();
+				setTimeout(() => {
+					ui.hit = null;
+					$("#panel .row.hit")?.classList.remove("hit");
+				}, 900);
+			}
+
+			function closePanel() {
+				if (!ui.panel) {
+					return;
+				}
+				ui.panel = null;
+				ui.folderEdit = false;
+				renderPanel();
+				input.focus();
+			}
+
+			function changed() {
+				renderHead();
+				renderPanel();
+				if (!current().lines.length) {
+					renderLines();
+				}
+			}
+
+			function openNew() {
+				closePanel();
+				newForm.hidden = false;
+				newName.value = "";
+				newHint.textContent = "enter cria, esc cancela";
+				newHint.classList.remove("bad");
+				newName.focus();
+			}
+
+			function closeNew() {
+				newForm.hidden = true;
+				newName.value = "";
+				input.focus();
+			}
+
+			function createBot() {
+				const name = newName.value.trim();
+				const problem = !name ? "Dê um nome ao bot." : bots.some((bot) => bot.name.toLowerCase() === name.toLowerCase()) ? `Já existe um bot chamado ${name}.` : null;
+				if (problem) {
+					newHint.textContent = problem;
+					newHint.classList.add("bad");
+					return;
+				}
+				const id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
+				bots.push({
+					id,
+					name,
+					model: { id: "gpt-5.6-luna", effort: "max" },
+					mode: "autonomous",
+					tools: M.toolGroups.map((group) => group.id),
+					folder: null,
+					memories: 0,
+					lastAt: null,
+					preview: null,
+					lines: [],
+					turn: "idle",
+					since: Date.now(),
+					tool: null,
+					approval: null,
+					queue: [],
+					team: [],
+					failed: null,
+					run: null,
+					draft: "",
+				});
+				newForm.hidden = true;
+				newName.value = "";
+				select(id);
+				input.focus();
+			}
+
+			function typing(target) {
+				return target instanceof HTMLElement && target.matches("input, textarea");
+			}
+
+			function approvalKeysLive(target) {
+				if (ui.panel || !newForm.hidden || !current().approval) {
+					return false;
+				}
+				return !typing(target) || (target === input && input.value === "");
+			}
+
+			function escape() {
+				if (ui.panel) {
+					if (ui.folderEdit) {
+						ui.folderEdit = false;
+						renderPanel();
+						$('#panel [data-k="folder-edit"]')?.focus();
+						return;
+					}
+					closePanel();
+					return;
+				}
+				if (!newForm.hidden) {
+					closeNew();
+					return;
+				}
+				if (list.contains(document.activeElement)) {
+					input.focus();
+					return;
+				}
+				if (!menu.hidden) {
+					input.value = "";
+					renderMenu();
+					return;
+				}
+				const bot = current();
+				if (!busy(bot)) {
+					return;
+				}
+				if (Date.now() - ui.escAt < 1500) {
+					stop(bot);
+					return;
+				}
+				ui.escAt = Date.now();
+				renderFoot();
+				setTimeout(renderFoot, 1600);
+			}
+
+			document.addEventListener("click", (event) => {
+				const target = event.target.closest("[data-act]");
+				const link = event.target.closest(".md a");
+				if (link) {
+					event.preventDefault();
+				}
+				if (!target) {
+					return;
+				}
+				const bot = current();
+				const act = target.dataset.act;
+				if (act === "bot") {
+					select(target.dataset.id);
+					if (event.detail > 0) {
+						input.focus();
+					}
+				} else if (act === "add") {
+					openNew();
+				} else if (act === "level") {
+					setLevel(target.dataset.level);
+				} else if (act === "cycle-level") {
+					cycleLevel();
+				} else if (act === "settings") {
+					openPanel(target.dataset.field);
+				} else if (act === "close") {
+					closePanel();
+				} else if (act === "stop") {
+					stop(bot);
+				} else if (act === "approve") {
+					decide(bot, true);
+				} else if (act === "deny") {
+					decide(bot, false);
+				} else if (act === "toggle") {
+					const line = bot.lines[Number(target.dataset.i)];
+					if (ui.level !== "full") {
+						line.open = !line.open;
+						renderLines();
+					}
+				} else if (act === "retry") {
+					runTurn(bot);
+				} else if (act === "unqueue") {
+					bot.queue.splice(Number(target.dataset.q), 1);
+					renderFoot();
+					input.focus();
+				} else if (act === "suggest") {
+					input.value = target.dataset.text;
+					input.focus();
+					input.setSelectionRange(input.value.length, input.value.length);
+				} else if (act === "cmd") {
+					runCommand(COMMANDS.find((command) => command.name === target.dataset.cmd));
+				} else if (act === "set-model") {
+					bot.model.id = target.dataset.v;
+					const efforts = modelOf(bot).efforts;
+					if (!efforts.includes(bot.model.effort)) {
+						bot.model.effort = efforts.at(-1);
+					}
+					changed();
+				} else if (act === "set-effort") {
+					bot.model.effort = target.dataset.v;
+					changed();
+				} else if (act === "set-mode") {
+					bot.mode = target.dataset.v;
+					changed();
+				} else if (act === "set-tool") {
+					const tool = target.dataset.v;
+					bot.tools = bot.tools.includes(tool) ? bot.tools.filter((entry) => entry !== tool) : M.toolGroups.map((group) => group.id).filter((entry) => entry === tool || bot.tools.includes(entry));
+					changed();
+				} else if (act === "folder-edit") {
+					ui.folderEdit = true;
+					renderPanel();
+					const field = $("#folder-input");
+					field.focus();
+					field.select();
+				} else if (act === "folder-clear") {
+					bot.folder = null;
+					changed();
+					$('#panel [data-k="folder-edit"]')?.focus();
+				}
+			});
+
+			document.addEventListener("keydown", (event) => {
+				const key = event.key.toLowerCase();
+				if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
+					if (key === "o") {
+						event.preventDefault();
+						cycleLevel();
+						return;
+					}
+					if (key === "e") {
+						event.preventDefault();
+						if (list.contains(document.activeElement)) {
+							input.focus();
+						} else {
+							closePanel();
+							focusBot();
+						}
+						return;
+					}
+					if (key === "n") {
+						event.preventDefault();
+						openNew();
+						return;
+					}
+					if (key === ",") {
+						event.preventDefault();
+						if (ui.panel) {
+							closePanel();
+						} else {
+							openPanel("model");
+						}
+						return;
+					}
+					if (key === "p") {
+						event.preventDefault();
+						openPanel("model");
+						return;
+					}
+				}
+				if (event.key === "Escape") {
+					event.preventDefault();
+					escape();
+					return;
+				}
+				if ((event.key === "1" || event.key === "2") && !event.ctrlKey && !event.altKey && !event.metaKey && approvalKeysLive(event.target)) {
+					event.preventDefault();
+					decide(current(), event.key === "1");
+				}
+			});
+
+			list.addEventListener("keydown", (event) => {
+				const ids = bots.map((bot) => bot.id);
+				const at = ids.indexOf(ui.selected);
+				if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+					event.preventDefault();
+					const next = Math.min(ids.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)));
+					select(ids[next]);
+					focusBot();
+				} else if (event.key === "Enter") {
+					event.preventDefault();
+					input.focus();
+				}
+			});
+
+			list.addEventListener("focusin", () => {
+				if (!ui.browsing) {
+					ui.browsing = true;
+					renderKeys();
+				}
+			});
+
+			list.addEventListener("focusout", (event) => {
+				if (!list.contains(event.relatedTarget)) {
+					ui.browsing = false;
+					renderKeys();
+				}
+			});
+
+			input.addEventListener("input", () => {
+				ui.menuAt = 0;
+				renderMenu();
+			});
+
+			input.addEventListener("keydown", (event) => {
+				if (!menu.hidden && ui.matches?.length) {
+					if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+						event.preventDefault();
+						ui.menuAt = (ui.menuAt + (event.key === "ArrowDown" ? 1 : -1) + ui.matches.length) % ui.matches.length;
+						renderMenu();
+						return;
+					}
+					if (event.key === "Tab" || (event.key === "Enter" && !event.shiftKey)) {
+						event.preventDefault();
+						runCommand(ui.matches[ui.menuAt]);
+						return;
+					}
+				}
+				if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+					event.preventDefault();
+					send();
+				}
+			});
+
+			newForm.addEventListener("submit", (event) => {
+				event.preventDefault();
+				createBot();
+			});
+
+			newName.addEventListener("input", () => {
+				newHint.textContent = "enter cria, esc cancela";
+				newHint.classList.remove("bad");
+			});
+
+			newName.addEventListener("blur", () => {
+				if (!newName.value.trim()) {
+					newForm.hidden = true;
+				}
+			});
+
+			document.addEventListener("keydown", (event) => {
+				if (event.target.id !== "folder-input" || event.key !== "Enter") {
+					return;
+				}
+				event.preventDefault();
+				current().folder = event.target.value.trim() || null;
+				ui.folderEdit = false;
+				changed();
+				$('#panel [data-k="folder-edit"]')?.focus();
+			});
+
+			scroller.addEventListener("scroll", () => {
+				ui.pinned = nearBottom();
+			});
+
+			new ResizeObserver(() => {
+				if (ui.pinned) {
+					scroller.scrollTop = scroller.scrollHeight;
+				}
+			}).observe(scroller);
+
+			setInterval(() => {
+				const now = Date.now();
+				for (const node of document.querySelectorAll("[data-since]")) {
+					node.textContent = clock(now - Number(node.dataset.since));
+				}
+			}, 1000);
+
+			render(true);
+			input.focus();
+		</script>
+	</body>
+</html>
