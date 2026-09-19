@@ -1,6 +1,8 @@
-import { StopIcon } from "@heroicons/react/20/solid";
 import { useMutation } from "@tanstack/react-query";
+import { SquareIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { IconButton } from "@renderer/components/icon-button";
+import { Spinner } from "@renderer/components/ui/spinner";
 import type { Conversation, Turn } from "./conversation";
 import { orpc } from "./rpc";
 
@@ -28,15 +30,13 @@ export function Status({ botId, label }: { botId: string; label: string }) {
 	}, []);
 
 	return (
-		<div className="dock">
-			<div className="status">
-				<span className="spinner" aria-hidden />
-				<span className="what">{label}</span>
-				<span className="timer">{clock(Math.floor((now - startedAt) / 1000))}</span>
-				<button type="button" className="icon" aria-label="Parar" title="Parar o Turno e descartar a Fila" onClick={() => cancel.mutate({ botId })}>
-					<StopIcon />
-				</button>
-			</div>
+		<div className="column flex min-h-10 items-center gap-2.5 text-xs text-muted-foreground">
+			<Spinner className="text-info" aria-hidden />
+			<span className="min-w-0 flex-1 truncate text-foreground">{label}</span>
+			<span className="shrink-0 tabular-nums">{clock(Math.floor((now - startedAt) / 1000))}</span>
+			<IconButton label="Parar o Turno e descartar a Fila" side="top" onClick={() => cancel.mutate({ botId })}>
+				<SquareIcon className="fill-current" />
+			</IconButton>
 		</div>
 	);
 }

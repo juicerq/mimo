@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "electron-vite";
 import agent from "../agent/package.json" with { type: "json" };
@@ -27,6 +28,7 @@ export default defineConfig({
 		},
 	},
 	renderer: {
-		plugins: [react()],
+		plugins: [react(), tailwindcss()],
+		resolve: { alias: { "@renderer": fileURLToPath(new URL("src/renderer", import.meta.url)) } },
 	},
 });

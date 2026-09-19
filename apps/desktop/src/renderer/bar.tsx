@@ -1,12 +1,15 @@
-import { Blobatar } from "blobatar/react";
-import { PlusIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { PlusIcon } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { IconButton } from "@renderer/components/icon-button";
+import { Item, ItemContent, ItemDescription, ItemTitle } from "@renderer/components/ui/item";
 import { Avatar, STATE_LABELS } from "./avatar";
 import type { BotRow } from "./bots";
 import { orpc } from "./rpc";
 
 const STEPS: Partial<Record<string, number>> = { ArrowUp: -1, ArrowDown: 1 };
+const ROW = "[aria-current]";
+const AVATAR = 48;
 
 function plain(text: string): string {
 	return text
@@ -59,7 +62,7 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 				onLeave();
 				return;
 			}
-			const rows = list.current?.querySelectorAll<HTMLButtonElement>(".row");
+			const rows = list.current?.querySelectorAll<HTMLButtonElement>(ROW);
 			const current = rows && [...rows].find((row) => row.getAttribute("aria-current") === "true");
 			(current ?? rows?.[0])?.focus();
 		}
@@ -69,7 +72,7 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 
 	function onListKey(event: KeyboardEvent<HTMLDivElement>): void {
 		const all = bots ?? [];
-		const rows = [...event.currentTarget.querySelectorAll<HTMLButtonElement>(".row")];
+		const rows = [...event.currentTarget.querySelectorAll<HTMLButtonElement>(ROW)];
 		const at = rows.findIndex((row) => row === event.target);
 		if (event.key === "Escape") {
 			event.preventDefault();
@@ -99,31 +102,33 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 	}
 
 	return (
-		<aside className="side" aria-label="Bots">
-			<header className="side-top">
-				<button type="button" className="icon" aria-label="Novo bot" title="Novo bot" onClick={() => setAdding(true)}>
+		<aside className="flex w-66 shrink-0 flex-col border-r" aria-label="Bots">
+			<header className="drag flex h-bar shrink-0 items-center justify-end px-3">
+				<IconButton label="Novo bot" onClick={() => setAdding(true)}>
 					<PlusIcon />
-				</button>
+				</IconButton>
 			</header>
-			<div className="list" ref={list} onKeyDown={onListKey}>
+			<div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-3" ref={list} onKeyDown={onListKey}>
 				{(adding || empty) && (
-					<form
-						className="add"
-						onSubmit={(event) => {
-							event.preventDefault();
-							if (draft && !create.isPending) {
-								create.mutate({ name });
-							}
-						}}
+					<Item
+						className="gap-3 p-2 surface-muted"
+						render={
+							<form
+								onSubmit={(event) => {
+									event.preventDefault();
+									if (draft && !create.isPending) {
+										create.mutate({ name });
+									}
+								}}
+							/>
+						}
 					>
 						{draft ? (
-							<span className="av" aria-hidden>
-								<Blobatar name={draft} size={47} />
-							</span>
+							<Avatar name={draft} state="idle" size={AVATAR} />
 						) : (
-							<span className="av ph" aria-hidden />
+							<span className="size-12 shrink-0 rounded-full border-2 border-dashed border-muted-foreground/50" aria-hidden />
 						)}
-						<span className="txt">
+						<ItemContent className="min-w-0 gap-0">
 							<input
 								autoFocus
 								maxLength={80}
@@ -132,6 +137,7 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 								aria-label="Nome do novo bot"
 								autoComplete="off"
 								spellCheck={false}
+								className="w-full font-medium outline-hidden placeholder:font-normal placeholder:text-muted-foreground"
 								onChange={(event) => {
 									setName(event.target.value);
 									create.reset();
@@ -149,28 +155,28 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 									}
 								}}
 							/>
-							{create.error && <span className="add-error">{create.error.message}</span>}
-						</span>
-					</form>
+							{create.error && <span className="text-xs text-destructive wrap-anywhere">{create.error.message}</span>}
+						</ItemContent>
+					</Item>
 				)}
 				{bots?.map((bot) => (
-					<button
+					<Item
 						key={bot.id}
-						type="button"
-						className="row"
+						className="gap-3 p-2 text-left hover:surface-subtle aria-[current=true]:surface-muted"
+						render={<button type="button" />}
 						aria-current={bot.id === selected}
 						onMouseDown={(event) => event.preventDefault()}
 						onClick={() => onSelect(bot.id)}
 					>
-						<Avatar name={bot.name} state={bot.state} size={47} />
-						<span className="txt">
-							<span className="name">{bot.name}</span>
-							<span className="last">{preview(bot)}</span>
-						</span>
-						<span className="sr">{STATE_LABELS[bot.state]}</span>
-					</button>
+						<Avatar name={bot.name} state={bot.state} size={AVATAR} />
+						<ItemContent className="min-w-0 gap-0">
+							<ItemTitle className="block w-full truncate">{bot.name}</ItemTitle>
+							<ItemDescription className="block truncate text-xs">{preview(bot)}</ItemDescription>
+						</ItemContent>
+						<span className="sr-only">{STATE_LABELS[bot.state]}</span>
+					</Item>
 				))}
-				{error && <p className="list-error">{error.message}</p>}
+				{error && <p className="p-2 text-xs text-destructive wrap-anywhere">{error.message}</p>}
 			</div>
 		</aside>
 	);

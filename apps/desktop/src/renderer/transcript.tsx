@@ -1,7 +1,10 @@
-import { CheckIcon, ClockIcon, ExclamationTriangleIcon, PauseCircleIcon, StopIcon, UserGroupIcon, WrenchScrewdriverIcon, XCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { Fragment, memo, type ReactNode } from "react";
+import { CheckIcon, CirclePauseIcon, CircleXIcon, ClockIcon, type LucideIcon, SquareIcon, TriangleAlertIcon, UsersIcon, WrenchIcon, XIcon } from "lucide-react";
+import { type ComponentProps, Fragment, memo, type ReactNode } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@renderer/components/ui/empty";
+import { Kbd } from "@renderer/components/ui/kbd";
+import { cn } from "@renderer/lib/utils";
 import { Avatar } from "./avatar";
 import type { Conversation, Line, ToolResult } from "./conversation";
 
@@ -28,6 +31,16 @@ const NEEDS: Record<Line["kind"], Detail> = {
 const TEAM_VERBS = { created: "Criou", delegated: "Delegou para", stopped: "Parou", deleted: "Apagou" } as const;
 const DETAIL_CHARACTERS = 600;
 const PLUGINS = [remarkGfm];
+const SCROLL = "flex min-h-0 flex-1 flex-col-reverse overflow-y-auto scrollbar-gutter-both";
+const GIST = "truncate before:mr-1.5 before:content-['·']";
+const BUBBLES = {
+	you: "ml-auto rounded-br-none bg-primary whitespace-pre-wrap text-primary-foreground",
+	bot: "rounded-bl-none bg-muted",
+};
+const TONES = {
+	warn: { line: undefined, icon: "text-warning" },
+	err: { line: "text-destructive", icon: undefined },
+};
 const COMPONENTS: Components = {
 	a: ({ href, children }) => (
 		<a href={href} target="_blank" rel="noreferrer">
@@ -73,28 +86,47 @@ function gist(input: unknown): string {
 	return first.replace(/^https?:\/\//u, "").replaceAll(/\s+/gu, " ");
 }
 
-function Fields({ input }: { input: unknown }) {
+function Fields({ input, className }: { input: unknown; className?: string }) {
 	const rows = fields(input);
 	if (rows.length === 0) {
 		return null;
 	}
 	return (
-		<dl>
+		<dl className={cn("grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-0.5 font-mono text-xs leading-relaxed", className)}>
 			{rows.map(([key, value]) => (
 				<Fragment key={key}>
-					<dt>{key}</dt>
-					<dd>{value}</dd>
+					<dt className="text-muted-foreground">{key}</dt>
+					<dd className="text-foreground">{value}</dd>
 				</Fragment>
 			))}
 		</dl>
 	);
 }
 
-function EventLine({ tone, icon, head, children }: { tone?: "warn" | "err"; icon: ReactNode; head: ReactNode; children?: ReactNode }) {
+function Bubble({ from, className, ...props }: ComponentProps<"div"> & { from: keyof typeof BUBBLES }) {
+	return <div className={cn("mt-5 w-fit max-w-[min(85%,65ch)] rounded-2xl px-4 py-2.5 wrap-anywhere", BUBBLES[from], className)} {...props} />;
+}
+
+interface EventLineProps {
+	tone?: keyof typeof TONES;
+	icon?: LucideIcon;
+	head: ReactNode;
+	children?: ReactNode;
+}
+
+function EventLine({ tone, icon: Icon, head, children }: EventLineProps) {
+	const colors = tone && TONES[tone];
+
 	return (
-		<div className="event" data-tone={tone}>
-			<div className="event-head">
-				{icon}
+		<div
+			data-event
+			className={cn(
+				"mx-auto mt-4 max-w-4/5 text-center text-xs text-muted-foreground [[data-event]+&]:mt-1 [&_code]:text-foreground [&_strong]:font-medium [&_strong]:text-foreground",
+				colors?.line,
+			)}
+		>
+			<div className="inline-flex max-w-full items-start gap-1.5 *:min-w-0">
+				{Icon && <Icon className={cn("h-lh w-3.5 shrink-0", colors?.icon)} />}
 				{head}
 			</div>
 			{children}
@@ -102,13 +134,17 @@ function EventLine({ tone, icon, head, children }: { tone?: "warn" | "err"; icon
 	);
 }
 
+function EventBody({ children }: { children: ReactNode }) {
+	return <div className="mx-auto mt-2 max-w-xl text-left wrap-anywhere">{children}</div>;
+}
+
 function Reply({ text }: { text: string }) {
 	return (
-		<div className="msg reply">
+		<Bubble from="bot" className="markdown">
 			<Markdown remarkPlugins={PLUGINS} components={COMPONENTS}>
 				{text}
 			</Markdown>
-		</div>
+		</Bubble>
 	);
 }
 
@@ -116,18 +152,27 @@ function Tool({ name, input, result }: { name: string; input: unknown; result?: 
 	return (
 		<EventLine
 			tone={result?.failed ? "err" : undefined}
-			icon={<WrenchScrewdriverIcon />}
+			icon={WrenchIcon}
 			head={
 				<>
 					<code>{name}</code>
-					<span className="gist">{result?.failed ? "falhou" : gist(input)}</span>
+					<span className={GIST}>{result?.failed ? "falhou" : gist(input)}</span>
 				</>
 			}
 		>
-			<div className="io">
+			<EventBody>
 				<Fields input={input} />
-				{result?.text.trim() && <pre className={result.failed ? "bad" : undefined}>{truncate(result.text)}</pre>}
-			</div>
+				{result?.text.trim() && (
+					<pre
+						className={cn(
+							"mt-2 max-h-60 overflow-auto rounded-xl border bg-subtle px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap text-foreground",
+							result.failed && "text-destructive",
+						)}
+					>
+						{truncate(result.text)}
+					</pre>
+				)}
+			</EventBody>
 		</EventLine>
 	);
 }
@@ -136,11 +181,11 @@ function Approval({ line, name }: { line: Extract<Line, { kind: "approval" }>; n
 	const { approval, outcome } = line;
 
 	return (
-		<div className="msg reply ask" role="group" aria-label="Aprovação">
-			<div className="ask-head">
-				{!outcome && <PauseCircleIcon />}
+		<Bubble from="bot" role="group" aria-label="Aprovação">
+			<div className="flex items-center gap-2 font-medium">
+				{!outcome && <CirclePauseIcon className="size-4 shrink-0 text-warning" />}
 				<span>
-					Aprovar <code>{approval.toolName}</code>
+					Aprovar <code className="text-xs">{approval.toolName}</code>
 					{approval.bot !== name && (
 						<>
 							{" "}
@@ -150,20 +195,18 @@ function Approval({ line, name }: { line: Extract<Line, { kind: "approval" }>; n
 					?
 				</span>
 			</div>
-			<Fields input={approval.input} />
+			<Fields className="my-3" input={approval.input} />
 			{outcome ? (
-				<p className="ask-foot" data-outcome={outcome}>
-					{outcome === "approved" ? <CheckIcon /> : <XMarkIcon />}
+				<p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+					{outcome === "approved" ? <CheckIcon className="size-4 text-success" /> : <XIcon className="size-4 text-destructive" />}
 					<span>Você {outcome === "approved" ? "aprovou" : "negou"}</span>
 				</p>
 			) : (
-				<p className="ask-foot">
-					<span>
-						Responda <kbd>1</kbd> para aprovar ou <kbd>2</kbd> para negar.
-					</span>
+				<p className="text-xs text-muted-foreground">
+					Responda <Kbd className="bg-background">1</Kbd> para aprovar ou <Kbd className="bg-background">2</Kbd> para negar.
 				</p>
 			)}
-		</div>
+		</Bubble>
 	);
 }
 
@@ -174,7 +217,7 @@ function HappeningView({ line, level }: { line: Happening; level: Detail }) {
 		case "routine":
 			return (
 				<EventLine
-					icon={<ClockIcon />}
+					icon={ClockIcon}
 					head={
 						<span>
 							Rotina <code>{line.name}</code> começou
@@ -182,36 +225,36 @@ function HappeningView({ line, level }: { line: Happening; level: Detail }) {
 					}
 				>
 					{level === "full" && (
-						<div className="io">
-							<p className="said">{truncate(line.prompt)}</p>
-						</div>
+						<EventBody>
+							<p className="whitespace-pre-wrap text-foreground">{truncate(line.prompt)}</p>
+						</EventBody>
 					)}
 				</EventLine>
 			);
 		case "team":
 			return (
 				<EventLine
-					icon={<UserGroupIcon />}
+					icon={UsersIcon}
 					head={
 						<>
 							<span>
 								{TEAM_VERBS[line.call.kind]} <strong>{line.call.bot}</strong>
 							</span>
-							{line.call.task && <span className="gist">{line.call.task}</span>}
+							{line.call.task && <span className={GIST}>{line.call.task}</span>}
 						</>
 					}
 				/>
 			);
 		case "note":
-			return <EventLine icon={<UserGroupIcon />} head={<span>{line.text}</span>} />;
+			return <EventLine icon={UsersIcon} head={<span>{line.text}</span>} />;
 		case "tools":
-			return <EventLine icon={<WrenchScrewdriverIcon />} head={<span>{line.tools.length > 0 ? `Grupos de tools: ${line.tools.join(", ")}` : "Nenhum grupo de tools"}</span>} />;
+			return <EventLine icon={WrenchIcon} head={<span>{line.tools.length > 0 ? `Grupos de tools: ${line.tools.join(", ")}` : "Nenhum grupo de tools"}</span>} />;
 		case "warning":
-			return <EventLine tone="warn" icon={<ExclamationTriangleIcon />} head={<span>{line.text}</span>} />;
+			return <EventLine tone="warn" icon={TriangleAlertIcon} head={<span>{line.text}</span>} />;
 		case "error":
-			return <EventLine tone="err" icon={<XCircleIcon />} head={<span>{line.text}</span>} />;
+			return <EventLine tone="err" icon={CircleXIcon} head={<span>{line.text}</span>} />;
 		case "stopped":
-			return <EventLine icon={<StopIcon />} head={<span>Interrompido</span>} />;
+			return <EventLine icon={SquareIcon} head={<span>Interrompido</span>} />;
 		default: {
 			const _exhaustive: never = line;
 			return _exhaustive;
@@ -222,18 +265,16 @@ function HappeningView({ line, level }: { line: Happening; level: Detail }) {
 const LineView = memo(function LineView({ line, level, name }: { line: Line; level: Detail; name: string }) {
 	switch (line.kind) {
 		case "you":
-			return (
-				<div className="msg you">
-					<p>{line.text}</p>
-				</div>
-			);
+			return <Bubble from="you">{line.text}</Bubble>;
 		case "reply":
 			return <Reply text={line.text} />;
 		case "summary":
 			return (
-				<details className="summary">
-					<summary>Resumo do que veio antes</summary>
-					<p>{line.text}</p>
+				<details className="mt-2 text-xs">
+					<summary className="flex cursor-pointer list-none items-center gap-3 text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border hover:text-foreground">
+						Resumo do que veio antes
+					</summary>
+					<p className="mt-2 whitespace-pre-wrap text-muted-foreground">{line.text}</p>
 				</details>
 			);
 		case "tool":
@@ -251,30 +292,32 @@ const Lines = memo(function Lines({ lines, level, name }: { lines: Line[]; level
 
 export function Transcript({ conversation, level, name }: { conversation: Conversation; level: Detail; name: string }) {
 	if (!conversation.ready) {
-		return <div className="scroll" />;
+		return <div className={SCROLL} />;
 	}
 
 	if (conversation.lines.length === 0 && conversation.turn === "idle" && conversation.queue.length === 0) {
 		return (
-			<div className="scroll">
-				<div className="lines">
-					<div className="empty">
-						<Avatar name={name} state="idle" size={85} />
-						<h3>Comece a conversa com {name}</h3>
-						<p>Diga o que você precisa. {name} aprende com o uso e guarda na Memória o que importa.</p>
-					</div>
-				</div>
+			<div className={SCROLL}>
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia>
+							<Avatar name={name} state="idle" size={80} />
+						</EmptyMedia>
+						<EmptyTitle role="heading" aria-level={3} className="text-lg font-semibold">Comece a conversa com {name}</EmptyTitle>
+						<EmptyDescription>Diga o que você precisa. {name} aprende com o uso e guarda na Memória o que importa.</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
 			</div>
 		);
 	}
 
 	return (
-		<div className="scroll">
-			<div className="lines">
+		<div className={SCROLL}>
+			<div className="column shrink-0 grow pt-2 pb-5">
 				<Lines lines={conversation.lines} level={level} name={name} />
 				{conversation.streaming && <Reply text={conversation.streaming} />}
 				{conversation.queue.map((item, index) => (
-					<EventLine key={index} icon={null} head={<span>Na fila: {item}</span>} />
+					<EventLine key={index} head={<span>Na fila: {item}</span>} />
 				))}
 			</div>
 		</div>

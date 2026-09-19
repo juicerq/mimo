@@ -1,5 +1,7 @@
-import { InformationCircleIcon, MinusIcon, Square2StackIcon, StopIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
+import { CopyIcon, InfoIcon, MinusIcon, SquareIcon, XIcon } from "lucide-react";
+import { IconButton } from "@renderer/components/icon-button";
+import { Kbd, KbdGroup } from "@renderer/components/ui/kbd";
 import { Avatar, STATE_LABELS } from "./avatar";
 import type { BotRow } from "./bots";
 import { orpc, rpc } from "./rpc";
@@ -8,22 +10,27 @@ function WindowControls() {
 	const maximized = useQuery(orpc.window.maximized.experimental_liveOptions());
 
 	return (
-		<div className="win">
-			<button type="button" className="icon" aria-label="Minimizar" title="Minimizar" onClick={() => void rpc.window.minimize()}>
+		<div className="ml-1 flex items-center gap-0.5">
+			<IconButton label="Minimizar" onClick={() => void rpc.window.minimize()}>
 				<MinusIcon />
-			</button>
+			</IconButton>
 			{maximized.data ? (
-				<button type="button" className="icon" aria-label="Restaurar" title="Restaurar" onClick={() => void rpc.window.maximize()}>
-					<Square2StackIcon />
-				</button>
+				<IconButton label="Restaurar" onClick={() => void rpc.window.maximize()}>
+					<CopyIcon className="-scale-x-100" />
+				</IconButton>
 			) : (
-				<button type="button" className="icon" aria-label="Maximizar" title="Maximizar" onClick={() => void rpc.window.maximize()}>
-					<StopIcon />
-				</button>
+				<IconButton label="Maximizar" onClick={() => void rpc.window.maximize()}>
+					<SquareIcon />
+				</IconButton>
 			)}
-			<button type="button" className="icon close" aria-label="Fechar o app" title="Fechar" onClick={() => void rpc.window.close()}>
-				<XMarkIcon />
-			</button>
+			<IconButton
+				label="Fechar o app"
+				tip="Fechar"
+				className="hover:bg-destructive hover:text-destructive-foreground dark:hover:bg-destructive"
+				onClick={() => void rpc.window.close()}
+			>
+				<XIcon />
+			</IconButton>
 		</div>
 	);
 }
@@ -36,16 +43,30 @@ interface HeadProps {
 
 export function Head({ bot, info, onInfo }: HeadProps) {
 	return (
-		<header className="head">
-			{bot && <Avatar name={bot.name} state={bot.state} size={38} />}
-			<h2>
+		<header className="drag flex h-bar shrink-0 items-center gap-3 border-b pr-3 pl-5">
+			{bot && <Avatar name={bot.name} state={bot.state} size={40} />}
+			<h2 className="min-w-0 flex-1 truncate text-base font-semibold">
 				{bot?.name}
-				{bot && <span className="sr">, {STATE_LABELS[bot.state]}</span>}
+				{bot && <span className="sr-only">, {STATE_LABELS[bot.state]}</span>}
 			</h2>
 			{bot && (
-				<button type="button" className="icon" aria-pressed={info} aria-label={`Sobre ${bot.name}`} title="Sobre o bot (Ctrl+I)" onClick={onInfo}>
-					<InformationCircleIcon />
-				</button>
+				<IconButton
+					label={`Sobre ${bot.name}`}
+					tip={
+						<>
+							Sobre o bot{" "}
+							<KbdGroup>
+								<Kbd>Ctrl</Kbd>
+								<Kbd>I</Kbd>
+							</KbdGroup>
+						</>
+					}
+					aria-pressed={info}
+					aria-keyshortcuts="Control+I"
+					onClick={onInfo}
+				>
+					<InfoIcon />
+				</IconButton>
 			)}
 			<WindowControls />
 		</header>

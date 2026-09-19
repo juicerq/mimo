@@ -19,7 +19,7 @@ export function useTheme() {
 	const [theme, setTheme] = useState(savedTheme);
 
 	useLayoutEffect(() => {
-		document.documentElement.dataset.theme = theme;
+		document.documentElement.classList.toggle("dark", theme === "dark");
 	}, [theme]);
 
 	function toggle(): void {

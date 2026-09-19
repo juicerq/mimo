@@ -1,6 +1,7 @@
-import { ArrowUpIcon } from "@heroicons/react/24/outline";
 import { useMutation } from "@tanstack/react-query";
+import { ArrowUpIcon } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, type RefObject, useEffect, useState } from "react";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@renderer/components/ui/input-group";
 import { orpc } from "./rpc";
 
 const drafts = new Map<string, string>();
@@ -52,21 +53,31 @@ export function Composer({ botId, name, working, input, fail }: ComposerProps) {
 	}
 
 	return (
-		<form className="composer" onSubmit={submit}>
-			<div className="field">
-				<textarea
+		<form className="column pt-2 pb-5 short:pb-2.5" onSubmit={submit}>
+			<InputGroup className="items-end rounded-3xl bg-background shadow-xs has-[[data-slot=input-group-control]:focus-visible]:ring-0">
+				<InputGroupTextarea
 					ref={input}
 					rows={1}
 					value={draft}
 					aria-label="Mensagem"
 					placeholder={working ? `Mensagem para ${name}, entra na fila` : `Mensagem para ${name}`}
+					className="max-h-44 min-h-0 py-3 pl-4 text-sm"
 					onChange={(event) => setDraft(event.target.value)}
 					onKeyDown={onKeyDown}
 				/>
-				<button type="submit" className="send" aria-label="Enviar" title="Enviar" disabled={!draft.trim()}>
-					<ArrowUpIcon />
-				</button>
-			</div>
+				<InputGroupAddon align="inline-end" className="pr-1.5 has-[>button]:mr-0">
+					<InputGroupButton
+						type="submit"
+						variant="default"
+						size="icon-sm"
+						className="rounded-full aria-disabled:pointer-events-none aria-disabled:opacity-50"
+						aria-label="Enviar"
+						aria-disabled={!draft.trim()}
+					>
+						<ArrowUpIcon />
+					</InputGroupButton>
+				</InputGroupAddon>
+			</InputGroup>
 		</form>
 	);
 }

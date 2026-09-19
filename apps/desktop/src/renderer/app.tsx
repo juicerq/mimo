@@ -1,4 +1,5 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { Empty, EmptyDescription } from "@renderer/components/ui/empty";
 import { Bar } from "./bar";
 import { type BotRow, useBots } from "./bots";
 import { Composer } from "./composer";
@@ -29,14 +30,16 @@ function Conversation({ bot, level, input }: ConversationProps) {
 	return (
 		<>
 			<Transcript conversation={conversation} level={level} name={bot.name} />
-			{label && <Status botId={bot.id} label={label} />}
-			<Composer
-				botId={bot.id}
-				name={bot.name}
-				working={conversation.turn !== "idle"}
-				input={input}
-				fail={(message) => apply([{ type: "turn-failed", message }])}
-			/>
+			<div className="overflow-hidden scrollbar-gutter-both">
+				{label && <Status botId={bot.id} label={label} />}
+				<Composer
+					botId={bot.id}
+					name={bot.name}
+					working={conversation.turn !== "idle"}
+					input={input}
+					fail={(message) => apply([{ type: "turn-failed", message }])}
+				/>
+			</div>
 		</>
 	);
 }
@@ -45,7 +48,7 @@ export function App() {
 	const { bots, error } = useBots();
 	const [chosen, setChosen] = useState(() => localStorage.getItem(LAST_BOT));
 	const [level, setLevel] = useState(savedDetail);
-	const { open: infoOpen, toggle: toggleInfo, close: closeInfo } = useInfoPanel();
+	const { open: infoOpen, overlay, toggle: toggleInfo, close: closeInfo } = useInfoPanel();
 	const [theme, toggleTheme] = useTheme();
 	const input = useRef<HTMLTextAreaElement>(null);
 	const bot = bots?.find((entry) => entry.id === chosen) ?? bots?.[0];
@@ -85,19 +88,33 @@ export function App() {
 	}
 
 	return (
-		<div className={infoOpen && bot ? "app info-open" : "app"}>
+		<div className="flex h-screen">
 			<Bar bots={bots} error={error} selected={bot?.id} onSelect={select} onLeave={leave} />
-			<Head bot={bot} info={infoOpen} onInfo={toggleInfo} />
-			<main className="pane">
-				{bot && <Conversation key={bot.id} bot={bot} level={level} input={input} />}
-				{bots?.length === 0 && <p className="welcome">Dê um nome ao seu primeiro bot na barra ao lado.</p>}
-			</main>
-			{bot && (
-				<>
-					<div className="scrim" onClick={closeInfo} />
-					<Info name={bot.name} level={level} theme={theme} onLevel={setLevel} onTheme={toggleTheme} />
-				</>
-			)}
+			<div className="flex min-w-0 flex-1 flex-col">
+				<Head bot={bot} info={infoOpen} onInfo={toggleInfo} />
+				<div className="flex min-h-0 flex-1">
+					<main className="flex min-w-0 flex-1 flex-col">
+						{bot && <Conversation key={bot.id} bot={bot} level={level} input={input} />}
+						{bots?.length === 0 && (
+							<Empty>
+								<EmptyDescription>Dê um nome ao seu primeiro bot na barra ao lado.</EmptyDescription>
+							</Empty>
+						)}
+					</main>
+					{bot && (
+						<Info
+							name={bot.name}
+							open={infoOpen}
+							overlay={overlay}
+							level={level}
+							theme={theme}
+							onClose={closeInfo}
+							onLevel={setLevel}
+							onTheme={toggleTheme}
+						/>
+					)}
+				</div>
+			</div>
 		</div>
 	);
 }
