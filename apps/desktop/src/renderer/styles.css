@@ -8,6 +8,7 @@
 	--left: 264px;
 	--right: 296px;
 	--bar: 56px;
+	--column: 848px;
 	--radius: 9999px;
 	--radius-block: 16px;
 	--radius-side: 8px;
@@ -353,8 +354,6 @@ pre {
 	align-items: center;
 	gap: 2px;
 	margin-left: 6px;
-	padding-left: 8px;
-	border-left: 1px solid var(--border);
 }
 
 .win .close:hover {
@@ -384,6 +383,14 @@ pre {
 	overflow-y: auto;
 	scrollbar-width: thin;
 	scrollbar-color: var(--border) transparent;
+}
+
+.lines,
+.dock,
+.composer {
+	width: 100%;
+	max-width: var(--column);
+	margin-inline: auto;
 }
 
 .lines {
