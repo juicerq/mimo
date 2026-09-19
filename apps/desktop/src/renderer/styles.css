@@ -200,11 +200,6 @@ pre {
 	--ring: var(--bg);
 }
 
-.side .icon,
-.info .icon {
-	border-radius: var(--radius-side);
-}
-
 .row + .row,
 .add + .row {
 	margin-top: 2px;
