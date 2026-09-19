@@ -28,7 +28,7 @@ $CONTROL doctor
 - O cache do transpilador do Bun fica fora do sandbox, no cache real (`BUN_RUNTIME_TRANSPILER_CACHE_PATH`). É cache de conteúdo, compartilhado por natureza; dentro do sandbox cada execução copiaria uns 3 MB.
 - `doctor` e `stop` avisam quando a execução escreveu credencial, e confirmam "credenciais reais intactas" quando não escreveu.
 - Para reusar um diretório (por exemplo, entre duas sessões de memória) use `--data <dir>`, relativo à raiz do repo ou absoluto; `MIMO_VERIFY_DATA_DIR` faz o mesmo por ambiente. Só aponte para `.data` quando a receita exigir os dados reais: o snapshot/restore protege bots e rotinas, mas Gmail continua real.
-- O modelo inicial de um bot novo vem de `MIMO_MODEL`/`MIMO_REASONING`, repassados ao `launch`. Use `MIMO_MODEL=openai-codex/gpt-5.6-luna` quando o provedor padrão estiver sem saldo.
+- O modelo inicial de um bot novo vem de `MIMO_MODEL`/`MIMO_REASONING`, repassados ao `launch`. O padrão é `openai-codex/gpt-5.6-luna` com esforço `max`.
 - `launch` sobe a TUI numa sessão tmux 140x42 na raiz do repo e espera até 60 s pela lista de bots (`/new <name>`). A lista de bots é a primeira tela.
 - Antes de subir, salva `bots/`, `routines.json` e `actions.jsonl` do diretório de dados em `.verify/runs/<UTC>/state-before/` e grava o HEAD em `head.txt`.
 

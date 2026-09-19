@@ -24,7 +24,7 @@ export function dataPath(...segments: string[]): string {
 	return join(dataDir(), ...segments);
 }
 
-export function homePath(...segments: string[]): string {
+function homePath(...segments: string[]): string {
 	return join(mimoHome(), ...segments);
 }
 

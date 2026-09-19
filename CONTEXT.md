@@ -130,7 +130,7 @@ _Evitar_: Seletor, modal, picker
 _Dono_: `apps/mimo/src/panel.ts`; cada um, `apps/mimo/src/panels/`
 
 **Casa**:
-Onde o mimo guarda tudo: `~/.mimo`, com os bots, as rotinas, o registro de ações, as chaves em `.env` e a credencial do Cline, em `providers.json`. Não depende da pasta de onde o mimo foi chamado. `MIMO_DATA_DIR` troca o lugar dos dados; as chaves e as credenciais seguem o `$HOME`, porque pertencem à pessoa e não ao Sandbox.
+Onde o mimo guarda tudo: `~/.mimo`, com os bots, as rotinas, o registro de ações, e as chaves em `.env`. Não depende da pasta de onde o mimo foi chamado. `MIMO_DATA_DIR` troca o lugar dos dados; as chaves e as credenciais seguem o `$HOME`, porque pertencem à pessoa e não ao Sandbox.
 _Evitar_: Diretório de dados, data dir, raiz
 _Dono_: `apps/agent/src/storage/home.ts` (`dataPath`, `homePath`, `loadEnv`)
 

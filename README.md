@@ -67,21 +67,19 @@ bun run build
 bun start
 ```
 
-O painel oferece os modelos da assinatura OpenAI conectada no Codex, os modelos da OpenCode Go e os modelos do Cline. Uma falha no catálogo de um provedor não esconde o outro. Cada modelo oferece os esforços que sua integração aceita.
+O painel oferece os modelos da assinatura OpenAI conectada no Codex e os modelos da OpenCode Go. Uma falha no catálogo de um provedor não esconde o outro. Cada modelo oferece os esforços que sua integração aceita.
 
-Para definir GPT-5.6 Luna com esforço `max` como escolha inicial dos novos bots:
+Para definir outro modelo como escolha inicial dos novos bots:
 
 ```sh
-MIMO_MODEL=openai-codex/gpt-5.6-luna MIMO_REASONING=max bun run dev
+MIMO_MODEL=opencode-go/deepseek-v4-flash MIMO_REASONING=high bun run dev
 ```
 
 A integração OpenAI usa as credenciais locais do Codex em `~/.codex/auth.json`; a OpenCode Go usa `~/.local/share/opencode/auth.json`. O catálogo vem das mesmas contas. A assinatura tem seus próprios limites de uso, separados de uma chave de API.
 
-O Cline usa uma chave de API criada em `app.cline.bot`, em Settings › API Keys. Ela é gravada em `~/.mimo/providers.json`; `CLINE_API_KEY` em `~/.mimo/.env` vale como alternativa. O catálogo traz os modelos do mimo com essa chave — hoje o DeepSeek V4.1 Flash, o GLM-5.3 Flash e o Muse Spark 1.3 Contributor, que cobram créditos da conta. A assinatura ClinePass é outra lane, com ids `cline-pass/…`.
+Use `/login` para conectar uma conta sem sair da TUI. O painel separa `providers` (OpenCode Go com chave de API, OpenAI com OAuth) de `plugins` (Gmail com OAuth), com numeração contínua. Na OpenAI, escolha login pelo navegador ou por código de dispositivo; a TUI mostra o link e `c` copia ele para a área de transferência. Cole o código de autorização no composer se o navegador não voltar sozinho. `/cancel` ou `Esc` aborta o login. `/logout` lista as contas de Gmail conectadas e desconecta pelo número. A credencial dos modelos é gravada nos mesmos arquivos do Codex e da OpenCode, e o token renovado é salvo a cada atualização. O Gmail segue o mesmo caminho e grava a conta em `~/.mimo/gmail/accounts.json`; a autorização volta sozinha do navegador.
 
-Use `/login` para conectar uma conta sem sair da TUI. O painel separa `providers` (Cline com chave de API, OpenCode Go com chave de API, OpenAI com OAuth) de `plugins` (Gmail com OAuth), com numeração contínua. Na OpenAI, escolha login pelo navegador ou por código de dispositivo; a TUI mostra o link e `c` copia ele para a área de transferência. Cole o código de autorização no composer se o navegador não voltar sozinho. `/cancel` ou `Esc` aborta o login. `/logout` lista as contas de Gmail conectadas e desconecta pelo número. A credencial dos modelos é gravada nos mesmos arquivos do Codex e da OpenCode, e o token renovado é salvo a cada atualização. A do Cline é a única que nasce no mimo, em `~/.mimo/providers.json`. O Gmail segue o mesmo caminho e grava a conta em `~/.mimo/gmail/accounts.json`; a autorização volta sozinha do navegador.
-
-O modelo inicial padrão é `opencode-go/deepseek-v4-flash`. `MIMO_MODEL` e `MIMO_REASONING` definem apenas a configuração inicial de um bot novo. As escolhas salvas por bot prevalecem sobre o ambiente.
+O modelo inicial padrão é `openai-codex/gpt-5.6-luna` com esforço `max`. Um bot salvo com um provedor que o mimo não tem mais volta para esse padrão ao abrir. `MIMO_MODEL` e `MIMO_REASONING` definem apenas a configuração inicial de um bot novo. As escolhas salvas por bot prevalecem sobre o ambiente.
 
 Se uma chamada de modelo falhar, a TUI mostra o erro. Para mudar de provedor, use `/model` e depois escreva, por exemplo, “continue”. Escolher um modelo não envia nenhuma mensagem. Se o envio falhar, o texto permanece no composer para editar ou enviar novamente.
 

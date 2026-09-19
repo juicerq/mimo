@@ -9,7 +9,7 @@ Este diretório é a fonte mantida para verificar o comportamento visível do mi
 - `launch` roda em sandbox de dados por padrão (`.verify/runs/<id>/data`); `$CONTROL data` imprime o caminho. Só use `--data .data` quando a receita exigir os dados reais.
 - `$CONTROL doctor` precisa confirmar HEAD, credenciais e pane em `ready`.
 - A TUI abre a lista de bots. Crie um bot com `/new <nome>` antes de conversar. Ao reabrir um bot, o transcript e as aprovações pendentes são retomados. Veja [bots.md](bots.md) para criação, retomada e isolamento.
-- O modelo é remoto; turnos levam segundos e a redação varia. Use `/model` dentro do bot para escolher uma integração disponível. O padrão inicial é `opencode-go/deepseek-v4-flash`; passe `MIMO_MODEL` ao `launch` para outro.
+- O modelo é remoto; turnos levam segundos e a redação varia. Use `/model` dentro do bot para escolher uma integração disponível. O padrão inicial é `openai-codex/gpt-5.6-luna` com esforço `max`; passe `MIMO_MODEL` ao `launch` para outro.
 
 ## Convenções de condução
 

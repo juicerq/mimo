@@ -15,7 +15,8 @@ import {
 
 const EXPLICIT_LEVELS = new Set<Reasoning>(["xhigh", "max"]);
 const PREFERRED_DEFAULTS: Reasoning[] = ["medium", "high", "low", "minimal", "xhigh", "max", "off"];
-const DEFAULT_MODEL = "opencode/muse-spark-1.3-contributor-free";
+const DEFAULT_MODEL = "openai-codex/gpt-5.6-luna";
+const DEFAULT_REASONING: Reasoning = "max";
 
 function reasoningOptions(model: Model<Api>): Reasoning[] {
 	if (!model.reasoning) {
@@ -92,7 +93,8 @@ export function initialModel(): ModelInfo {
 	const slash = spec.indexOf("/");
 	const provider = ProviderSchema.parse(spec.slice(0, slash));
 	const option = modelOption({ provider, id: spec.slice(slash + 1) });
-	const reasoning = ReasoningSchema.parse(process.env.MIMO_REASONING ?? option.defaultReasoning);
+	const preferred = spec === DEFAULT_MODEL ? DEFAULT_REASONING : option.defaultReasoning;
+	const reasoning = ReasoningSchema.parse(process.env.MIMO_REASONING ?? preferred);
 	if (!option.reasoningOptions.includes(reasoning)) {
 		throw new Error(`Unsupported effort ${reasoning} for ${spec}.`);
 	}
