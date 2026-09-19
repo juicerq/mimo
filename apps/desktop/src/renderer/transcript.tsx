@@ -4,7 +4,7 @@ import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@renderer/components/ui/empty";
 import { Kbd } from "@renderer/components/ui/kbd";
-import { cn } from "@renderer/lib/utils";
+import { cn } from "cn";
 import { Avatar } from "./avatar";
 import type { Conversation, Line, ToolResult } from "./conversation";
 

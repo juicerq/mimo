@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import { Button } from "@renderer/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@renderer/components/ui/tooltip";
-import { cn } from "@renderer/lib/utils";
+import { cn } from "cn";
 
 interface IconButtonProps extends Omit<ComponentProps<typeof Button>, "variant" | "size" | "title" | "aria-label"> {
 	label: string;

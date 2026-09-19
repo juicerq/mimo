@@ -1,6 +1,6 @@
 import { Blobatar } from "blobatar/react";
 import { type Expression, idle, sad, surprised, thinking } from "blobatar/expression";
-import { cn } from "@renderer/lib/utils";
+import { cn } from "cn";
 import type { State } from "./bots";
 
 const FACES: Record<State, Expression> = { failed: sad, waiting: surprised, working: thinking, idle };

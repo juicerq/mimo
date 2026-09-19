@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Setting } from "@renderer/components/setting";
 import { Kbd, KbdGroup } from "@renderer/components/ui/kbd";
-import { cn } from "@renderer/lib/utils";
+import { cn } from "cn";
 import { DETAIL_LEVELS, DETAIL_NAMES, type Detail } from "./transcript";
 
 const DOCKED = "mimo:info";
