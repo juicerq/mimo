@@ -14,7 +14,9 @@ function isMessage(value: unknown): boolean {
 
 export const MessageSchema = z.custom<AgentMessage>(isMessage, "Esta mensagem não tem um papel conhecido.");
 
-export const BotNameSchema = z.string().trim().min(1).max(80).regex(/^[^\p{Cc}\p{Cf}]+$/u);
+const NAME_RULE = "Use um nome de 1 a 80 caracteres visíveis.";
+
+export const BotNameSchema = z.string().trim().min(1, NAME_RULE).max(80, NAME_RULE).regex(/^[^\p{Cc}\p{Cf}]+$/u, NAME_RULE);
 export const BotModeSchema = z.enum(["normal", "autonomous"]);
 export const BotPromptSchema = z.string().trim().min(1).max(4_000);
 export const ToolGroupSchema = z.enum(["computer", "web", "gmail", "routines", "team"]);

@@ -2,16 +2,18 @@ import { useEffect, useReducer } from "react";
 import type { ScreenEvent } from "../main/router";
 import { rpc } from "./rpc";
 
-type Tone = "you" | "reply" | "detail" | "alert";
+type Tone = "quiet" | "alert";
 
-interface Line {
-	tone: Tone;
-	text: string;
-}
+export type Line =
+	| { kind: "you"; text: string }
+	| { kind: "reply"; text: string }
+	| { kind: "note"; tone: Tone; text: string }
+	| { kind: "detail"; tone: Tone; text: string; extra?: string }
+	| { kind: "result"; text: string };
 
-type Turn = "idle" | "thinking" | "working" | "waiting";
+export type Turn = "idle" | "thinking" | "working" | "waiting";
 
-interface Conversation {
+export interface Conversation {
 	lines: Line[];
 	streaming: string;
 	turn: Turn;
@@ -24,49 +26,68 @@ type LineMakers = { [Type in keyof EventMap]: (event: EventMap[Type]) => Line | 
 
 const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
 
-function detail(text: string): Line {
-	return { tone: "detail", text };
+function note(text: string, tone: Tone = "quiet"): Line {
+	return { kind: "note", tone, text };
 }
 
-function alert(text: string): Line {
-	return { tone: "alert", text };
+function trimmed(text?: string): string | undefined {
+	const content = text?.trim();
+	if (!content || content === "{}") {
+		return undefined;
+	}
+	return content;
+}
+
+function detail(text: string, extra?: string): Line {
+	const content = trimmed(extra);
+	if (!content) {
+		return { kind: "detail", tone: "quiet", text };
+	}
+	return { kind: "detail", tone: "quiet", text, extra: content };
+}
+
+function result(output: string): Line | null {
+	const text = trimmed(output);
+	if (!text) {
+		return null;
+	}
+	return { kind: "result", text };
 }
 
 function reply(text: string): Line | null {
 	if (!text) {
 		return null;
 	}
-	return { tone: "reply", text };
+	return { kind: "reply", text };
 }
 
 const LINES: LineMakers = {
-	user: (event) => ({ tone: "you", text: event.text }),
+	user: (event) => ({ kind: "you", text: event.text }),
 	queue: () => null,
-	note: (event) => detail(`▌ ${event.text}`),
-	summary: () => detail("─ resumo do que veio antes ─"),
-	warning: (event) => alert(`⚠ ${event.text}`),
-	routine: (event) => detail(`routine: ${event.name} started`),
+	note: (event) => note(`▌ ${event.text}`),
+	summary: (event) => detail("─ resumo do que veio antes ─", event.text),
+	warning: (event) => note(`⚠ ${event.text}`, "alert"),
+	routine: (event) => detail(`routine: ${event.name} started`, event.prompt.replaceAll("\n", " ")),
 	"reply-delta": () => null,
 	reply: (event) => reply(event.text),
-	tool: (event) => detail(`⚙ ${event.toolName}`),
-	"team-call": (event) => detail(`▌ ${TEAM_VERBS[event.call.kind]} ${event.call.bot}`),
-	"tool-result": () => null,
-	"tool-warned": (event) => alert(`⚠ ${event.message}`),
-	"tool-failed": (event) => alert(`✗ tool failed: ${event.message}`),
-	approval: (event) => alert(`⏸ approval: ${event.approval.toolName} · ${event.approval.bot} — 1 aprova, 2 cancela`),
-	"approval-resolved": (event) => detail(`⏸ ${event.outcome}`),
+	tool: (event) => detail(`⚙ ${event.toolName}`, JSON.stringify(event.input)),
+	"team-call": (event) => detail(`▌ ${TEAM_VERBS[event.call.kind]} ${event.call.bot}${event.call.task ? ` · ${event.call.task}` : ""}`),
+	"tool-result": (event) => result(event.output),
+	"tool-warned": (event) => note(`⚠ ${event.message}`, "alert"),
+	"tool-failed": (event) => ({ kind: "detail", tone: "alert", text: `✗ tool failed: ${event.message}` }),
+	approval: (event) => note(`⏸ approval: ${event.approval.toolName} · ${event.approval.bot} — 1 aprova, 2 cancela`, "alert"),
+	"approval-resolved": (event) => note(`⏸ ${event.outcome}`),
 	usage: () => null,
 	mode: () => null,
 	tools: (event) => detail(`tools: ${event.tools.join(", ") || "none"}`),
 	"turn-started": () => null,
 	"turn-finished": () => null,
-	"turn-failed": (event) => alert(`✗ error: ${event.message}`),
-	"turn-cancelled": () => detail("Interrupted."),
+	"turn-failed": (event) => note(`✗ error: ${event.message}`, "alert"),
+	"turn-cancelled": () => note("Interrupted."),
 };
 
 const TURN_AFTER: Partial<Record<ScreenEvent["type"], Turn>> = {
 	"turn-started": "thinking",
-	tool: "working",
 	approval: "waiting",
 	"approval-resolved": "thinking",
 	"turn-finished": "idle",
@@ -91,15 +112,19 @@ function streamingAfter(streaming: string, event: ScreenEvent): string {
 	return streaming;
 }
 
+function turnAfter(turn: Turn, event: ScreenEvent): Turn {
+	if (event.type === "tool" && turn === "thinking") {
+		return "working";
+	}
+	return TURN_AFTER[event.type] ?? turn;
+}
+
 function applyEvents(conversation: Conversation, events: ScreenEvent[]): Conversation {
-	const next = { ...conversation, lines: [...conversation.lines] };
+	const added = events.flatMap((event) => lineOf(event.type, event) ?? []);
+	const next = { ...conversation, lines: added.length === 0 ? conversation.lines : [...conversation.lines, ...added] };
 	for (const event of events) {
-		const line = lineOf(event.type, event);
-		if (line) {
-			next.lines.push(line);
-		}
 		next.streaming = streamingAfter(next.streaming, event);
-		next.turn = TURN_AFTER[event.type] ?? next.turn;
+		next.turn = turnAfter(next.turn, event);
 		if (event.type === "queue") {
 			next.queue = event.items;
 		}
@@ -114,7 +139,7 @@ async function follow(botId: string, signal: AbortSignal, apply: (events: Screen
 	}
 }
 
-export function useConversation(botId: string): Conversation {
+export function useConversation(botId: string) {
 	const [conversation, apply] = useReducer(applyEvents, EMPTY);
 
 	useEffect(() => {
@@ -127,5 +152,5 @@ export function useConversation(botId: string): Conversation {
 		return () => controller.abort();
 	}, [botId]);
 
-	return conversation;
+	return [conversation, apply] as const;
 }

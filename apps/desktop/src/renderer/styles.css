@@ -1,10 +1,16 @@
 :root {
 	--t1: #f2f2f3;
+	--t2: #d9d9da;
 	--t3: #c0c0c2;
+	--t4: #a7a7a9;
 	--t5: #8d8d90;
+	--t6: #747477;
 	--t7: #5b5b5f;
 	--t8: #424246;
+	--raw: #ffd479;
 	--ground: #0b0b0c;
+	color-scheme: dark;
+	scrollbar-color: var(--t8) transparent;
 	color: var(--t3);
 	background: var(--ground);
 	font: 14px/1.5 ui-monospace, "JetBrains Mono", monospace;
@@ -18,6 +24,10 @@ body {
 	margin: 0;
 }
 
+p {
+	margin: 0;
+}
+
 button,
 input,
 textarea {
@@ -26,6 +36,15 @@ textarea {
 	background: none;
 	border: 1px solid var(--t8);
 	border-radius: 4px;
+}
+
+button {
+	cursor: pointer;
+}
+
+:focus-visible {
+	outline: 1px solid var(--t5);
+	outline-offset: -1px;
 }
 
 .app {
@@ -37,32 +56,92 @@ textarea {
 .bots {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 8px;
+	min-height: 0;
 	padding: 12px;
 	border-right: 1px solid var(--t8);
-	overflow-y: auto;
 }
 
-.bot {
-	padding: 6px 8px;
-	text-align: left;
+.bots header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	color: var(--t5);
+}
+
+.bots header button {
+	width: 24px;
+	height: 24px;
+	padding: 0;
 	border-color: transparent;
-	cursor: pointer;
+	color: var(--t4);
 }
 
-.bot.selected {
+.bots header button:hover {
 	color: var(--t1);
-	border-color: var(--t7);
+	border-color: var(--t8);
 }
 
 .bots input {
 	width: 100%;
-	padding: 6px 8px;
+	padding: 4px 8px;
+}
+
+.bots .list {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 2px;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.bots .list button {
+	display: flex;
+	gap: 8px;
+	padding: 4px 8px;
+	overflow: hidden;
+	color: var(--t4);
+	text-align: left;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	border-color: transparent;
+}
+
+.bots .list button:hover {
+	color: var(--t2);
+}
+
+.bots .list button[aria-current="true"] {
+	color: var(--t1);
+	border-color: var(--t7);
+}
+
+.mark {
+	flex: none;
+	width: 1ch;
+}
+
+.bots .alert {
+	color: var(--t1);
+	overflow-wrap: anywhere;
+}
+
+.bots footer {
+	color: var(--t6);
+	font-size: 12px;
+}
+
+.welcome {
+	align-self: center;
+	justify-self: center;
+	color: var(--t5);
 }
 
 .conversation {
 	display: flex;
 	flex-direction: column;
+	min-width: 0;
 	min-height: 0;
 }
 
@@ -70,46 +149,151 @@ textarea {
 	display: flex;
 	flex: 1;
 	flex-direction: column-reverse;
-	padding: 16px;
+	padding: 16px 24px;
 	overflow-y: auto;
 }
 
 .line {
-	margin: 0 0 8px;
+	margin-bottom: 12px;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 }
 
 .line.you {
-	color: var(--t1);
+	color: var(--t3);
 }
 
-.line.detail {
-	color: var(--t5);
+.line.quiet {
+	color: var(--t6);
 }
 
 .line.alert {
 	color: var(--t1);
 }
 
+.line.extra,
+.line .extra {
+	color: var(--t6);
+	padding-left: 3ch;
+}
+
+.line:has(+ .line.extra) {
+	margin-bottom: 0;
+}
+
 .who {
 	color: var(--t7);
 }
 
+.reply {
+	color: var(--t1);
+	white-space: normal;
+}
+
+.reply > * {
+	margin: 0 0 8px;
+}
+
+.reply > :last-child,
+.reply li > p {
+	margin: 0;
+}
+
+.reply :is(h1, h2, h3, h4, h5, h6) {
+	font-size: inherit;
+}
+
+.reply :is(ul, ol) {
+	padding-left: 3ch;
+}
+
+.reply li::marker {
+	color: var(--t6);
+}
+
+.reply code {
+	color: var(--raw);
+	font: inherit;
+}
+
+.reply pre {
+	padding: 8px 12px;
+	overflow-x: auto;
+	border: 1px solid var(--t8);
+	border-radius: 4px;
+}
+
+.reply blockquote {
+	margin-left: 0;
+	padding-left: 2ch;
+	color: var(--t4);
+	border-left: 1px solid var(--t8);
+}
+
+.reply table {
+	border-collapse: collapse;
+}
+
+.reply :is(th, td) {
+	padding: 2px 8px;
+	border: 1px solid var(--t8);
+}
+
+.reply a {
+	color: var(--t4);
+}
+
+.reply hr {
+	border: none;
+	border-top: 1px solid var(--t8);
+}
+
+.spinner::before {
+	content: "⠋";
+	animation: spin 1s steps(1) infinite;
+}
+
+@keyframes spin {
+	0% { content: "⠋"; }
+	10% { content: "⠙"; }
+	20% { content: "⠹"; }
+	30% { content: "⠸"; }
+	40% { content: "⠼"; }
+	50% { content: "⠴"; }
+	60% { content: "⠦"; }
+	70% { content: "⠧"; }
+	80% { content: "⠇"; }
+	90% { content: "⠏"; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.spinner::before {
+		animation: none;
+	}
+}
+
 .composer {
 	display: flex;
+	align-items: flex-end;
 	gap: 8px;
-	padding: 12px 16px;
-	border-top: 1px solid var(--t8);
+	padding: 12px 24px 16px;
 }
 
 .composer textarea {
 	flex: 1;
-	padding: 8px;
+	field-sizing: content;
+	min-height: calc(1lh + 18px);
+	max-height: calc(6lh + 18px);
+	padding: 8px 12px;
 	resize: none;
 }
 
+.composer textarea:focus-visible {
+	outline: none;
+	border-color: var(--t7);
+}
+
 .composer button {
+	height: calc(1lh + 18px);
 	padding: 0 12px;
-	cursor: pointer;
 }

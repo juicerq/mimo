@@ -11,7 +11,7 @@ if (!root) {
 
 createRoot(root).render(
 	<StrictMode>
-		<QueryClientProvider client={new QueryClient()}>
+		<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } } })}>
 			<App />
 		</QueryClientProvider>
 	</StrictMode>,

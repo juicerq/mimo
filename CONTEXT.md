@@ -72,7 +72,7 @@ _Dono_: `apps/agent/src/routines/routines.ts`; o disparo, `apps/agent/src/routin
 **Detalhe**:
 Tudo que aparece na conversa e não é a entrega da pessoa nem a resposta do Bot: a tool, o disparo de uma Rotina, a ação de equipe e a troca de Grupo de tools. A pessoa escolhe quanto ver com `Ctrl+O`: `off` esconde, `brief` mostra uma linha por item e `full` acrescenta o conteúdo.
 _Evitar_: Tool view, log, verbosidade
-_Dono_: `apps/mimo/src/transcript.ts` (`DETAIL_LEVELS`, `cycle`)
+_Dono_: `apps/mimo/src/transcript.ts` (`DETAIL_LEVELS`, `cycle`); no desktop, `apps/desktop/src/renderer/transcript.tsx`
 
 **Grupo de tools**:
 Um conjunto de tools que um Bot tem ou não tem: `computer`, `web`, `gmail`, `routines` e `team`. O grupo pode carregar junto um bloco de instruções, e aí desligá-lo também tira esse bloco do contexto do Bot. A pessoa escolhe pelo Painel de tools ou pedindo ao Bot. Um Bot filho nunca recebe `team`.
@@ -92,7 +92,7 @@ _Dono_: `apps/agent/src/computer/worktree.ts` (`addWorktree`, `removeWorktree`)
 **Barra de bots**:
 A coluna da esquerda, sempre visível, com todos os Bots sem pai e a marca do estado de cada um: trabalhando, esperando Aprovação, falhou, parado. Também é por onde se troca de Bot, com `Ctrl+E`. Responde "o que está acontecendo"; a Sidebar da equipe (`Ctrl+T`) responde "o que os filhos deste Bot fazem".
 _Evitar_: sidebar, lista de bots, rail
-_Dono_: `apps/mimo/src/sidebar.ts`; o estado de cada Bot, `apps/agent/src/bot/registry.ts` (`activity`)
+_Dono_: `apps/mimo/src/sidebar.ts`; no desktop, `apps/desktop/src/renderer/bar.tsx`; o estado de cada Bot, `apps/agent/src/bot/registry.ts` (`activity`)
 
 **Regras**:
 Os `AGENTS.md` que entram no prompt de todo Turno de um Bot: o geral, em `~/.agents/AGENTS.md`, e o do projeto, na raiz da Pasta. São os únicos arquivos tratados como instrução da pessoa, e não como dado. Lidos a cada Turno, então editar um vale no Turno seguinte, sem reiniciar. Quando as duas brigam, vale a do projeto, que vem depois.

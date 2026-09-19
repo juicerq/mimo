@@ -1,8 +1,10 @@
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/message-port";
-import type { RouterClient } from "@orpc/server";
+import type { InferRouterOutputs, RouterClient } from "@orpc/server";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import type { Router } from "../main/router";
+
+export type Outputs = InferRouterOutputs<Router>;
 
 const { port1, port2 } = new MessageChannel();
 

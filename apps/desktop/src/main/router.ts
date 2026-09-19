@@ -1,7 +1,8 @@
 import { Bot } from "@agent/bot/bot";
+import { activity } from "@agent/bot/registry";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type BotEvent } from "@agent/bot/types";
-import { EventPublisher, ORPCError, os } from "@orpc/server";
+import { EventPublisher, ORPCError, os, ValidationError } from "@orpc/server";
 import { z } from "zod";
 
 export type ScreenEvent = Exclude<BotEvent, { type: "login" }>;
@@ -12,6 +13,9 @@ const agent = os.use(async ({ next }) => {
 	try {
 		return await next();
 	} catch (error) {
+		if (error instanceof ORPCError && error.cause instanceof ValidationError) {
+			throw new ORPCError("BAD_REQUEST", { message: error.cause.issues[0]?.message ?? error.message, cause: error });
+		}
 		if (error instanceof ORPCError || !(error instanceof Error)) {
 			throw error;
 		}
@@ -58,6 +62,7 @@ async function* watch(bot: Bot, signal?: AbortSignal) {
 export const router = {
 	bots: {
 		list: agent.handler(listBots),
+		activity: agent.handler(activity),
 		create: agent
 			.input(z.object({ name: BotNameSchema }))
 			.handler(async ({ input }) => await createBot({ name: input.name })),

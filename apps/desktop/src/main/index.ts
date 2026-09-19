@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { startRoutines } from "@agent/routines/dispatcher";
 import { loadEnv } from "@agent/storage/home";
 import { RPCHandler } from "@orpc/server/message-port";
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { router } from "./router";
 
 loadEnv();
@@ -20,12 +20,19 @@ function openWindow(): void {
 	const window = new BrowserWindow({
 		width: 1100,
 		height: 720,
+		minWidth: 640,
+		minHeight: 400,
 		title: "mimo",
 		backgroundColor: "#0b0b0c",
 		webPreferences: { preload: join(import.meta.dirname, "../preload/index.cjs") },
 	});
 	window.webContents.on("will-navigate", (event) => event.preventDefault());
-	window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+	window.webContents.setWindowOpenHandler(({ url }) => {
+		if (/^https?:\/\//u.test(url)) {
+			void shell.openExternal(url);
+		}
+		return { action: "deny" };
+	});
 	const devServer = process.env.ELECTRON_RENDERER_URL;
 	if (devServer) {
 		void window.loadURL(devServer);

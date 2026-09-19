@@ -12,12 +12,15 @@ O mimo deixa de ser TUI e vira um app Electron. No fim fica só um: o Electron.
 - O agent fica no processo principal. Gravar a maior conversa real (3,3 MB) custa até 10 ms; se pesar, o mesmo router muda para um `utilityProcess`.
 - A conversa chega num fluxo só: o main começa a escutar o bot, manda o histórico e segue com os eventos ao vivo. O fluxo existe enquanto a tela mostra o bot. Até o passo 4 ele só observa o bot (`observe`) e não conta como tela: um login pedido pelo bot falha na hora com o aviso de abrir o bot na TUI. Esse fluxo alimenta um estado que cresce a cada evento, fora do TanStack Query.
 - A tela é React.
+- A Barra de bots pede o estado de cada bot (`activity`) a cada segundo, como a TUI. A lista de bots só relê o disco quando muda.
+- A resposta do bot vira markdown pelo react-markdown, que não passa HTML cru. Um link abre no navegador.
+- O app lembra o último bot aberto; o texto do composer fica guardado por bot enquanto o app está aberto.
 - O build é electron-vite 5 com Vite 7. O electron-vite 5 não suporta o Vite 8 e, com ele, embute o próprio `electron` no bundle; só o 6, ainda beta, suporta.
 
 ## Ordem
 
 1. **Ponte.** O agent roda no processo principal; a tela abre um bot, entrega mensagens e recebe os eventos pelo IPC. `Bun.serve` em `gmail/connect.ts` e os imports de `.md` deixam de depender do Bun.
-2. **Conversa.** Barra de bots e composer.
+2. **Conversa.** Barra de bots, composer, markdown na resposta e Detalhe.
 3. **Turno.** Aprovação, Fila, parar e as linhas da Equipe.
 4. **Painéis.** Modelo, tools, Pasta, login, apagar e details. Com o login na tela, o fluxo troca `observe` por `subscribe` e passa a contar como tela.
 5. **Troca.** Apagar `apps/mimo` e renomear o repo.
