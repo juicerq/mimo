@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { CheckIcon, CirclePauseIcon, CircleXIcon, ClockIcon, type LucideIcon, SquareIcon, TriangleAlertIcon, UsersIcon, WrenchIcon, XIcon } from "lucide-react";
+import { CheckIcon, CircleXIcon, ClockIcon, type LucideIcon, SquareIcon, TriangleAlertIcon, UsersIcon, WrenchIcon, XIcon } from "lucide-react";
 import { type ComponentProps, Fragment, memo, type ReactNode, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -31,6 +31,7 @@ const NEEDS: Record<Line["kind"], Detail> = {
 	tool: "full",
 };
 const TEAM_VERBS = { created: "Criou", delegated: "Delegou para", stopped: "Parou", deleted: "Apagou" } as const;
+const EMAIL_LABELS: Record<string, string> = { account: "De", to: "Para", cc: "Cópia", subject: "Assunto", draftId: "Rascunho" };
 const DETAIL_CHARACTERS = 600;
 const PLUGINS = [remarkGfm];
 const SCROLL = "flex min-h-0 flex-1 flex-col-reverse overflow-y-auto scrollbar-gutter-both";
@@ -94,7 +95,7 @@ function gist(input: unknown): string {
 	return first.replace(/^https?:\/\//u, "").replaceAll(/\s+/gu, " ");
 }
 
-function Fields({ input, className, whole }: { input: unknown; className?: string; whole?: boolean }) {
+function Fields({ input, className, whole, labels }: { input: unknown; className?: string; whole?: boolean; labels?: Record<string, string> }) {
 	const rows = fields(input, whole);
 	if (rows.length === 0) {
 		return null;
@@ -103,7 +104,7 @@ function Fields({ input, className, whole }: { input: unknown; className?: strin
 		<dl className={cn("grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-0.5 font-mono text-xs leading-relaxed", className)}>
 			{rows.map(([key, value]) => (
 				<Fragment key={key}>
-					<dt className="text-muted-foreground">{key}</dt>
+					<dt className="text-muted-foreground">{labels?.[key] ?? key}</dt>
 					<dd className="whitespace-pre-wrap text-foreground">{value}</dd>
 				</Fragment>
 			))}
@@ -189,36 +190,47 @@ function Approval({ line, name, botId }: { line: Extract<Line, { kind: "approval
 	const { approval, outcome } = line;
 	const [whole, setWhole] = useState(false);
 	const answer = useMutation(orpc.conversation.answer.mutationOptions());
+	const rows = fields(approval.input, whole);
+	const body = rows.find(([key]) => key === "body")?.[1];
+	const head = Object.fromEntries(rows.filter(([key]) => key !== "body"));
 
 	return (
-		<Bubble from="bot" role="group" aria-label="Confirmar envio" className="max-w-[min(85%,72ch)] border border-warning/30 bg-card">
-			<div className="flex items-center gap-2 font-medium">
-				{!outcome && <CirclePauseIcon className="size-4 shrink-0 text-warning" />}
-				<span>
-					<strong>{approval.bot === name ? name : approval.bot}</strong> quer enviar um e-mail
-				</span>
-			</div>
-			<Fields className="my-3" input={approval.input} whole={whole} />
-			{!whole && long(approval.input) && (
-				<Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setWhole(true)}>
-					ver tudo
-				</Button>
-			)}
-			{outcome ? (
-				<p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-					{outcome === "approved" ? <CheckIcon className="size-4 text-success" /> : <XIcon className="size-4 text-destructive" />}
-					<span>Você {outcome === "approved" ? "confirmou o envio" : "cancelou o envio"}</span>
-				</p>
-			) : (
-				<div className="mt-3 flex justify-end gap-2">
-					<Button variant="outline" size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: false })}>
-						Não
+		<Bubble from="bot" role="group" aria-label="Confirmar envio">
+			<p>
+				{approval.bot === name ? (
+					"Posso enviar este e-mail?"
+				) : (
+					<>
+						<strong>{approval.bot}</strong> quer enviar este e-mail. Posso?
+					</>
+				)}
+			</p>
+			<div className="mt-3 border-l-2 border-foreground/20 pl-3">
+				<Fields input={head} whole={whole} labels={EMAIL_LABELS} className="font-sans" />
+				{body && <p className="mt-2 whitespace-pre-wrap">{body}</p>}
+				{!whole && long(approval.input) && (
+					<Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setWhole(true)}>
+						ver tudo
 					</Button>
-					<Button size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: true })}>
-						Enviar
-					</Button>
+				)}
+				<div className="mt-3 flex justify-end">
+					{outcome ? (
+						<span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+							{outcome === "approved" ? <CheckIcon className="size-3.5 text-success" /> : <XIcon className="size-3.5 text-destructive" />}
+							{outcome === "approved" ? "Enviado" : "Cancelado"}
+						</span>
+					) : (
+						<div className="flex gap-2">
+							<Button variant="ghost" size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: false })}>
+								Não
+							</Button>
+							<Button size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: true })}>
+								Enviar
+							</Button>
+						</div>
+					)}
 				</div>
-			)}
+			</div>
 		</Bubble>
 	);
 }
