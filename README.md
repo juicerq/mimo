@@ -26,7 +26,7 @@ O bot trabalha sem perguntar: `bash`, `write` e `edit` rodam direto, e cada aç�
 
 Depois de enviar, a conversa mostra uma linha viva com o que o bot faz: `⠙ thinking · 3s · esc esc to stop` antes da primeira ferramenta e `working` depois dela. A linha some quando o texto da resposta começa a chegar e dá lugar ao streaming. Abrir um bot mostra `loading` no mesmo lugar.
 
-Use `/details` para ver bot, modelo com esforço, contexto, modo, pasta, tools, detalhe e time. O estado do turno não fica ali: fica na conversa. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
+Use `/details` para ver bot, modelo com esforço, contexto, pasta, tools, detalhe e time. O estado do turno não fica ali: fica na conversa. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
 
 Enquanto os filhos trabalham, cada um aparece acima do composer como `team: <nome> · <tempo> · <tool>`, com a ferramenta do momento. A linha some quando o filho entrega o trabalho.
 
