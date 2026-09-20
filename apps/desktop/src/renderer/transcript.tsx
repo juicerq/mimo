@@ -1,12 +1,14 @@
+import { useMutation } from "@tanstack/react-query";
 import { CheckIcon, CirclePauseIcon, CircleXIcon, ClockIcon, type LucideIcon, SquareIcon, TriangleAlertIcon, UsersIcon, WrenchIcon, XIcon } from "lucide-react";
-import { type ComponentProps, Fragment, memo, type ReactNode } from "react";
+import { type ComponentProps, Fragment, memo, type ReactNode, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Button } from "@renderer/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@renderer/components/ui/empty";
-import { Kbd } from "@renderer/components/ui/kbd";
 import { cn } from "cn";
 import { Avatar } from "./avatar";
 import type { Conversation, Line, ToolResult } from "./conversation";
+import { orpc } from "./rpc";
 
 export const DETAIL_LEVELS = ["off", "brief", "full"] as const;
 
@@ -76,11 +78,15 @@ function valueText(value: unknown): string {
 	return JSON.stringify(value) ?? "";
 }
 
-function fields(input: unknown): [string, string][] {
+function fields(input: unknown, whole = false): [string, string][] {
 	if (!input || typeof input !== "object") {
 		return [];
 	}
-	return Object.entries(input).map(([key, value]) => [key, truncate(valueText(value))]);
+	return Object.entries(input).map(([key, value]) => [key, whole ? valueText(value) : truncate(valueText(value))]);
+}
+
+function long(input: unknown): boolean {
+	return fields(input, true).some(([, value]) => value.length > DETAIL_CHARACTERS);
 }
 
 function gist(input: unknown): string {
@@ -88,8 +94,8 @@ function gist(input: unknown): string {
 	return first.replace(/^https?:\/\//u, "").replaceAll(/\s+/gu, " ");
 }
 
-function Fields({ input, className }: { input: unknown; className?: string }) {
-	const rows = fields(input);
+function Fields({ input, className, whole }: { input: unknown; className?: string; whole?: boolean }) {
+	const rows = fields(input, whole);
 	if (rows.length === 0) {
 		return null;
 	}
@@ -98,7 +104,7 @@ function Fields({ input, className }: { input: unknown; className?: string }) {
 			{rows.map(([key, value]) => (
 				<Fragment key={key}>
 					<dt className="text-muted-foreground">{key}</dt>
-					<dd className="text-foreground">{value}</dd>
+					<dd className="whitespace-pre-wrap text-foreground">{value}</dd>
 				</Fragment>
 			))}
 		</dl>
@@ -179,34 +185,39 @@ function Tool({ name, input, result }: { name: string; input: unknown; result?: 
 	);
 }
 
-function Approval({ line, name }: { line: Extract<Line, { kind: "approval" }>; name: string }) {
+function Approval({ line, name, botId }: { line: Extract<Line, { kind: "approval" }>; name: string; botId: string }) {
 	const { approval, outcome } = line;
+	const [whole, setWhole] = useState(false);
+	const answer = useMutation(orpc.conversation.answer.mutationOptions());
 
 	return (
-		<Bubble from="bot" role="group" aria-label="Aprovação">
+		<Bubble from="bot" role="group" aria-label="Confirmar envio" className="max-w-[min(85%,72ch)] border border-warning/30 bg-card">
 			<div className="flex items-center gap-2 font-medium">
 				{!outcome && <CirclePauseIcon className="size-4 shrink-0 text-warning" />}
 				<span>
-					Aprovar <code className="text-xs">{approval.toolName}</code>
-					{approval.bot !== name && (
-						<>
-							{" "}
-							de <strong>{approval.bot}</strong>
-						</>
-					)}
-					?
+					<strong>{approval.bot === name ? name : approval.bot}</strong> quer enviar um e-mail
 				</span>
 			</div>
-			<Fields className="my-3" input={approval.input} />
+			<Fields className="my-3" input={approval.input} whole={whole} />
+			{!whole && long(approval.input) && (
+				<Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setWhole(true)}>
+					ver tudo
+				</Button>
+			)}
 			{outcome ? (
-				<p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+				<p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
 					{outcome === "approved" ? <CheckIcon className="size-4 text-success" /> : <XIcon className="size-4 text-destructive" />}
-					<span>Você {outcome === "approved" ? "aprovou" : "negou"}</span>
+					<span>Você {outcome === "approved" ? "confirmou o envio" : "cancelou o envio"}</span>
 				</p>
 			) : (
-				<p className="text-xs text-muted-foreground">
-					Responda <Kbd className="bg-background">1</Kbd> para aprovar ou <Kbd className="bg-background">2</Kbd> para negar.
-				</p>
+				<div className="mt-3 flex justify-end gap-2">
+					<Button variant="outline" size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: false })}>
+						Não
+					</Button>
+					<Button size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: true })}>
+						Enviar
+					</Button>
+				</div>
 			)}
 		</Bubble>
 	);
@@ -264,7 +275,7 @@ function HappeningView({ line, level }: { line: Happening; level: Detail }) {
 	}
 }
 
-const LineView = memo(function LineView({ line, level, name }: { line: Line; level: Detail; name: string }) {
+const LineView = memo(function LineView({ line, level, name, botId }: { line: Line; level: Detail; name: string; botId: string }) {
 	switch (line.kind) {
 		case "you":
 			return <Bubble from="you">{line.text}</Bubble>;
@@ -282,24 +293,25 @@ const LineView = memo(function LineView({ line, level, name }: { line: Line; lev
 		case "tool":
 			return <Tool name={line.name} input={line.input} result={line.result} />;
 		case "approval":
-			return <Approval line={line} name={name} />;
+			return <Approval line={line} name={name} botId={botId} />;
 		default:
 			return <HappeningView line={line} level={level} />;
 	}
 });
 
-const Lines = memo(function Lines({ lines, level, name }: { lines: Line[]; level: Detail; name: string }) {
-	return lines.map((line, index) => shows(level, needOf(line)) && <LineView key={index} line={line} level={level} name={name} />);
+const Lines = memo(function Lines({ lines, level, name, botId }: { lines: Line[]; level: Detail; name: string; botId: string }) {
+	return lines.map((line, index) => shows(level, needOf(line)) && <LineView key={index} line={line} level={level} name={name} botId={botId} />);
 });
 
 interface TranscriptProps {
 	conversation: Conversation;
 	level: Detail;
 	name: string;
+	botId: string;
 	children: ReactNode;
 }
 
-export function Transcript({ conversation, level, name, children }: TranscriptProps) {
+export function Transcript({ conversation, level, name, botId, children }: TranscriptProps) {
 	const empty = conversation.lines.length === 0 && conversation.turn === "idle" && conversation.queue.length === 0;
 
 	return (
@@ -319,7 +331,7 @@ export function Transcript({ conversation, level, name, children }: TranscriptPr
 			)}
 			{conversation.ready && !empty && (
 				<div className="shrink-0 grow px-6 pt-2 pb-11">
-					<Lines lines={conversation.lines} level={level} name={name} />
+					<Lines lines={conversation.lines} level={level} name={name} botId={botId} />
 					{conversation.streaming && <Reply text={conversation.streaming} />}
 					{conversation.queue.map((item, index) => (
 						<EventLine key={index} head={<span>Na fila: {item}</span>} />

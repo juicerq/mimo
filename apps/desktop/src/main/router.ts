@@ -104,7 +104,13 @@ export const router = {
 			.input(BotInput.extend({ text: z.string().trim().min(1) }))
 			.handler(async ({ input }) => {
 				const bot = await Bot.open(input.botId);
-				await bot.deliver(input.text);
+				await bot.send(input.text);
+			}),
+		answer: agent
+			.input(BotInput.extend({ approved: z.boolean() }))
+			.handler(async ({ input }) => {
+				const bot = await Bot.open(input.botId);
+				bot.resolveApproval(input.approved);
 			}),
 		cancel: agent
 			.input(BotInput)

@@ -28,7 +28,7 @@ function Conversation({ bot, level, input }: ConversationProps) {
 
 	return (
 		<>
-			<Transcript conversation={conversation} level={level} name={bot.name}>
+			<Transcript conversation={conversation} level={level} name={bot.name} botId={bot.id}>
 				{label && <Status botId={bot.id} label={label} />}
 				<Composer
 					botId={bot.id}

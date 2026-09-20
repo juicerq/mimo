@@ -227,6 +227,12 @@ export class Bot {
 		await this.send(text);
 	}
 
+	resolveApproval(approved: boolean): void {
+		if (!this.approvals.resolve(approved)) {
+			throw new Error("Este bot não está esperando confirmação.");
+		}
+	}
+
 	async send(text: string): Promise<void> {
 		await this.push({ text, kind: "user" });
 	}

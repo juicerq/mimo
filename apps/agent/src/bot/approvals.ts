@@ -34,6 +34,10 @@ export class Approvals {
 		if (!approved && !DENY_WORDS.has(word)) {
 			return false;
 		}
+		return this.resolve(approved);
+	}
+
+	resolve(approved: boolean): boolean {
 		const entry = this.pending[0];
 		if (!entry) {
 			return false;
