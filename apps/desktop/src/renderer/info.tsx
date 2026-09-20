@@ -6,7 +6,7 @@ const DOCKED = "mimo:info";
 const OVERLAY = "(width < 60rem)";
 
 export function useInfoPanel() {
-	const [docked, setDocked] = useState(() => localStorage.getItem(DOCKED) !== "closed");
+	const [docked, setDocked] = useState(() => localStorage.getItem(DOCKED) === "open");
 	const [overlay, setOverlay] = useState(() => matchMedia(OVERLAY).matches);
 	const [overlaid, setOverlaid] = useState(false);
 

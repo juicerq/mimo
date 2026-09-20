@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeftIcon, CopyIcon, InfoIcon, MinusIcon, SquareIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, BotIcon, CopyIcon, MinusIcon, SquareIcon, XIcon } from "lucide-react";
 import { IconButton } from "@renderer/components/icon-button";
 import type { Thread } from "./app";
 import { Avatar, STATE_LABELS } from "./avatar";
@@ -68,7 +68,7 @@ export function Head({ bot, thread, onBack, info, onInfo }: HeadProps) {
 			</h2>
 			{bot && (
 				<IconButton label="Sobre o bot" aria-pressed={info} onClick={onInfo}>
-					<InfoIcon />
+					<BotIcon />
 				</IconButton>
 			)}
 			<WindowControls />
