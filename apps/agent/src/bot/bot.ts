@@ -9,7 +9,8 @@ import { recallMemory } from "../memory/memory";
 import { isTeamCall } from "../team/tools";
 import { resolveFolder } from "../computer/folder";
 import { botRules } from "../rules/rules";
-import { botInstructions, botTools, needsApproval } from "../tools";
+import { APPROVAL_TOOLS } from "../gmail/tools";
+import { botInstructions, botTools } from "../tools";
 import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
 import { sealTranscript } from "./seal";
@@ -18,7 +19,7 @@ import { withoutBorrowedReasoning } from "./reasoning";
 import { entryEvent, entryMessage, lastMessage, replayMessage, resultEvent, summaryStart, toolErrorText, toolResultText, usageEvent, type Entry, type LastMessage } from "./events";
 import { deleteBot, openOnce, runningBot } from "./registry";
 import { readBot, readTranscript, writeBot, writeTranscript, type BotPatch } from "./store";
-import type { Approval, BotEvent, BotInfo, BotMode, Delegation, TeamMember, ToolGroup } from "./types";
+import type { Approval, BotEvent, BotInfo, Delegation, TeamMember, ToolGroup } from "./types";
 
 interface Work {
 	task: string;
@@ -84,10 +85,6 @@ export class Bot {
 		return this.record.id;
 	}
 
-	get mode(): BotMode {
-		return this.host?.mode ?? this.record.mode;
-	}
-
 	private get log(): AgentMessage[] {
 		return [...this.archive, ...this.agent.state.messages];
 	}
@@ -148,11 +145,6 @@ export class Bot {
 		const session = new LoginSession(target);
 		screen.emit({ type: "login", target, session });
 		return session;
-	}
-
-	async setMode(mode: BotMode): Promise<void> {
-		await this.save({ mode });
-		this.emit({ type: "mode", mode });
 	}
 
 	async setTools(tools: ToolGroup[]): Promise<BotInfo> {
@@ -383,7 +375,7 @@ export class Bot {
 	}
 
 	private async approve(toolCallId: string, toolName: string, args: unknown, signal?: AbortSignal) {
-		if (!needsApproval(this, toolName, args)) {
+		if (!APPROVAL_TOOLS.has(toolName)) {
 			return;
 		}
 		const approved = await this.commander().approvals.ask({ id: toolCallId, bot: this.record.name, toolName, input: args }, signal);

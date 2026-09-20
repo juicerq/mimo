@@ -1,14 +1,12 @@
 import { z } from "zod";
 import { dataPath } from "../storage/home";
 import { appendJsonLine, readTextFile } from "../storage/files";
-import type { BotMode } from "../bot/types";
 
 const ACTIONS_PATH = dataPath("actions.jsonl");
 
 const actionSchema = z.object({
 	at: z.string(),
 	kind: z.enum(["send_email", "send_draft", "delete_routine", "delete_bot"]),
-	mode: z.enum(["normal", "autonomous"]),
 	botId: z.string(),
 	account: z.string().nullable(),
 	summary: z.string(),
@@ -21,7 +19,6 @@ export type ActionRecord = z.infer<typeof actionSchema>;
 
 export interface ActionInput {
 	kind: ActionRecord["kind"];
-	mode: BotMode;
 	botId: string;
 	account?: string;
 	summary: string;
@@ -32,7 +29,6 @@ async function write(input: ActionInput, result: ActionRecord["result"], error: 
 	await appendJsonLine(ACTIONS_PATH, {
 		at: new Date().toISOString(),
 		kind: input.kind,
-		mode: input.mode,
 		botId: input.botId,
 		account: input.account ?? null,
 		summary: input.summary,

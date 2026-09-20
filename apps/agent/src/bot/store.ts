@@ -6,7 +6,7 @@ import { initialModel, selectModel } from "../model/catalog";
 import { ModelSelectionSchema, type ModelInfo } from "../model/types";
 import { dataPath } from "../storage/home";
 import { readJsonFile, writeTextFile } from "../storage/files";
-import { BotModeSchema, BotNameSchema, BotPromptSchema, CHILD_GROUPS, TOOL_GROUPS, MessageSchema, ToolGroupSchema, type BotInfo, type ToolGroup } from "./types";
+import { BotNameSchema, BotPromptSchema, CHILD_GROUPS, TOOL_GROUPS, MessageSchema, ToolGroupSchema, type BotInfo, type ToolGroup } from "./types";
 
 const VERSION = 1;
 const LEGACY_PROVIDERS: Record<string, string> = { "openai-oauth": "openai-codex" };
@@ -17,7 +17,6 @@ const StoredBotSchema = z.object({
 	id: z.uuid(),
 	name: BotNameSchema,
 	createdAt: z.iso.datetime(),
-	mode: BotModeSchema.default("autonomous"),
 	model: z.looseObject({ provider: z.string(), id: z.string(), reasoning: z.string() }).optional(),
 	tools: z.array(ToolGroupSchema).default([...TOOL_GROUPS]),
 	parentId: z.uuid().optional(),
@@ -113,7 +112,6 @@ export async function createBot(draft: BotDraft): Promise<BotInfo> {
 		...draft,
 		id: randomUUID(),
 		createdAt: new Date().toISOString(),
-		mode: "autonomous",
 		model: model ?? initialModel(),
 		tools: draft.tools ?? defaultTools(draft.parentId),
 	};

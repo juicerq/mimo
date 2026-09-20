@@ -77,7 +77,6 @@ export async function deleteBot(id: string, origin: DeleteOrigin, discard = fals
 	if (record) {
 		await recordAction({
 			kind: "delete_bot",
-			mode: record.mode,
 			botId: record.parentId ?? id,
 			summary: record.name,
 			detail: { origin, bot: id },

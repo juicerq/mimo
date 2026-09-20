@@ -90,7 +90,6 @@ const EDITS: Edits = {
 	approval: adds((event) => ({ kind: "approval", approval: event.approval })),
 	"approval-resolved": (lines, event) => resolveApproval(lines, event.outcome),
 	usage: unchanged,
-	mode: unchanged,
 	tools: adds((event) => ({ kind: "tools", tools: event.tools })),
 	"turn-started": unchanged,
 	"turn-finished": unchanged,

@@ -51,14 +51,13 @@ export function routineTools(context: ToolContext) {
 		}),
 		tool({
 			name: "delete_routine",
-			description: "Apaga uma rotina. No modo normal, a chamada espera aprovação no terminal.",
+			description: "Apaga uma rotina.",
 			input: z.object({
 				routine: RoutineNameSchema.describe("O nome da rotina."),
 			}),
 			async execute({ routine }) {
 				const base = {
 					kind: "delete_routine" as const,
-					mode: context.mode,
 					botId: context.botId,
 					summary: `rotina ${routine}`,
 					detail: { routine },

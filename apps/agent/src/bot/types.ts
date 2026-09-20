@@ -17,7 +17,6 @@ export const MessageSchema = z.custom<AgentMessage>(isMessage, "Esta mensagem n√
 const NAME_RULE = "Use um nome de 1 a 80 caracteres vis√≠veis.";
 
 export const BotNameSchema = z.string().trim().min(1, NAME_RULE).max(80, NAME_RULE).regex(/^[^\p{Cc}\p{Cf}]+$/u, NAME_RULE);
-export const BotModeSchema = z.enum(["normal", "autonomous"]);
 export const BotPromptSchema = z.string().trim().min(1).max(4_000);
 export const ToolGroupSchema = z.enum(["computer", "web", "gmail", "routines", "team"]);
 export const ChildGroupSchema = ToolGroupSchema.exclude(["team"]);
@@ -25,7 +24,6 @@ export const ChildGroupSchema = ToolGroupSchema.exclude(["team"]);
 export const TOOL_GROUPS = ToolGroupSchema.options;
 export const CHILD_GROUPS = ChildGroupSchema.options;
 
-export type BotMode = z.infer<typeof BotModeSchema>;
 export type ToolGroup = z.infer<typeof ToolGroupSchema>;
 
 export interface BotInfo {
@@ -33,7 +31,6 @@ export interface BotInfo {
 	name: string;
 	createdAt: string;
 	model: ModelInfo;
-	mode: BotMode;
 	tools: ToolGroup[];
 	parentId?: string;
 	prompt?: string;
@@ -88,7 +85,6 @@ export type BotEvent =
 	| { type: "login"; target: LoginTarget; session: LoginSession }
 	| { type: "approval-resolved"; outcome: "approved" | "denied" }
 	| { type: "usage"; contextTokens: number }
-	| { type: "mode"; mode: BotMode }
 	| { type: "tools"; tools: readonly ToolGroup[] }
 	| { type: "turn-started" }
 	| { type: "turn-finished" }

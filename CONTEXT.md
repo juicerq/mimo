@@ -99,28 +99,18 @@ Os `AGENTS.md` que entram no prompt de todo Turno de um Bot: o geral, em `~/.age
 _Evitar_: Configuração, perfil, memória
 _Dono_: `apps/agent/src/rules/rules.ts` (`botRules`); no prompt, `apps/agent/src/bot/bot.ts` (`systemPrompt`)
 
-**Modo normal**:
-O Bot executa o trabalho e pede Aprovação para as ações que a exigem, como enviar e-mails, apagar Rotinas e mexer no computador. A pessoa escolhe este modo pedindo ao Bot; nenhum Bot nasce nele.
-_Evitar_: Padrão, cauteloso
-_Dono_: quem decide, `apps/agent/src/tools/index.ts` (`needsApproval`); o estado, `apps/agent/src/bot/bot.ts` (`setMode`)
-
-**Modo autônomo**:
-O modo em que todo Bot nasce: as ações acontecem sem Aprovação e a pessoa revisa o registro de ações depois. Voltar ao Modo normal não pede Aprovação; sair dele pede.
-_Evitar_: Automático, férias
-_Dono_: o padrão, `apps/agent/src/bot/store.ts` (`createBot`); a troca, `apps/agent/src/tools/index.ts` (`set_mode`)
-
 **Memória**:
 Fatos, preferências e decisões duráveis que um Bot guarda para os próximos turnos, inclusive depois de uma compactação. Pertence ao Bot e não é compartilhada automaticamente com outros Bots.
 _Evitar_: Contexto, histórico
 _Dono_: `apps/agent/src/memory/memory.ts`
 
 **Aprovação**:
-A confirmação da pessoa no terminal antes de uma ação que a exige.
-_Evitar_: Permissão, consentimento
-_Dono_: `apps/agent/src/bot/approvals.ts` (a fila de pendentes); quem decide se pede, `apps/agent/src/bot/bot.ts` (`approve`); na tela, `apps/mimo/src/view.ts`; no desktop, `apps/desktop/src/renderer/transcript.tsx`
+A confirmação da pessoa antes de enviar um e-mail. É o único freio do app: o resto das ações acontece direto e fica no registro de ações. O Turno para até a pessoa responder; ela não perde o pedido ao trocar de Bot, porque ele volta à tela quando o Bot reabre.
+_Evitar_: Permissão, consentimento, modo
+_Dono_: quais tools pedem, `apps/agent/src/gmail/tools.ts` (`APPROVAL_TOOLS`); a fila de pendentes, `apps/agent/src/bot/approvals.ts`; quem pergunta, `apps/agent/src/bot/bot.ts` (`approve`); na tela, `apps/mimo/src/view.ts`; no desktop, `apps/desktop/src/renderer/transcript.tsx`
 
 **Rascunho**:
-Uma resposta escrita pelo Bot que só vira e-mail enviado por ação da pessoa ou no Modo autônomo.
+Uma resposta escrita pelo Bot que só vira e-mail enviado depois da Aprovação da pessoa.
 _Evitar_: Minuta
 _Dono_: `apps/agent/src/gmail/tools.ts`
 

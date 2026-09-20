@@ -14,13 +14,13 @@ Crie um bot com `/new <nome>`. Use `/bots` para ver a lista e digite o número p
 
 Use `/model` dentro da conversa para escolher o provedor, o modelo e o esforço pelo número. `Ctrl+P` abre o mesmo painel preservando o rascunho. `/effort` pula direto para o esforço do modelo atual. A conversa continua recebendo respostas enquanto o painel está aberto. Antes de confirmar a escolha, `/cancel` ou `Esc` volta à conversa sem alterar o modelo. A configuração pertence ao bot e permanece salva ao reiniciar.
 
-Use `/tools` para escolher os grupos de tools do bot. O painel lista `computer`, `web`, `gmail`, `routines` e `team` com `[x]` ou `[ ]`; o número liga e desliga um grupo na hora. Um grupo desligado tira as tools e também o bloco de instruções dele do contexto, então um bot de e-mail não carrega as regras do computador nem da equipe. Hora, memória, histórico e registro de ações ficam sempre disponíveis. A conversa também resolve: peça "desligue o gmail" e o bot chama `set_tools`. Ligar um grupo pede aprovação no modo normal; desligar não pede. A escolha aparece na conversa como `tools: <grupos>` e permanece salva.
+Use `/tools` para escolher os grupos de tools do bot. O painel lista `computer`, `web`, `gmail`, `routines` e `team` com `[x]` ou `[ ]`; o número liga e desliga um grupo na hora. Um grupo desligado tira as tools e também o bloco de instruções dele do contexto, então um bot de e-mail não carrega as regras do computador nem da equipe. Hora, memória, histórico e registro de ações ficam sempre disponíveis. A conversa também resolve: peça "desligue o gmail" e o bot chama `set_tools`. A escolha aparece na conversa como `tools: <grupos>` e permanece salva.
 
 Use `/folder` para dar uma pasta ao bot — o projeto dele. Digite o caminho inteiro; `~` vale e `-` tira a pasta. A partir daí `bash`, `read`, `write` e `edit` rodam de lá, e o bot sabe disso pelas instruções do grupo `computer`. O nome da pasta aparece no `/details`. Sem pasta, as tools rodam do seu `$HOME`, como antes. Um bot filho nasce com a pasta do pai. A pasta precisa existir na hora de salvar; se ela sumir depois, o `bash` falha apontando para ela.
 
 Um bot lê dois `AGENTS.md`: o geral, em `~/.agents/AGENTS.md`, que vale para todo bot, e o do projeto, na raiz da pasta. São lidos a cada turno, então editar um vale já no turno seguinte, sem reiniciar. São os únicos arquivos que o bot trata como instrução sua; o resto continua sendo dado. Quando os dois brigam, vale o do projeto. Só `AGENTS.md`, sem `CLAUDE.md` nem `README.md` — um symlink resolve, e o mimo segue symlink. Não há teto no tamanho: quem regula é a compactação, que desconta o prompt de sistema antes de decidir quanto da conversa guardar, e avisa na conversa quando as instruções permanentes passam de metade da janela.
 
-Um bot nasce no **modo autônomo**: `bash`, `write`, `edit` e os envios de e-mail acontecem sem perguntar, e cada ação fica registrada em `actions.jsonl` — `list_actions` lê de volta. Peça "entre no modo normal" e ele passa a esperar aprovação no terminal para essas ações. O `/details` mostra o modo do bot aberto, e a escolha permanece salva.
+O bot trabalha sem perguntar: `bash`, `write` e `edit` rodam direto, e cada ação fica registrada em `actions.jsonl` — `list_actions` lê de volta. A única exceção é enviar e-mail, que sempre para para você confirmar. Não há modo a escolher.
 
 `Ctrl+O` alterna quanto detalhe a conversa mostra. Detalhe é tudo que não é sua mensagem nem a resposta do bot: a ferramenta, o disparo de uma rotina, a ação de equipe e a troca de grupos de tools. `brief` mostra uma linha por item, como `⚙ list_unread` ou `routine: check_emails started` (padrão); `full` acrescenta o detalhe cortado em 600 caracteres, como a entrada da ferramenta e o prompt da rotina; `off` esconde todos eles. A conversa é redesenhada inteira, então os turnos antigos acompanham.
 
@@ -121,11 +121,11 @@ As tools que mexem na equipe não aparecem como `⚙ delegate`: viram uma linha 
 
 Quando o filho termina, a resposta dele chega sozinha como um aviso na conversa, `▌ O filho <nome> terminou e respondeu:`, e o pai fala em seguida. Se o pai estiver no meio de um turno, o aviso espera o fim dele. `check_team` diz o que cada filho faz agora e `stop_bot` para um filho que saiu do rumo.
 
-O filho não tem tela. Quando uma ação dele precisa de aprovação, ela sobe para quem o comanda e aparece com o nome dele: `⏸ approval: bash · mate`. Pedidos em fila aparecem um de cada vez. O modo do filho é o do pai; ele não muda de modo sozinho. Dois `Esc` param a resposta do pai; o filho continua o trabalho dele, e para com `stop_bot`.
+O filho não tem tela. Quando ele quer enviar um e-mail, o pedido sobe para quem o comanda e aparece com o nome dele: `⏸ approval: send_email · mate`. Pedidos em fila aparecem um de cada vez. Dois `Esc` param a resposta do pai; o filho continua o trabalho dele, e para com `stop_bot`.
 
 ## Gmail
 
-Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão de uma conta pelo próprio bot: o link aparece no terminal e a pessoa autoriza no navegador. A tool `disconnect_gmail` apaga a conta guardada e revoga o acesso no Google; no modo normal ela espera aprovação. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria rascunhos, `send_draft` envia um rascunho e `send_email` inicia um e-mail novo; no modo normal, ambos esperam aprovação. Cada conta conectada guarda o refresh token em `~/.mimo/gmail/accounts.json`; o client id e o client secret ficam em `~/.mimo/.env`.
+Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão de uma conta pelo próprio bot: o link aparece no terminal e a pessoa autoriza no navegador. A tool `disconnect_gmail` apaga a conta guardada e revoga o acesso no Google. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria rascunhos, `send_draft` envia um rascunho e `send_email` inicia um e-mail novo. `send_draft` e `send_email` sempre esperam a sua confirmação; o resto acontece direto. Cada conta conectada guarda o refresh token em `~/.mimo/gmail/accounts.json`; o client id e o client secret ficam em `~/.mimo/.env`.
 
 1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto e ative a Gmail API.
 2. Configure a tela de consentimento OAuth (tipo External, com você como usuário de teste).
@@ -140,7 +140,7 @@ Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dia
 
 O bot alcança a máquina pelas tools do próprio Pi: `bash` roda um comando, `read` lê um arquivo (texto ou imagem, com `offset` e `limit`), `write` grava o arquivo inteiro e `edit` troca trechos e mostra o diff. O Pi corta a saída longa e guarda o resto num arquivo temporário.
 
-As tools partem da pasta do bot, ou da pasta pessoal quando ele não tem uma; caminhos absolutos valem. Não há pasta proibida: o bot alcança o que o seu usuário alcança. No modo normal, `bash`, `write` e `edit` esperam aprovação no terminal; no modo autônomo, rodam direto.
+As tools partem da pasta do bot, ou da pasta pessoal quando ele não tem uma; caminhos absolutos valem. Não há pasta proibida: o bot alcança o que o seu usuário alcança. `bash`, `write` e `edit` rodam direto, sem pedir aprovação.
 
 ## Busca na web
 

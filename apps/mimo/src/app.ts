@@ -385,7 +385,6 @@ export class MimoApp {
 		return {
 			name: info?.name ?? null,
 			model: info?.model ?? null,
-			mode: info?.mode ?? null,
 			folder: info?.folder ?? null,
 			tools: info?.tools ?? [],
 			detail: this.transcript.level,

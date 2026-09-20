@@ -5,6 +5,8 @@ import { tool } from "../tools/tool";
 import { accountField, disconnectAccount, listAccounts, resolveAccount } from "./accounts";
 import { createDraft, listUnread, readThread, sendDraft, sendEmail } from "./api";
 
+export const APPROVAL_TOOLS = new Set(["send_email", "send_draft"]);
+
 async function recordOrWarn(action: ActionInput): Promise<{ warning?: string }> {
 	return await recordAction(action).then(
 		() => ({}),
@@ -38,7 +40,7 @@ export function gmailTools(context: ToolContext) {
 		tool({
 			name: "disconnect_gmail",
 			description:
-				"Desconecta uma conta do Gmail: apaga a conta guardada e revoga o acesso no Google. No modo normal, a chamada espera aprovação no terminal.",
+				"Desconecta uma conta do Gmail: apaga a conta guardada e revoga o acesso no Google.",
 			input: z.object({ account: accountField }),
 			async execute({ account }) {
 				return await disconnectAccount(account);
@@ -86,7 +88,7 @@ export function gmailTools(context: ToolContext) {
 		}),
 		tool({
 			name: "send_draft",
-			description: "Envia um rascunho existente do Gmail. No modo normal, a chamada espera aprovação no terminal.",
+			description: "Envia um rascunho existente do Gmail. A pessoa confirma o envio antes de sair.",
 			input: z.object({
 				account: accountField,
 				draftId: z.string().min(1).describe("O id do rascunho, como veio de create_draft."),
@@ -95,7 +97,6 @@ export function gmailTools(context: ToolContext) {
 				const resolved = await resolveAccount(account);
 				const base = {
 					kind: "send_draft" as const,
-					mode: context.mode,
 					botId: context.botId,
 					account: resolved.email,
 				};
@@ -117,7 +118,7 @@ export function gmailTools(context: ToolContext) {
 		tool({
 			name: "send_email",
 			description:
-				"Envia um e-mail novo. No modo normal, a chamada espera aprovação no terminal; no modo autônomo, envia sem perguntar e registra a ação.",
+				"Envia um e-mail novo. A pessoa confirma o envio antes de sair, e a ação fica registrada.",
 			input: z.object({
 				account: accountField,
 				to: z.string().min(1).describe("Destinatários separados por vírgula."),
@@ -129,7 +130,6 @@ export function gmailTools(context: ToolContext) {
 				const resolved = await resolveAccount(account);
 				const base = {
 					kind: "send_email" as const,
-					mode: context.mode,
 					botId: context.botId,
 					account: resolved.email,
 					summary: `para ${email.to}: ${email.subject}`,

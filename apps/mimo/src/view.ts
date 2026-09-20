@@ -125,10 +125,9 @@ export class View {
 		}
 	}
 
-	private showTurnEvent(event: Extract<BotEvent, { type: "usage" | "mode" | `turn-${string}` }>): void {
+	private showTurnEvent(event: Extract<BotEvent, { type: "usage" | `turn-${string}` }>): void {
 		switch (event.type) {
 			case "usage":
-			case "mode":
 				return;
 			case "turn-started":
 				this.lastFailure = null;
