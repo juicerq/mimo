@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { dropLegacyChildren } from "@agent/bot/registry";
 import { startRoutines } from "@agent/routines/dispatcher";
 import { loadEnv } from "@agent/storage/home";
 import { RPCHandler } from "@orpc/server/message-port";
@@ -53,6 +54,6 @@ function openWindow(): void {
 app.on("window-all-closed", () => app.quit());
 
 app.on("ready", () => {
-	startRoutines();
+	void dropLegacyChildren().then(startRoutines);
 	openWindow();
 });

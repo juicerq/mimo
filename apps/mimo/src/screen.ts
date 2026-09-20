@@ -1,4 +1,4 @@
-import type { Bot } from "@agent/bot/bot";
+import type { Chat } from "@agent/bot/chat";
 import type { BotEvent, BotInfo } from "@agent/bot/types";
 
 const LIST_PLACEHOLDER = "number or /new <name>";
@@ -7,7 +7,7 @@ const CONVERSATION_PLACEHOLDER = "write your prompt";
 export class Screen {
 	private record: BotInfo | null = null;
 	private listed: readonly BotInfo[] = [];
-	private live: Bot | null = null;
+	private live: Chat | null = null;
 	private unsubscribe: (() => void) | null = null;
 	private lifetime = new AbortController();
 
@@ -23,7 +23,7 @@ export class Screen {
 		return this.listed;
 	}
 
-	get conversation(): Bot | null {
+	get conversation(): Chat | null {
 		return this.live;
 	}
 
@@ -53,7 +53,7 @@ export class Screen {
 		this.listed = bots;
 	}
 
-	connect(conversation: Bot, onEvent: (event: BotEvent) => void): void {
+	connect(conversation: Chat, onEvent: (event: BotEvent) => void): void {
 		const signal = this.lifetime.signal;
 		this.unsubscribe?.();
 		this.live = conversation;
@@ -64,7 +64,7 @@ export class Screen {
 		});
 	}
 
-	require(): Bot {
+	require(): Chat {
 		if (!this.live) {
 			throw new Error("Open a bot first.");
 		}

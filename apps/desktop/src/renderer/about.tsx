@@ -16,6 +16,7 @@ import {
 	ComboboxTrigger,
 } from "@renderer/components/ui/combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@renderer/components/ui/select";
+import { Textarea } from "@renderer/components/ui/textarea";
 import { orpc, rpc } from "./rpc";
 
 const REASONING_NAMES: Record<Reasoning, string> = {
@@ -187,6 +188,36 @@ function Brain({ model, catalog, loading, onChange }: BrainProps) {
 	);
 }
 
+interface InstructionProps {
+	botId: string;
+	prompt: string;
+	onSave: (record: BotInfo) => void;
+}
+
+function Instruction({ botId, prompt, onSave }: InstructionProps) {
+	const instruct = useMutation(orpc.bot.instruct.mutationOptions({ onSuccess: onSave }));
+
+	return (
+		<Field label="Instrução">
+			<Textarea
+				aria-label="Instrução"
+				defaultValue={prompt}
+				maxLength={4_000}
+				spellCheck={false}
+				placeholder="O que ele faz e como ele responde. Os outros bots leem a primeira linha."
+				className="max-h-64 min-h-24 text-sm"
+				onBlur={(event) => {
+					const next = event.target.value.trim();
+					if (next !== prompt) {
+						instruct.mutate({ botId, prompt: next });
+					}
+				}}
+			/>
+			{instruct.error && <p className="mt-1.5 text-xs text-destructive wrap-anywhere">{instruct.error.message}</p>}
+		</Field>
+	);
+}
+
 export function About({ botId }: { botId: string }) {
 	const queryClient = useQueryClient();
 	const info = useQuery(orpc.bot.info.queryOptions({ input: { botId } }));
@@ -205,6 +236,7 @@ export function About({ botId }: { botId: string }) {
 
 	return (
 		<>
+			<Instruction key={botId} botId={botId} prompt={bot.prompt ?? ""} onSave={apply} />
 			<Brain
 				model={bot.model}
 				catalog={catalog.data}

@@ -1,9 +1,9 @@
-import { Bot } from "@agent/bot/bot";
+import { Chat } from "@agent/bot/chat";
 import { lastMessage } from "@agent/bot/events";
-import { activity, runningBot } from "@agent/bot/registry";
+import { activity, deleteBot, mainChat, updateBot } from "@agent/bot/registry";
 import { createBot, listBots, readBot, readTranscript } from "@agent/bot/store";
-import { BotNameSchema, type BotEvent } from "@agent/bot/types";
-import { listModels } from "@agent/model/catalog";
+import { BotNameSchema, BotPromptSchema, type BotEvent } from "@agent/bot/types";
+import { listModels, selectModel } from "@agent/model/catalog";
 import { PROVIDER_NAMES, ModelSelectionSchema } from "@agent/model/types";
 import { EventPublisher, ORPCError, os, ValidationError } from "@orpc/server";
 import type { BrowserWindow } from "electron";
@@ -12,6 +12,7 @@ import { z } from "zod";
 export type ScreenEvent = Exclude<BotEvent, { type: "login" }>;
 
 const BotInput = z.object({ botId: z.uuid() });
+const ChatInput = BotInput.extend({ askedBy: z.uuid().optional() });
 
 const base = os.$context<{ window: BrowserWindow }>();
 
@@ -33,16 +34,16 @@ function onScreen(event: BotEvent): event is ScreenEvent {
 	return event.type !== "login";
 }
 
-function replay(bot: Bot): BotEvent[] {
-	const events: BotEvent[] = [...bot.transcript(), { type: "queue", items: bot.queue }];
-	if (bot.busy) {
+function replay(chat: Chat): BotEvent[] {
+	const events: BotEvent[] = [...chat.transcript(), { type: "queue", items: chat.queue }];
+	if (chat.busy) {
 		events.push({ type: "turn-started" });
 	}
-	if (bot.approval) {
-		events.push({ type: "approval", approval: bot.approval });
+	if (chat.approval) {
+		events.push({ type: "approval", approval: chat.approval });
 	}
-	if (bot.failed) {
-		events.push({ type: "turn-failed", message: bot.failed });
+	if (chat.failed) {
+		events.push({ type: "turn-failed", message: chat.failed });
 	}
 	return events;
 }
@@ -50,7 +51,7 @@ function replay(bot: Bot): BotEvent[] {
 async function listedBots() {
 	return await Promise.all((await listBots()).map(async (bot) => ({
 		...bot,
-		last: runningBot(bot.id)?.lastMessage ?? lastMessage(await readTranscript(bot.id).catch(() => [])),
+		last: mainChat(bot.id)?.lastMessage ?? lastMessage(await readTranscript({ botId: bot.id }).catch(() => [])),
 	})));
 }
 
@@ -72,16 +73,16 @@ async function* maximized(window: BrowserWindow, signal?: AbortSignal) {
 	}
 }
 
-async function* watch(bot: Bot, signal?: AbortSignal) {
+async function* watch(chat: Chat, signal?: AbortSignal) {
 	const publisher = new EventPublisher<{ event: ScreenEvent }>({ maxBufferedEvents: Number.POSITIVE_INFINITY });
 	const live = publisher.subscribe("event", { ...signal && { signal } });
-	const unsubscribe = bot.observe((event) => {
+	const unsubscribe = chat.observe((event) => {
 		if (onScreen(event)) {
 			publisher.publish("event", event);
 		}
 	});
 	try {
-		yield replay(bot).filter(onScreen);
+		yield replay(chat).filter(onScreen);
 		for await (const event of live) {
 			yield [event];
 		}
@@ -97,6 +98,9 @@ export const router = {
 		create: agent
 			.input(z.object({ name: BotNameSchema }))
 			.handler(async ({ input }) => await createBot({ name: input.name })),
+		delete: agent
+			.input(BotInput)
+			.handler(async ({ input }) => await deleteBot(input.botId)),
 	},
 	bot: {
 		info: agent
@@ -105,32 +109,32 @@ export const router = {
 		models: agent.handler(async () => ({ ...(await listModels()), providerNames: PROVIDER_NAMES })),
 		selectModel: agent
 			.input(BotInput.extend({ model: ModelSelectionSchema }))
-			.handler(async ({ input }) => {
-				const bot = await Bot.open(input.botId);
-				return await bot.selectModel(input.model);
-			}),
+			.handler(async ({ input }) => await updateBot(input.botId, { model: selectModel(input.model) })),
+		instruct: agent
+			.input(BotInput.extend({ prompt: BotPromptSchema.or(z.literal("")) }))
+			.handler(async ({ input }) => await updateBot(input.botId, { prompt: input.prompt || undefined })),
 	},
 	conversation: {
 		watch: agent
-			.input(BotInput)
-			.handler(async ({ input, signal }) => watch(await Bot.open(input.botId), signal)),
+			.input(ChatInput)
+			.handler(async ({ input, signal }) => watch(await Chat.open(input), signal)),
 		send: agent
 			.input(BotInput.extend({ text: z.string().trim().min(1) }))
 			.handler(async ({ input }) => {
-				const bot = await Bot.open(input.botId);
-				await bot.send(input.text);
+				const chat = await Chat.open(input);
+				await chat.send(input.text);
 			}),
 		answer: agent
 			.input(BotInput.extend({ id: z.string().min(1), approved: z.boolean() }))
 			.handler(async ({ input }) => {
-				const bot = await Bot.open(input.botId);
-				bot.resolveApproval(input.id, input.approved);
+				const chat = await Chat.open(input);
+				chat.resolveApproval(input.id, input.approved);
 			}),
 		cancel: agent
 			.input(BotInput)
 			.handler(async ({ input }) => {
-				const bot = await Bot.open(input.botId);
-				bot.cancel();
+				const chat = await Chat.open(input);
+				chat.cancel();
 			}),
 	},
 	window: {

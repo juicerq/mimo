@@ -19,7 +19,7 @@ function clock(seconds: number): string {
 	return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-export const Status = memo(function Status({ botId, label }: { botId: string; label: string }) {
+export const Status = memo(function Status({ botId, label }: { botId: string | null; label: string }) {
 	const [startedAt] = useState(() => Date.now());
 	const [now, setNow] = useState(startedAt);
 	const cancel = useMutation(orpc.conversation.cancel.mutationOptions());
@@ -34,9 +34,11 @@ export const Status = memo(function Status({ botId, label }: { botId: string; la
 			<Spinner className="text-info" aria-hidden />
 			<span className="min-w-0 flex-1 truncate text-foreground">{label}</span>
 			<span className="shrink-0 tabular-nums">{clock(Math.floor((now - startedAt) / 1000))}</span>
-			<IconButton label="Parar o Turno e descartar a Fila" side="top" onClick={() => cancel.mutate({ botId })}>
-				<SquareIcon className="fill-current" />
-			</IconButton>
+			{botId && (
+				<IconButton label="Parar o Turno e descartar a Fila" side="top" onClick={() => cancel.mutate({ botId })}>
+					<SquareIcon className="fill-current" />
+				</IconButton>
+			)}
 		</div>
 	);
 });

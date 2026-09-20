@@ -19,13 +19,13 @@ O mimo deixa de ser TUI e vira um app Electron. No fim fica só um: o Electron.
 - O estilo é Tailwind v4 com os componentes do shadcn (estilo `base-nova`, sobre o Base UI). Cores, raios e utilitários do app ficam em `styles.css`; a tela usa esses tokens e nunca uma cor solta. `components/ui` é do shadcn: entra e atualiza pela CLI (`bunx shadcn add`), fora do lint e dos exports do knip. As classes se juntam com `cn` e os ícones são do lucide.
 - A janela não tem moldura: minimizar, maximizar e fechar ficam no topo, à direita do ⓘ, e passam pelo router, que recebe a janela no contexto. No Wayland o app desliga a composição pela GPU: com NVIDIA, a janela sem moldura para de desenhar depois de maximizar.
 - A última mensagem de cada bot vem do agent (`lastMessage`): do bot aberto, pela memória; dos outros, pelo disco. A Barra ordena pela hora dela.
-- O Aviso de um Bot filho aparece com o texto do agent, em inglês (`finished`, `failed`), até o passo 3.
+- Não há Bot filho. Todo bot é igual e pergunta a outro pelo nome (`ask_bot`). Cada par ganha uma conversa à parte, uma por direção, que a pessoa abre pela linha do meio e só lê. Por padrão a pergunta não segura o turno: a resposta chega depois e começa um turno novo.
 - O build é electron-vite 5 com Vite 7. O electron-vite 5 não suporta o Vite 8 e, com ele, embute o próprio `electron` no bundle; só o 6, ainda beta, suporta.
 
 ## Ordem
 
 1. **Ponte.** O agent roda no processo principal; a tela abre um bot, entrega mensagens e recebe os eventos pelo IPC. `Bun.serve` em `gmail/connect.ts` e os imports de `.md` deixam de depender do Bun.
 2. **Conversa.** Barra de bots, composer, markdown na resposta e Detalhe.
-3. **Turno.** Aprovação, Fila, parar e as linhas da Equipe.
-4. **Painéis.** Modelo, login, apagar e details. Com o login na tela, o fluxo troca `observe` por `subscribe` e passa a contar como tela.
+3. **Turno.** Aprovação, Fila, parar e as linhas do meio.
+4. **Painéis.** Modelo, Instrução, apagar e Sobre já estão na tela. Falta o login: com ele, o fluxo troca `observe` por `subscribe` e passa a contar como tela.
 5. **Troca.** Apagar `apps/mimo` e renomear o repo.

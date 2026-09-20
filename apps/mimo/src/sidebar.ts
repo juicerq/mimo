@@ -26,7 +26,7 @@ function mark(live: BotActivity | undefined): string {
 	if (live.waiting !== null) {
 		return "⏸";
 	}
-	if (live.busy || live.team.length > 0) {
+	if (live.busy) {
 		return "●";
 	}
 	return " ";

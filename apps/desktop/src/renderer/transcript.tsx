@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { CheckIcon, CircleXIcon, ClockIcon, type LucideIcon, SquareIcon, TriangleAlertIcon, UsersIcon, WrenchIcon, XIcon } from "lucide-react";
+import { CheckIcon, CircleXIcon, ClockIcon, type LucideIcon, MessageSquareIcon, SendIcon, SquareIcon, TriangleAlertIcon, WrenchIcon, XIcon } from "lucide-react";
 import { type ComponentProps, Fragment, memo, type ReactNode, type RefObject, startTransition, useEffect, useRef, useState } from "react";
 import { Button } from "@renderer/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@renderer/components/ui/empty";
@@ -15,15 +15,40 @@ export type Detail = (typeof DETAIL_LEVELS)[number];
 
 export const DETAIL_NAMES: Record<Detail, string> = { brief: "Breve", full: "Completo" };
 
-const TEAM_VERBS = { created: "Criou", delegated: "Delegou para", stopped: "Parou", deleted: "Apagou" } as const;
+const TOOL_LABELS: Record<string, string> = {
+	bash: "Rodou um comando",
+	read: "Leu um arquivo",
+	write: "Escreveu um arquivo",
+	edit: "Mexeu num arquivo",
+	current_time: "Viu as horas",
+	save_memory: "Guardou na memória",
+	remove_memory: "Tirou da memória",
+	search_history: "Procurou no que já foi dito",
+	read_history: "Releu o que já foi dito",
+	web_search: "Procurou na web",
+	list_bots: "Viu os outros bots",
+	connect_gmail: "Conectou o Gmail",
+	disconnect_gmail: "Desconectou o Gmail",
+	list_accounts: "Viu as contas do Gmail",
+	list_unread: "Viu os e-mails novos",
+	read_thread: "Leu um e-mail",
+	send_email: "Enviou um e-mail",
+	create_draft: "Guardou um rascunho",
+	list_routines: "Viu as rotinas",
+	create_routine: "Criou uma rotina",
+	update_routine: "Mudou uma rotina",
+	delete_routine: "Apagou uma rotina",
+};
 const EMAIL_LABELS: Record<string, string> = { account: "De", to: "Para", cc: "Cópia", subject: "Assunto", threadId: "Thread" };
 const DETAIL_CHARACTERS = 600;
+const GIST_CHARACTERS = 160;
 const PAGE_LINES = 40;
 const PAGE_CHARACTERS = 6000;
 const EARLIER_MARGIN = "1200px 0px 0px";
 const SCROLL = "flex min-h-0 flex-1 flex-col-reverse overflow-y-auto scrollbar-gutter-both";
 const DOCK =
 	"sticky bottom-0 order-first shrink-0 bg-background before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-10 before:bg-linear-to-t before:from-background";
+const LABEL = "shrink-0";
 const GIST = "truncate before:mr-1.5 before:content-['·']";
 const BUBBLES = {
 	you: "ml-auto rounded-br-none bg-primary whitespace-pre-wrap text-primary-foreground",
@@ -35,7 +60,11 @@ const TONES = {
 };
 
 function verbose(line: Line): boolean {
-	return line.kind === "tool" || (line.kind === "team" && line.call.kind === "created");
+	return line.kind === "tool";
+}
+
+function oneLine(text: string): string {
+	return text.replaceAll(/\s+/gu, " ").trim().slice(0, GIST_CHARACTERS);
 }
 
 function truncate(text: string): string {
@@ -93,11 +122,18 @@ interface EventLineProps {
 	tone?: keyof typeof TONES;
 	icon?: LucideIcon;
 	head: ReactNode;
+	onOpen?: () => void;
 	children?: ReactNode;
 }
 
-function EventLine({ tone, icon: Icon, head, children }: EventLineProps) {
+function EventLine({ tone, icon: Icon, head, onOpen, children }: EventLineProps) {
 	const colors = tone && TONES[tone];
+	const inside = (
+		<div className="inline-flex max-w-full items-start gap-1.5 *:min-w-0">
+			{Icon && <Icon className={cn("h-lh w-3.5 shrink-0", colors?.icon)} />}
+			{head}
+		</div>
+	);
 
 	return (
 		<div
@@ -107,10 +143,13 @@ function EventLine({ tone, icon: Icon, head, children }: EventLineProps) {
 				colors?.line,
 			)}
 		>
-			<div className="inline-flex max-w-full items-start gap-1.5 *:min-w-0">
-				{Icon && <Icon className={cn("h-lh w-3.5 shrink-0", colors?.icon)} />}
-				{head}
-			</div>
+			{onOpen ? (
+				<button type="button" className="max-w-full cursor-pointer rounded hover:text-foreground focus-visible:outline-2" onClick={onOpen}>
+					{inside}
+				</button>
+			) : (
+				inside
+			)}
 			{children}
 		</div>
 	);
@@ -127,8 +166,8 @@ function Tool({ name, input, result }: { name: string; input: unknown; result?: 
 			icon={WrenchIcon}
 			head={
 				<>
-					<code>{name}</code>
-					<span className={GIST}>{result?.failed ? "falhou" : gist(input)}</span>
+					{TOOL_LABELS[name] ? <span className={LABEL}>{TOOL_LABELS[name]}</span> : <code className={LABEL}>{name}</code>}
+					<span className={GIST}>{result?.failed ? "não deu certo" : gist(input)}</span>
 				</>
 			}
 		>
@@ -202,9 +241,9 @@ function Approval({ line, name, botId }: { line: Extract<Line, { kind: "approval
 	);
 }
 
-type Happening = Extract<Line, { kind: "routine" | "team" | "note" | "warning" | "error" | "stopped" }>;
+type Happening = Extract<Line, { kind: "routine" | "asked" | "answered" | "warning" | "error" | "stopped" }>;
 
-function HappeningView({ line, level }: { line: Happening; level: Detail }) {
+function HappeningView({ line, level, onPeer }: { line: Happening; level: Detail; onPeer: (peer: string) => void }) {
 	switch (line.kind) {
 		case "routine":
 			return (
@@ -212,7 +251,7 @@ function HappeningView({ line, level }: { line: Happening; level: Detail }) {
 					icon={ClockIcon}
 					head={
 						<span>
-							Rotina <code>{line.name}</code> começou
+							Rotina <strong>{line.name}</strong>
 						</span>
 					}
 				>
@@ -223,28 +262,43 @@ function HappeningView({ line, level }: { line: Happening; level: Detail }) {
 					)}
 				</EventLine>
 			);
-		case "team":
+		case "asked":
 			return (
 				<EventLine
-					icon={UsersIcon}
+					icon={SendIcon}
+					onOpen={() => onPeer(line.peer)}
 					head={
 						<>
-							<span>
-								{TEAM_VERBS[line.call.kind]} <strong>{line.call.bot}</strong>
+							<span className={LABEL}>
+								Perguntou para <strong>{line.peer}</strong>
 							</span>
-							{line.call.task && <span className={GIST}>{line.call.task}</span>}
+							<span className={GIST}>{oneLine(line.prompt)}</span>
 						</>
 					}
 				/>
 			);
-		case "note":
-			return <EventLine icon={UsersIcon} head={<span>{line.text}</span>} />;
+		case "answered":
+			return (
+				<EventLine
+					tone={line.failed ? "err" : undefined}
+					icon={line.failed ? CircleXIcon : MessageSquareIcon}
+					onOpen={() => onPeer(line.peer)}
+					head={
+						<>
+							<span className={LABEL}>
+								<strong>{line.peer}</strong> {line.failed ? "não conseguiu" : "respondeu"}
+							</span>
+							<span className={GIST}>{oneLine(line.text)}</span>
+						</>
+					}
+				/>
+			);
 		case "warning":
 			return <EventLine tone="warn" icon={TriangleAlertIcon} head={<span>{line.text}</span>} />;
 		case "error":
 			return <EventLine tone="err" icon={CircleXIcon} head={<span>{line.text}</span>} />;
 		case "stopped":
-			return <EventLine icon={SquareIcon} head={<span>Interrompido</span>} />;
+			return <EventLine icon={SquareIcon} head={<span>Você parou</span>} />;
 		default: {
 			const _exhaustive: never = line;
 			return _exhaustive;
@@ -252,7 +306,15 @@ function HappeningView({ line, level }: { line: Happening; level: Detail }) {
 	}
 }
 
-const LineView = memo(function LineView({ line, level, name, botId }: { line: Line; level: Detail; name: string; botId: string }) {
+interface LineViewProps {
+	line: Line;
+	level: Detail;
+	name: string;
+	botId: string;
+	onPeer: (peer: string) => void;
+}
+
+const LineView = memo(function LineView({ line, level, name, botId, onPeer }: LineViewProps) {
 	switch (line.kind) {
 		case "you":
 			return <Bubble from="you">{line.text}</Bubble>;
@@ -276,7 +338,7 @@ const LineView = memo(function LineView({ line, level, name, botId }: { line: Li
 		case "approval":
 			return <Approval line={line} name={name} botId={botId} />;
 		default:
-			return <HappeningView line={line} level={level} />;
+			return <HappeningView line={line} level={level} onPeer={onPeer} />;
 	}
 });
 
@@ -296,10 +358,11 @@ interface LinesProps {
 	level: Detail;
 	name: string;
 	botId: string;
+	onPeer: (peer: string) => void;
 	scroller: RefObject<HTMLDivElement | null>;
 }
 
-const Lines = memo(function Lines({ lines, level, name, botId, scroller }: LinesProps) {
+const Lines = memo(function Lines({ lines, level, name, botId, onPeer, scroller }: LinesProps) {
 	const [from, setFrom] = useState<number | null>(null);
 	const earlier = useRef<HTMLDivElement>(null);
 	const start = from ?? pageStart(lines, lines.length);
@@ -324,7 +387,7 @@ const Lines = memo(function Lines({ lines, level, name, botId, scroller }: Lines
 	return (
 		<>
 			{start > 0 && <div ref={earlier} />}
-			{lines.slice(start).map((line, index) => (level === "full" || !verbose(line)) && <LineView key={start + index} line={line} level={level} name={name} botId={botId} />)}
+			{lines.slice(start).map((line, index) => (level === "full" || !verbose(line)) && <LineView key={start + index} line={line} level={level} name={name} botId={botId} onPeer={onPeer} />)}
 		</>
 	);
 });
@@ -334,10 +397,11 @@ interface TranscriptProps {
 	level: Detail;
 	name: string;
 	botId: string;
+	onPeer: (peer: string) => void;
 	children: ReactNode;
 }
 
-export function Transcript({ conversation, level, name, botId, children }: TranscriptProps) {
+export function Transcript({ conversation, level, name, botId, onPeer, children }: TranscriptProps) {
 	const empty = conversation.lines.length === 0 && conversation.turn === "idle" && conversation.queue.length === 0;
 	const scroller = useRef<HTMLDivElement>(null);
 
@@ -358,14 +422,22 @@ export function Transcript({ conversation, level, name, botId, children }: Trans
 			)}
 			{conversation.ready && !empty && (
 				<div className="shrink-0 grow px-6 pt-2 pb-11">
-					<Lines lines={conversation.lines} level={level} name={name} botId={botId} scroller={scroller} />
+					<Lines lines={conversation.lines} level={level} name={name} botId={botId} onPeer={onPeer} scroller={scroller} />
 					{conversation.streaming && (
 						<Bubble from="bot" className="markdown">
 							<StreamingProse text={conversation.streaming} />
 						</Bubble>
 					)}
 					{conversation.queue.map((item, index) => (
-						<EventLine key={index} head={<span>Na fila: {item}</span>} />
+						<EventLine
+							key={index}
+							head={
+								<>
+									<span className={LABEL}>Na fila</span>
+									<span className={GIST}>{oneLine(item)}</span>
+								</>
+							}
+						/>
 					))}
 				</div>
 			)}

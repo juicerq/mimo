@@ -1,38 +1,42 @@
 import { recordAction } from "../actions/actions";
 import { deleteBotRoutines } from "../routines/routines";
-import type { Bot } from "./bot";
+import type { Chat } from "./chat";
 import type { LastMessage } from "./events";
-import { listChildren, readBot, removeBot } from "./store";
-import type { TeamMember } from "./types";
+import { childBotIds, readBot, removeBot, writeBot } from "./store";
+import type { BotInfo, ChatKey } from "./types";
 
-export type DeleteOrigin = "panel" | "tool" | "cascade";
-
-const open = new Map<string, Bot>();
-const opening = new Map<string, Promise<Bot>>();
+const open = new Map<string, Chat>();
+const opening = new Map<string, Promise<Chat>>();
 
 export interface BotActivity {
 	id: string;
 	name: string;
 	busy: boolean;
-	team: TeamMember[];
 	waiting: string | null;
 	failed: string | null;
 	last: LastMessage | null;
 }
 
-export function runningBot(id: string): Bot | null {
-	return open.get(id) ?? null;
+export function chatId(chat: ChatKey): string {
+	if (chat.askedBy) {
+		return `${chat.botId}:${chat.askedBy}`;
+	}
+	return chat.botId;
 }
 
-export async function openOnce(id: string, load: () => Promise<Bot>): Promise<Bot> {
+export function mainChat(botId: string): Chat | null {
+	return open.get(botId) ?? null;
+}
+
+export async function openOnce(id: string, load: () => Promise<Chat>): Promise<Chat> {
 	const running = open.get(id);
 	if (running) {
 		return running;
 	}
 	const pending = opening.get(id) ?? load()
-		.then((bot) => {
-			open.set(id, bot);
-			return bot;
+		.then((chat) => {
+			open.set(id, chat);
+			return chat;
 		})
 		.finally(() => opening.delete(id));
 	opening.set(id, pending);
@@ -40,32 +44,58 @@ export async function openOnce(id: string, load: () => Promise<Bot>): Promise<Bo
 }
 
 export function activity(): BotActivity[] {
-	const bots: BotActivity[] = [];
-	for (const bot of open.values()) {
-		if (bot.parentId !== undefined) {
-			continue;
+	const bots = new Map<string, BotActivity>();
+	for (const chat of open.values()) {
+		const entry = bots.get(chat.botId) ?? { id: chat.botId, name: chat.info.name, busy: false, waiting: null, failed: null, last: null };
+		entry.busy ||= chat.busy;
+		if (chat.withPerson) {
+			entry.waiting = chat.approval?.toolName ?? null;
+			entry.failed = chat.failed;
+			entry.last = chat.lastMessage;
 		}
-		bots.push({ id: bot.botId, name: bot.info.name, busy: bot.busy, team: bot.team, waiting: bot.approval?.toolName ?? null, failed: bot.failed, last: bot.lastMessage });
+		bots.set(chat.botId, entry);
 	}
-	return bots;
+	return [...bots.values()];
 }
 
-export async function deleteBot(id: string, origin: DeleteOrigin): Promise<void> {
+export async function updateBot(id: string, patch: Partial<BotInfo>): Promise<BotInfo> {
 	const record = await readBot(id);
-	for (const child of await listChildren(id)) {
-		await deleteBot(child.id, "cascade");
+	if (!record) {
+		throw new Error("Este bot não existe mais.");
 	}
-	const running = open.get(id);
-	running?.cancel();
-	open.delete(id);
+	const updated = { ...record, ...patch };
+	await writeBot(updated);
+	for (const chat of open.values()) {
+		if (chat.botId === id) {
+			chat.adopt(updated);
+		}
+	}
+	return updated;
+}
+
+export async function deleteBot(id: string): Promise<void> {
+	const record = await readBot(id);
+	forget(id);
 	await deleteBotRoutines(id);
 	await removeBot(id);
 	if (record) {
-		await recordAction({
-			kind: "delete_bot",
-			botId: record.parentId ?? id,
-			summary: record.name,
-			detail: { origin, bot: id },
-		});
+		await recordAction({ kind: "delete_bot", botId: id, summary: record.name });
+	}
+}
+
+export async function dropLegacyChildren(): Promise<void> {
+	for (const id of await childBotIds()) {
+		forget(id);
+		await deleteBotRoutines(id);
+		await removeBot(id);
+	}
+}
+
+function forget(botId: string): void {
+	for (const [id, chat] of open) {
+		if (chat.botId === botId) {
+			chat.cancel();
+			open.delete(id);
+		}
 	}
 }

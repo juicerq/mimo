@@ -8,16 +8,12 @@ function clusterCols(cluster: string): number {
 	return 1;
 }
 
-export function cols(text: string): number {
+function cols(text: string): number {
 	let total = 0;
 	for (const { segment } of CLUSTERS.segment(text)) {
 		total += clusterCols(segment);
 	}
 	return total;
-}
-
-export function pad(text: string, width: number): string {
-	return text + " ".repeat(Math.max(0, width - cols(text)));
 }
 
 export function cut(text: string, width: number): string {

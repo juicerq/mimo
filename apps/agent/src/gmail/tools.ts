@@ -107,7 +107,7 @@ export function gmailTools(context: ToolContext) {
 				const resolved = await resolveAccount(account);
 				const base = {
 					kind: "send_email" as const,
-					botId: context.botId,
+					botId: context.chat.botId,
 					account: resolved.email,
 					summary: `para ${email.to}: ${email.subject}`,
 				};

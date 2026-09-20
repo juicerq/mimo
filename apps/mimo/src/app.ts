@@ -1,15 +1,14 @@
 import { BoxRenderable, CliRenderEvents, RenderableEvents, TextareaRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
-import { Bot } from "@agent/bot/bot";
-import { activity, deleteBot, type BotActivity } from "@agent/bot/registry";
+import { Chat } from "@agent/bot/chat";
+import { activity, deleteBot, updateBot, type BotActivity } from "@agent/bot/registry";
 import { createBot, listBots } from "@agent/bot/store";
 import { BotNameSchema, type BotEvent, type BotInfo } from "@agent/bot/types";
-import { modelOption } from "@agent/model/catalog";
+import { modelOption, selectModel } from "@agent/model/catalog";
 import type { ModelSelection } from "@agent/model/types";
-import { Bar, NEXT_TEAM_VIEW, type TeamView } from "./bar";
+import { Bar } from "./bar";
 import { copyToClipboard, describeClipboardImageFailure, pasteText, readClipboardImage } from "./clipboard";
 import { describeError } from "./errors";
 import { Panels, type Panel, type PanelResult } from "./panel";
-import { Rail } from "./rail";
 import { Screen } from "./screen";
 import { Sidebar } from "./sidebar";
 import { deletePanel } from "./panels/delete";
@@ -51,7 +50,6 @@ export class MimoApp {
 	private readonly input: TextareaRenderable;
 	private readonly panels: Panels;
 	private readonly bar: Bar;
-	private readonly rail: Rail;
 	private readonly sidebar: Sidebar;
 	private readonly view: View;
 	private readonly screen = new Screen();
@@ -59,7 +57,6 @@ export class MimoApp {
 		this.spin();
 	});
 	private lastEscapeAt: number | null = null;
-	private teamView: TeamView = "off";
 	private composerDrafts = new Map<string, { text: string; cursor: number }>();
 
 	constructor(renderer: CliRenderer) {
@@ -126,7 +123,6 @@ export class MimoApp {
 		composer.add(this.input);
 
 		this.bar = new Bar(renderer);
-		this.rail = new Rail(renderer);
 		this.sidebar = new Sidebar(renderer, (bot) => {
 			void this.openBot(bot);
 		});
@@ -160,7 +156,6 @@ export class MimoApp {
 		});
 		row.add(this.sidebar.box);
 		row.add(container);
-		row.add(this.rail.box);
 		renderer.root.add(row);
 	}
 
@@ -242,10 +237,6 @@ export class MimoApp {
 		}
 		if (name === "p" && this.screen.conversation) {
 			this.showModels();
-			return true;
-		}
-		if (name === "t") {
-			this.cycleTeamView();
 			return true;
 		}
 		if (name === "o") {
@@ -378,18 +369,17 @@ export class MimoApp {
 			name: info?.name ?? null,
 			model: info?.model ?? null,
 			detail: this.transcript.level,
-			team: this.teamView,
 			context: info === undefined || info === null ? "—" : `0/${formatDetailsTokens(info.model.contextWindowTokens)}`,
 		};
 	}
 
 	private readonly saveModel = async (selection: ModelSelection): Promise<BotInfo> => {
-		return await this.screen.require().selectModel(selection);
+		return await updateBot(this.screen.require().botId, { model: selectModel(selection) });
 	};
 
 	private readonly removeBot = async (bot: BotInfo): Promise<void> => {
 		this.clearComposerDraft(bot.id);
-		await deleteBot(bot.id, "panel");
+		await deleteBot(bot.id);
 		await this.sidebar.reload();
 	};
 
@@ -475,7 +465,7 @@ export class MimoApp {
 	private async openBot(bot: BotInfo) {
 		const signal = this.resetView(bot);
 		try {
-			const conversation = await Bot.open(bot.id);
+			const conversation = await Chat.open({ botId: bot.id });
 			if (signal.aborted) {
 				return;
 			}
@@ -528,19 +518,6 @@ export class MimoApp {
 		}
 		this.view.show(event);
 	};
-
-	private cycleTeamView(): void {
-		this.teamView = NEXT_TEAM_VIEW[this.teamView];
-		this.showRail();
-	}
-
-	private showRail(): void {
-		if (this.teamView === "rail") {
-			this.rail.show();
-			return;
-		}
-		this.rail.hide();
-	}
 
 	private cycleDetail(): void {
 		const conversation = this.screen.conversation;

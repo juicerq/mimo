@@ -24,7 +24,7 @@ function stateOf(live: Activity | undefined): State {
 	if (live.waiting !== null) {
 		return "waiting";
 	}
-	if (live.busy || live.team.length > 0) {
+	if (live.busy) {
 		return "working";
 	}
 	return "idle";

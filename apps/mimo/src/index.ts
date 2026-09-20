@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { CliRenderEvents, createCliRenderer } from "@opentui/core";
+import { dropLegacyChildren } from "@agent/bot/registry";
 import { startRoutines } from "@agent/routines/dispatcher";
 import { loadEnv } from "@agent/storage/home";
 import pkg from "../package.json";
@@ -15,6 +16,7 @@ async function main(): Promise<void> {
 		exitOnCtrlC: true,
 		backgroundColor: "#0B0B0C",
 	});
+	await dropLegacyChildren();
 	const stopRoutines = startRoutines();
 	renderer.on(CliRenderEvents.DESTROY, () => {
 		stopRoutines();

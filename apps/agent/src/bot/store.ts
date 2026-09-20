@@ -6,7 +6,7 @@ import { initialModel, selectModel } from "../model/catalog";
 import { ModelSelectionSchema, type ModelInfo } from "../model/types";
 import { dataPath } from "../storage/home";
 import { readJsonFile, writeTextFile } from "../storage/files";
-import { BotNameSchema, BotPromptSchema, MessageSchema, type BotInfo } from "./types";
+import { BotNameSchema, BotPromptSchema, MessageSchema, type BotInfo, type ChatKey } from "./types";
 
 const LEGACY_PROVIDERS: Record<string, string> = { "openai-oauth": "openai-codex" };
 const LEGACY_MODEL_IDS: Record<string, string> = { "deepseek-flash": "deepseek-v4-flash" };
@@ -17,14 +17,22 @@ const StoredBotSchema = z.object({
 	name: BotNameSchema,
 	createdAt: z.iso.datetime(),
 	model: z.looseObject({ provider: z.string(), id: z.string(), reasoning: z.string() }).optional(),
-	parentId: z.uuid().optional(),
 	prompt: BotPromptSchema.optional(),
 });
+
+const ChildSchema = z.looseObject({ id: z.uuid(), parentId: z.uuid() });
 
 const TranscriptSchema = z.array(MessageSchema);
 
 function botPath(id: string) {
 	return dataPath("bots", `${id}.json`);
+}
+
+function transcriptPath(chat: ChatKey): string {
+	if (chat.askedBy) {
+		return dataPath("bots", chat.botId, "peers", `${chat.askedBy}.json`);
+	}
+	return dataPath("bots", chat.botId, "messages.json");
 }
 
 function repairModel(stored: z.infer<typeof StoredBotSchema>["model"]): ModelInfo {
@@ -55,37 +63,35 @@ export async function writeBot(bot: BotInfo): Promise<void> {
 	await writeTextFile(botPath(bot.id), `${JSON.stringify(bot, null, "\t")}\n`, 0o600);
 }
 
-async function readAll(): Promise<BotInfo[]> {
+async function botIds(): Promise<string[]> {
 	const entries = await readdir(dataPath("bots")).catch(missingAsEmpty);
-	const bots = await Promise.all(entries
-		.filter((entry) => entry.endsWith(".json"))
-		.map(async (entry) => await readBot(entry.slice(0, -5))));
+	return entries.filter((entry) => entry.endsWith(".json")).map((entry) => entry.slice(0, -5));
+}
+
+export async function listBots(): Promise<BotInfo[]> {
+	const bots = await Promise.all((await botIds()).map(async (id) => await readBot(id)));
 	return bots
 		.filter((bot): bot is BotInfo => bot !== null)
 		.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
-export async function listBots(): Promise<BotInfo[]> {
-	return (await readAll()).filter((bot) => bot.parentId === undefined);
+export async function childBotIds(): Promise<string[]> {
+	const children = await Promise.all((await botIds()).map(async (id) => await readJsonFile(botPath(id), ChildSchema).catch(() => null)));
+	return children.filter((child) => child !== null).map((child) => child.id);
 }
 
-export async function listChildren(parentId: string): Promise<BotInfo[]> {
-	return (await readAll()).filter((bot) => bot.parentId === parentId);
-}
-
-export type BotPatch = Partial<Pick<BotInfo, "name" | "prompt" | "model">>;
-export type BotDraft = Pick<BotInfo, "name"> & Partial<Pick<BotInfo, "model" | "parentId" | "prompt">>;
+export type BotDraft = Pick<BotInfo, "name"> & Partial<Pick<BotInfo, "model" | "prompt">>;
 
 export async function createBot(draft: BotDraft): Promise<BotInfo> {
-	let model = draft.model;
-	if (!model && draft.parentId !== undefined) {
-		model = (await readBot(draft.parentId))?.model;
+	const taken = (await listBots()).some((bot) => bot.name.toLowerCase() === draft.name.toLowerCase());
+	if (taken) {
+		throw new Error(`Você já tem um bot chamado ${draft.name}.`);
 	}
 	const bot: BotInfo = {
 		...draft,
 		id: randomUUID(),
 		createdAt: new Date().toISOString(),
-		model: model ?? initialModel(),
+		model: draft.model ?? initialModel(),
 	};
 	await writeBot(bot);
 	return bot;
@@ -94,10 +100,11 @@ export async function createBot(draft: BotDraft): Promise<BotInfo> {
 export async function removeBot(id: string): Promise<void> {
 	await rm(dataPath("bots", id), { recursive: true, force: true });
 	await rm(botPath(id), { force: true });
+	await Promise.all((await botIds()).map(async (other) => await rm(transcriptPath({ botId: other, askedBy: id }), { force: true })));
 }
 
-export async function readTranscript(id: string): Promise<AgentMessage[]> {
-	const path = dataPath("bots", id, "messages.json");
+export async function readTranscript(chat: ChatKey): Promise<AgentMessage[]> {
+	const path = transcriptPath(chat);
 	const stored = await readJsonFile(path, TranscriptSchema).catch((error: unknown) => {
 		if (error instanceof z.ZodError || error instanceof SyntaxError) {
 			throw new Error(`A conversa gravada está estragada e não foi tocada: ${path}`);
@@ -107,8 +114,8 @@ export async function readTranscript(id: string): Promise<AgentMessage[]> {
 	return stored ?? [];
 }
 
-export async function writeTranscript(id: string, messages: AgentMessage[]): Promise<void> {
-	await writeTextFile(dataPath("bots", id, "messages.json"), JSON.stringify(messages), 0o600);
+export async function writeTranscript(chat: ChatKey, messages: AgentMessage[]): Promise<void> {
+	await writeTextFile(transcriptPath(chat), JSON.stringify(messages), 0o600);
 }
 
 function missingAsEmpty(error: unknown): string[] {

@@ -22,7 +22,7 @@ export function routineTools(context: ToolContext) {
 					prompt,
 					everyMinutes,
 					startInMinutes: startInMinutes ?? everyMinutes,
-					botId: context.botId,
+					botId: context.chat.botId,
 				}));
 			},
 		}),
@@ -31,7 +31,7 @@ export function routineTools(context: ToolContext) {
 			description: "Lista as rotinas, com nome, intervalo, próximo disparo, último disparo e último erro.",
 			input: z.object({}),
 			async execute() {
-				const routines = await listRoutines(context.botId);
+				const routines = await listRoutines(context.chat.botId);
 				return { routines: routines.map(routineView) };
 			},
 		}),
@@ -46,7 +46,7 @@ export function routineTools(context: ToolContext) {
 				enabled: z.boolean().optional().describe("Liga ou desliga a rotina."),
 			}),
 			async execute({ routine, ...patch }) {
-				return routineView(await updateRoutine({ name: routine, botId: context.botId }, patch));
+				return routineView(await updateRoutine({ name: routine, botId: context.chat.botId }, patch));
 			},
 		}),
 		tool({
@@ -58,12 +58,12 @@ export function routineTools(context: ToolContext) {
 			async execute({ routine }) {
 				const base = {
 					kind: "delete_routine" as const,
-					botId: context.botId,
+					botId: context.chat.botId,
 					summary: `rotina ${routine}`,
 					detail: { routine },
 				};
 				try {
-					if (!(await deleteRoutine({ name: routine, botId: context.botId }))) {
+					if (!(await deleteRoutine({ name: routine, botId: context.chat.botId }))) {
 						throw new Error(`Você não tem uma rotina chamada ${routine}.`);
 					}
 					await recordAction(base);

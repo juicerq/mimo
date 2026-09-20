@@ -1,6 +1,7 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { summaryStart } from "../bot/events";
 import { readTranscript } from "../bot/store";
+import type { ChatKey } from "../bot/types";
 import { contentText, isLlmMessage } from "../messages";
 
 const HISTORY_RESPONSE_CHARACTERS = 12_000;
@@ -30,8 +31,8 @@ function projectMessage(message: AgentMessage): { kind: string; text: string }[]
 	return [...(text ? [{ kind: "assistant", text }] : []), ...calls];
 }
 
-async function beforeWindow(botId: string): Promise<HistoryMessage[]> {
-	const log = await readTranscript(botId);
+async function beforeWindow(chat: ChatKey): Promise<HistoryMessage[]> {
+	const log = await readTranscript(chat);
 	return log.slice(0, summaryStart(log))
 		.flatMap(projectMessage)
 		.map((message, messageId) => ({ ...message, messageId }));
@@ -41,10 +42,10 @@ function normalizeSearch(text: string) {
 	return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
-export async function searchHistory(input: { botId: string; query: string; offset: number; limit: number }) {
+export async function searchHistory(input: { chat: ChatKey; query: string; offset: number; limit: number }) {
 	const terms = normalizeSearch(input.query).split(/\s+/u).filter(Boolean);
 	const matches: { messageId: number; kind: string; snippet: string }[] = [];
-	for (const message of await beforeWindow(input.botId)) {
+	for (const message of await beforeWindow(input.chat)) {
 		const text = normalizeSearch(message.text);
 		if (terms.length === 0 && message.kind !== "user") {
 			continue;
@@ -59,8 +60,8 @@ export async function searchHistory(input: { botId: string; query: string; offse
 	return { matches: matches.slice(input.offset, end), nextOffset: end < matches.length ? end : null, total: matches.length };
 }
 
-export async function readHistory(input: { botId: string; messageId: number; offset: number; limit: number }) {
-	const history = await beforeWindow(input.botId);
+export async function readHistory(input: { chat: ChatKey; messageId: number; offset: number; limit: number }) {
+	const history = await beforeWindow(input.chat);
 	const messages: HistoryMessage[] = [];
 	let remaining = HISTORY_RESPONSE_CHARACTERS;
 	for (const message of history.slice(input.messageId, input.messageId + input.limit)) {

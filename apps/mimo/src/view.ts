@@ -1,4 +1,4 @@
-import type { Approval, BotEvent, TeamCall } from "@agent/bot/types";
+import type { Approval, BotEvent } from "@agent/bot/types";
 import type { Bar } from "./bar";
 import type { Panel } from "./panel";
 import { loginPanel } from "./panels/login";
@@ -6,8 +6,7 @@ import type { Transcript } from "./transcript";
 import type { Turn } from "./turn";
 import { T1, T3, T4, T6 } from "./theme";
 
-const TEAM_VERBS = { created: "created", delegated: "delegated to", stopped: "stopped", deleted: "deleted" } as const;
-const TOOL_EVENT_TYPES = ["tool", "team-call", "tool-result", "tool-warned", "tool-failed"] as const;
+const TOOL_EVENT_TYPES = ["tool", "tool-result", "tool-warned", "tool-failed"] as const;
 const TOOL_EVENTS = new Set<BotEvent["type"]>(TOOL_EVENT_TYPES);
 
 type ToolEvent = Extract<BotEvent, { type: (typeof TOOL_EVENT_TYPES)[number] }>;
@@ -54,9 +53,13 @@ export class View {
 			case "queue":
 				this.bar.queue(event.items);
 				return;
-			case "note":
+			case "asked":
 				this.transcript.seal();
-				this.transcript.note(`▌ ${event.text}`, T6);
+				this.transcript.detailed(`▌ asked ${event.peer}`, T6, event.prompt.replaceAll("\n", " "));
+				return;
+			case "answered":
+				this.transcript.seal();
+				this.transcript.detailed(`▌ ${event.peer} ${event.failed ? "could not answer" : "answered"}`, T6, event.text.replaceAll("\n", " "));
 				return;
 			case "summary":
 				this.transcript.seal();
@@ -107,9 +110,6 @@ export class View {
 			case "tool":
 				this.showTool(event.toolName, event.input);
 				return;
-			case "team-call":
-				this.showTeamCall(event.call);
-				return;
 			case "tool-result":
 				this.transcript.result(event.output);
 				return;
@@ -146,12 +146,6 @@ export class View {
 	private showTool(toolName: string, input: unknown): void {
 		this.turn.ranTool();
 		this.transcript.tool(toolName, input);
-	}
-
-	private showTeamCall(call: TeamCall): void {
-		this.transcript.seal();
-		const task = call.task === undefined ? "" : ` · ${call.task}`;
-		this.transcript.detailed(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}${task}`, T6);
 	}
 
 	private showRoutine(name: string, prompt: string): void {

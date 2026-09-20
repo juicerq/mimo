@@ -1,4 +1,4 @@
-import { listBots, listChildren } from "@agent/bot/store";
+import { listBots } from "@agent/bot/store";
 import type { BotInfo } from "@agent/bot/types";
 import { choicePanel, type Panel } from "../panel";
 
@@ -28,10 +28,7 @@ function confirmPanel(bot: BotInfo, remove: RemoveBot): Panel {
 		heading: `delete "${bot.name}"?`,
 		load: async () => ({
 			choices: [{ id: "delete", label: "Delete" }, { id: "cancel", label: "Cancel" }],
-			notes: [
-				"This erases the conversation, the memory and the routines of this bot.",
-				...teamNote(await listChildren(bot.id)),
-			],
+			notes: ["This erases the conversation, the memory and the routines of this bot."],
 		}),
 		pick: (choice, view) => {
 			if (choice === "cancel") {
@@ -44,11 +41,4 @@ function confirmPanel(bot: BotInfo, remove: RemoveBot): Panel {
 			});
 		},
 	});
-}
-
-function teamNote(children: BotInfo[]): string[] {
-	if (children.length === 0) {
-		return [];
-	}
-	return [`Its team goes too: ${children.map((child) => child.name).join(", ")}.`];
 }

@@ -24,8 +24,12 @@ export interface BotInfo {
 	name: string;
 	createdAt: string;
 	model: ModelInfo;
-	parentId?: string;
 	prompt?: string;
+}
+
+export interface ChatKey {
+	botId: string;
+	askedBy?: string;
 }
 
 export interface Approval {
@@ -35,38 +39,25 @@ export interface Approval {
 	input: unknown;
 }
 
-export interface Delegation {
-	botId: string;
-	task: string;
-	prompt: string;
-}
-
-export type TeamCallKind = "created" | "delegated" | "stopped" | "deleted";
-
-export interface TeamCall {
-	kind: TeamCallKind;
+export interface Ask {
 	bot: string;
-	task?: string;
+	prompt: string;
+	wait: boolean;
 }
 
-export interface TeamMember {
-	name: string;
-	task: string;
-	tool: string | null;
-	startedAt: number;
-}
+export type AskResult = { bot: string; reply: string } | { bot: string; status: string };
 
 export type BotEvent =
 	| { type: "user"; text: string }
 	| { type: "queue"; items: readonly string[] }
-	| { type: "note"; text: string }
 	| { type: "summary"; text: string }
 	| { type: "warning"; text: string }
 	| { type: "routine"; name: string; prompt: string }
 	| { type: "reply-delta"; delta: string }
 	| { type: "reply"; text: string }
 	| { type: "tool"; id: string; toolName: string; input: unknown }
-	| { type: "team-call"; call: TeamCall }
+	| { type: "asked"; id: string; peer: string; prompt: string }
+	| { type: "answered"; peer: string; text: string; failed: boolean }
 	| { type: "tool-result"; id: string; toolName: string; output: string }
 	| { type: "tool-warned"; message: string }
 	| { type: "tool-failed"; id: string; toolName: string; message: string }

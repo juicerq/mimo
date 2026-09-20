@@ -1,4 +1,5 @@
 import { useEffect, useReducer } from "react";
+import type { ChatKey } from "@agent/bot/types";
 import type { ScreenEvent } from "../main/router";
 import { rpc } from "./rpc";
 
@@ -14,8 +15,8 @@ export type Line =
 	| { kind: "reply"; text: string }
 	| { kind: "summary"; text: string }
 	| { kind: "routine"; name: string; prompt: string }
-	| { kind: "team"; call: EventMap["team-call"]["call"] }
-	| { kind: "note"; text: string }
+	| { kind: "asked"; peer: string; prompt: string }
+	| { kind: "answered"; peer: string; text: string; failed: boolean }
 	| { kind: "tool"; id: string; name: string; input: unknown; result?: ToolResult }
 	| { kind: "approval"; approval: EventMap["approval"]["approval"]; outcome?: EventMap["approval-resolved"]["outcome"] }
 	| { kind: "warning"; text: string }
@@ -75,14 +76,14 @@ function resolveApproval(lines: Line[], outcome: EventMap["approval-resolved"]["
 const EDITS: Edits = {
 	user: adds((event) => ({ kind: "you", text: event.text })),
 	queue: unchanged,
-	note: adds((event) => ({ kind: "note", text: event.text })),
 	summary: adds((event) => ({ kind: "summary", text: event.text })),
 	warning: adds((event) => ({ kind: "warning", text: event.text })),
 	routine: adds((event) => ({ kind: "routine", name: event.name, prompt: event.prompt })),
 	"reply-delta": unchanged,
 	reply: adds((event) => (event.text ? { kind: "reply", text: event.text } : null)),
 	tool: adds((event) => ({ kind: "tool", id: event.id, name: event.toolName, input: event.input })),
-	"team-call": adds((event) => ({ kind: "team", call: event.call })),
+	asked: adds((event) => ({ kind: "asked", peer: event.peer, prompt: event.prompt })),
+	answered: adds((event) => ({ kind: "answered", peer: event.peer, text: event.text, failed: event.failed })),
 	"tool-result": (lines, event) => settleTool(lines, event, { text: event.output, failed: false }),
 	"tool-warned": adds((event) => ({ kind: "warning", text: event.message })),
 	"tool-failed": (lines, event) => settleTool(lines, event, { text: event.message, failed: true }),
@@ -146,25 +147,25 @@ function applyEvents(conversation: Conversation, events: ScreenEvent[]): Convers
 	return next;
 }
 
-async function follow(botId: string, signal: AbortSignal, apply: (events: ScreenEvent[]) => void): Promise<void> {
-	const batches = await rpc.conversation.watch({ botId }, { signal });
+async function follow(chat: ChatKey, signal: AbortSignal, apply: (events: ScreenEvent[]) => void): Promise<void> {
+	const batches = await rpc.conversation.watch(chat, { signal });
 	for await (const events of batches) {
 		apply(events);
 	}
 }
 
-export function useConversation(botId: string) {
+export function useConversation(botId: string, askedBy?: string) {
 	const [conversation, apply] = useReducer(applyEvents, EMPTY);
 
 	useEffect(() => {
 		const controller = new AbortController();
-		void follow(botId, controller.signal, apply).catch((error: unknown) => {
+		void follow({ botId, ...askedBy && { askedBy } }, controller.signal, apply).catch((error: unknown) => {
 			if (!controller.signal.aborted) {
 				apply([{ type: "warning", text: error instanceof Error ? error.message : String(error) }]);
 			}
 		});
 		return () => controller.abort();
-	}, [botId]);
+	}, [botId, askedBy]);
 
 	return [conversation, apply] as const;
 }

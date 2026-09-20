@@ -1,4 +1,4 @@
-import { Bot } from "../bot/bot";
+import { Chat } from "../bot/chat";
 import { claimDue, completeRoutine, failRoutine, type Routine } from "./routines";
 
 const TICK_MS = 60_000;
@@ -6,11 +6,11 @@ const DISPATCH_LIMIT = 10;
 
 async function dispatch(routine: Routine): Promise<void> {
 	try {
-		const bot = await Bot.open(routine.botId);
-		if (bot.busy) {
+		const chat = await Chat.open({ botId: routine.botId });
+		if (chat.busy) {
 			return;
 		}
-		await bot.runRoutine({ name: routine.name, prompt: routine.prompt });
+		await chat.runRoutine({ name: routine.name, prompt: routine.prompt });
 		await completeRoutine(routine.id, new Date());
 	} catch (error) {
 		await failRoutine(routine.id, error);

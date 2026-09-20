@@ -1,14 +1,13 @@
 import { Agent, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
 import { LoginSession, type LoginTarget } from "../login/login";
 import { contentText } from "../messages";
-import { resolveModel, selectModel } from "../model/catalog";
+import { resolveModel } from "../model/catalog";
 import { modelFailure } from "../model/failure";
 import { models } from "../model/models";
-import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
-import { isTeamCall } from "../team/tools";
 import { botRules } from "../rules/rules";
 import { approvalInput } from "../gmail/tools";
+import { askedEvent } from "../peers/tools";
 import { botInstructions, botTools } from "../tools";
 import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
@@ -16,42 +15,40 @@ import { sealTranscript } from "./seal";
 import { Queue } from "./queue";
 import { withoutBorrowedReasoning } from "./reasoning";
 import { entryEvent, entryMessage, lastMessage, replayMessage, resultEvent, summaryStart, toolErrorText, toolResultText, usageEvent, type Entry, type LastMessage } from "./events";
-import { deleteBot, openOnce, runningBot } from "./registry";
-import { readBot, readTranscript, writeBot, writeTranscript, type BotPatch } from "./store";
-import type { Approval, BotEvent, BotInfo, Delegation, TeamMember } from "./types";
-
-interface Work {
-	task: string;
-	startedAt: number;
-}
+import { chatId, openOnce } from "./registry";
+import { listBots, readBot, readTranscript, writeTranscript } from "./store";
+import type { Approval, Ask, AskResult, BotEvent, BotInfo, ChatKey } from "./types";
 
 const STOPPED = "O trabalho foi parado.";
+const CHAIN_LIMIT = 3;
 
-export class Bot {
+export class Chat {
 	private readonly agent: Agent;
 	private readonly listeners = new Set<(event: BotEvent) => void>();
 	private readonly observers = new Set<(event: BotEvent) => void>();
 	private readonly approvals = new Approvals((event) => this.emit(event));
 	private readonly entries = new Queue((event) => this.emit(event));
-	private readonly crew = new Map<Bot, Work>();
 	private readonly running = new Map<string, string>();
+	readonly chat: ChatKey;
 	private record: BotInfo;
 	private archive: AgentMessage[];
-	private host: Bot | null = null;
+	private host: Chat | null = null;
+	private chain: readonly string[] = [];
 	private cancelled = false;
 	private draining = false;
 	private reply = "";
 	private failure: string | null = null;
 	private writing: Promise<void> = Promise.resolve();
 
-	private constructor(record: BotInfo, log: AgentMessage[]) {
+	private constructor(record: BotInfo, chat: ChatKey, log: AgentMessage[]) {
 		const start = summaryStart(log);
 		const messages = log.slice(start);
 
+		this.chat = chat;
 		this.record = record;
 		this.archive = log.slice(0, start);
 		this.agent = new Agent({
-			streamFn: (model, context, options) => models().streamSimple(model, context, { ...options, sessionId: record.id }),
+			streamFn: (model, context, options) => models().streamSimple(model, context, { ...options, sessionId: chatId(chat) }),
 			transformContext: async (context) => withoutBorrowedReasoning(context),
 			initialState: {
 				systemPrompt: this.basePrompt(),
@@ -66,13 +63,13 @@ export class Bot {
 		this.agent.subscribe((event) => this.translate(event));
 	}
 
-	static async open(id: string): Promise<Bot> {
-		return await openOnce(id, async () => {
-			const record = await readBot(id);
+	static async open(chat: ChatKey): Promise<Chat> {
+		return await openOnce(chatId(chat), async () => {
+			const record = await readBot(chat.botId);
 			if (!record) {
-				throw new Error("This bot no longer exists.");
+				throw new Error("Este bot não existe mais.");
 			}
-			return new Bot(record, sealTranscript(await readTranscript(id)));
+			return new Chat(record, chat, sealTranscript(await readTranscript(chat)));
 		});
 	}
 
@@ -84,6 +81,10 @@ export class Bot {
 		return this.record.id;
 	}
 
+	get withPerson(): boolean {
+		return this.chat.askedBy === undefined;
+	}
+
 	private get log(): AgentMessage[] {
 		return [...this.archive, ...this.agent.state.messages];
 	}
@@ -92,20 +93,8 @@ export class Bot {
 		return this.agent.state.isStreaming;
 	}
 
-	get parentId(): string | undefined {
-		return this.record.parentId;
-	}
-
 	get queue(): string[] {
 		return this.entries.texts;
-	}
-
-	get team(): TeamMember[] {
-		const members: TeamMember[] = [];
-		for (const [bot, work] of this.crew) {
-			members.push({ name: bot.record.name, task: work.task, tool: bot.tool, startedAt: work.startedAt });
-		}
-		return members;
 	}
 
 	get approval(): Approval | null {
@@ -120,60 +109,33 @@ export class Bot {
 		return this.failure;
 	}
 
-	private get tool(): string | null {
-		let last: string | null = null;
-		for (const name of this.running.values()) {
-			last = name;
-		}
-		return last;
-	}
-
 	login(target: LoginTarget): LoginSession {
 		const screen = this.screen();
 		if (!screen) {
-			throw new Error("Este bot não está na tela. A pessoa precisa abrir o bot na TUI para autorizar.");
+			throw new Error("Este bot não está na tela. A pessoa precisa abrir o bot para autorizar.");
 		}
 		const session = new LoginSession(target);
 		screen.emit({ type: "login", target, session });
 		return session;
 	}
 
-	async delegate(delegation: Delegation): Promise<void> {
-		await this.child(delegation.botId);
-		const child = await Bot.open(delegation.botId);
-		if (child.busy) {
-			throw new Error("Este filho está trabalhando. Espere ele terminar.");
+	async ask(ask: Ask, signal?: AbortSignal): Promise<AskResult> {
+		const target = await this.named(ask.bot);
+		const chain = [...this.chain, this.record.id];
+		if (chain.includes(target.id)) {
+			throw new Error(`${target.name} está esperando uma resposta sua. Responda com o que você sabe em vez de perguntar de volta.`);
 		}
-		child.host = this;
-		this.crew.set(child, { task: delegation.task, startedAt: Date.now() });
-		void this.work(child, delegation);
-	}
-
-	stopChild(botId: string): string {
-		for (const child of this.crew.keys()) {
-			if (child.record.id === botId) {
-				child.cancel();
-				return child.record.name;
-			}
+		if (chain.length > CHAIN_LIMIT) {
+			throw new Error("Esta pergunta já passou por bots demais. Responda com o que você sabe.");
 		}
-		throw new Error("Este filho não está trabalhando.");
-	}
-
-	async updateChild(botId: string, patch: BotPatch): Promise<BotInfo> {
-		const child = await this.child(botId);
-		const running = runningBot(botId);
-		if (running?.busy) {
-			throw new Error("Este filho está trabalhando. Espere ele terminar.");
+		const peer = await Chat.open({ botId: target.id, askedBy: this.record.id });
+		peer.host = this;
+		peer.chain = chain;
+		if (ask.wait) {
+			return { bot: target.name, reply: await peer.answer(this.record.name, ask.prompt, signal) };
 		}
-		const updated = { ...child, ...patch };
-		await writeBot(updated);
-		running?.adopt(updated);
-		return updated;
-	}
-
-	async deleteChild(botId: string): Promise<void> {
-		await this.child(botId);
-		await deleteBot(botId, "tool");
+		void this.relay(peer, target.name, ask.prompt);
+		return { bot: target.name, status: "perguntei" };
 	}
 
 	subscribe(listener: (event: BotEvent) => void): () => void {
@@ -190,12 +152,10 @@ export class Bot {
 		return this.log.flatMap(replayMessage);
 	}
 
-	async selectModel(selection: ModelSelection): Promise<BotInfo> {
-		const model = selectModel(selection);
-		const record = await this.save({ model });
-		this.agent.state.model = resolveModel(model);
-		this.agent.state.thinkingLevel = model.reasoning;
-		return record;
+	adopt(record: BotInfo): void {
+		this.record = record;
+		this.agent.state.model = resolveModel(record.model);
+		this.agent.state.thinkingLevel = record.model.reasoning;
 	}
 
 	async deliver(text: string): Promise<void> {
@@ -227,13 +187,29 @@ export class Bot {
 		this.agent.abort();
 	}
 
-	private async work(child: Bot, delegation: Delegation): Promise<void> {
-		const note = await child.run(delegation.prompt).then(
-			(reply) => ({ short: `${child.record.name} finished · ${delegation.task}`, text: reply }),
-			(error: unknown) => ({ short: `${child.record.name} failed · ${delegation.task}`, text: errorText(error) }),
+	private async named(name: string): Promise<BotInfo> {
+		const found = (await listBots()).find((bot) => bot.name.toLowerCase() === name.trim().toLowerCase());
+		if (!found) {
+			throw new Error(`Não existe um bot chamado ${name}. Veja os nomes com list_bots.`);
+		}
+		if (found.id === this.record.id) {
+			throw new Error("Este é você mesmo.");
+		}
+		return found;
+	}
+
+	private async answer(from: string, prompt: string, signal?: AbortSignal): Promise<string> {
+		const ran = this.push({ kind: "ask", peer: from, text: prompt });
+		raise(await (signal ? Promise.race([ran, aborted(signal)]) : ran));
+		return this.reply;
+	}
+
+	private async relay(peer: Chat, name: string, prompt: string): Promise<void> {
+		const answer = await peer.answer(this.record.name, prompt).then(
+			(text) => ({ text, failed: false }),
+			(error: unknown) => ({ text: errorText(error), failed: true }),
 		);
-		this.crew.delete(child);
-		await this.push({ ...note, kind: "note" });
+		await this.push({ ...answer, kind: "answer", peer: name });
 	}
 
 	private async push(entry: Entry): Promise<string | null> {
@@ -295,44 +271,15 @@ export class Bot {
 		await this.drain();
 	}
 
-	private async run(prompt: string): Promise<string> {
-		if (this.busy) {
-			throw new Error("Este filho está trabalhando. Espere ele terminar.");
-		}
-		raise(await this.push({ text: prompt, kind: "user" }));
-		return this.reply;
-	}
-
-	private async save(change: Partial<BotInfo>): Promise<BotInfo> {
-		const record = { ...this.record, ...change };
-		await writeBot(record);
-		this.record = record;
-		return record;
-	}
-
-	private adopt(record: BotInfo): void {
-		this.record = record;
-		this.agent.state.model = resolveModel(record.model);
-		this.agent.state.thinkingLevel = record.model.reasoning;
-	}
-
-	private screen(): Bot | null {
+	private screen(): Chat | null {
 		if (this.listeners.size > 0) {
 			return this;
 		}
 		return this.host?.screen() ?? null;
 	}
 
-	private commander(): Bot {
-		return this.host?.commander() ?? this;
-	}
-
-	private async child(botId: string): Promise<BotInfo> {
-		const child = await readBot(botId);
-		if (child?.parentId !== this.record.id) {
-			throw new Error("Este bot não é da sua equipe.");
-		}
-		return child;
+	private origin(): Chat {
+		return this.host?.origin() ?? this;
 	}
 
 	private async systemPrompt(): Promise<string> {
@@ -340,7 +287,7 @@ export class Bot {
 	}
 
 	private basePrompt(): string {
-		const parts = [botInstructions(this)];
+		const parts = [botInstructions()];
 		if (this.record.prompt) {
 			parts.push(this.record.prompt);
 		}
@@ -361,7 +308,7 @@ export class Bot {
 		if (!asking) {
 			return;
 		}
-		const approved = await this.commander().approvals.ask({ id: toolCallId, bot: this.record.name, toolName, input: asking.input }, signal);
+		const approved = await this.origin().approvals.ask({ id: toolCallId, bot: this.record.name, toolName, input: asking.input }, signal);
 		if (approved) {
 			return;
 		}
@@ -380,9 +327,7 @@ export class Bot {
 		}
 		if (event.type === "tool_execution_start") {
 			this.running.set(event.toolCallId, event.toolName);
-			if (!isTeamCall(event.toolName)) {
-				this.emit({ type: "tool", id: event.toolCallId, toolName: event.toolName, input: event.args });
-			}
+			this.emit(askedEvent(event.toolName, event.toolCallId, event.args) ?? { type: "tool", id: event.toolCallId, toolName: event.toolName, input: event.args });
 			return;
 		}
 		if (event.type === "tool_execution_end") {
@@ -438,7 +383,7 @@ export class Bot {
 			messages: this.agent.state.messages,
 			model: this.agent.state.model,
 			systemPrompt: this.agent.state.systemPrompt,
-			sessionId: this.record.id,
+			sessionId: chatId(this.chat),
 		})
 			.catch((error: unknown) => {
 				this.emit({ type: "warning", text: `A conversa não foi resumida: ${errorText(error)}` });
@@ -463,11 +408,20 @@ export class Bot {
 	}
 
 	private async writeLog(): Promise<void> {
-		this.writing = this.writing.catch(() => {}).then(async () => await writeTranscript(this.record.id, this.log));
+		this.writing = this.writing.catch(() => {}).then(async () => await writeTranscript(this.chat, this.log));
 		await this.writing.catch((error: unknown) => {
 			throw new Error(`A conversa não foi gravada: ${errorText(error)}`);
 		});
 	}
+}
+
+function aborted(signal: AbortSignal): Promise<string> {
+	if (signal.aborted) {
+		return Promise.resolve(STOPPED);
+	}
+	return new Promise((resolve) => {
+		signal.addEventListener("abort", () => resolve(STOPPED), { once: true });
+	});
 }
 
 function raise(failure: string | null): void {

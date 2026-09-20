@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { CopyIcon, InfoIcon, MinusIcon, SquareIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, CopyIcon, InfoIcon, MinusIcon, SquareIcon, XIcon } from "lucide-react";
 import { IconButton } from "@renderer/components/icon-button";
+import type { Thread } from "./app";
 import { Avatar, STATE_LABELS } from "./avatar";
 import type { BotRow } from "./bots";
 import { orpc, rpc } from "./rpc";
@@ -36,11 +37,28 @@ function WindowControls() {
 
 interface HeadProps {
 	bot: BotRow | undefined;
+	thread: Thread | null;
+	onBack: () => void;
 	info: boolean;
 	onInfo: () => void;
 }
 
-export function Head({ bot, info, onInfo }: HeadProps) {
+export function Head({ bot, thread, onBack, info, onInfo }: HeadProps) {
+	if (thread) {
+		return (
+			<header className="drag flex h-bar shrink-0 items-center gap-3 border-b pr-3 pl-3">
+				<IconButton label="Voltar" onClick={onBack}>
+					<ArrowLeftIcon />
+				</IconButton>
+				<Avatar name={thread.peer} state="idle" size={40} />
+				<h2 className="min-w-0 flex-1 truncate text-base font-semibold">
+					{thread.asker} e {thread.peer}
+				</h2>
+				<WindowControls />
+			</header>
+		);
+	}
+
 	return (
 		<header className="drag flex h-bar shrink-0 items-center gap-3 border-b pr-3 pl-5">
 			{bot && <Avatar name={bot.name} state={bot.state} size={40} />}
