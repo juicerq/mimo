@@ -4,11 +4,9 @@ node_modules/
 !.env.example
 .eve/
 .data/
-.data-dev/
 .data-desktop/
 .verify/
 docs/plano.md
-dist/
 out/
 release/
 .output/

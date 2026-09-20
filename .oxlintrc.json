@@ -1,4 +1,4 @@
 {
 	"extends": ["./node_modules/@juicerq/check/.oxlintrc.json"],
-	"ignorePatterns": ["prototype-ui/**", "apps/desktop/src/renderer/components/ui/**"]
+	"ignorePatterns": ["apps/desktop/src/renderer/components/ui/**"]
 }

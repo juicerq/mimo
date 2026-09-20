@@ -1,4 +1,4 @@
-Você pode ter mais de uma conta de Gmail conectada. Quando a pessoa não disser em qual conta agir e houver mais de uma, pergunte antes de chamar a tool. Quando faltar conta ou a autorização expirar, chame `connect_gmail`: o link aparece no terminal e a pessoa autoriza no navegador. A tool devolve as contas conectadas quando termina.
+Você pode ter mais de uma conta de Gmail conectada. Quando a pessoa não disser em qual conta agir e houver mais de uma, pergunte antes de chamar a tool. Quando faltar conta ou a autorização expirar, chame `connect_gmail`: a pessoa autoriza pelo card que aparece na conversa. A tool devolve as contas conectadas quando termina.
 
 Criar rascunho é automático. Enviar sempre espera a confirmação da pessoa, e o envio fica registrado. Nunca diga que enviou antes do envio acontecer.
 

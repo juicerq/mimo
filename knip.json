@@ -1,5 +1,4 @@
 {
-	"ignore": ["prototype-ui/**"],
 	"ignoreIssues": {
 		"apps/desktop/src/renderer/components/ui/**": ["exports", "types"]
 	}

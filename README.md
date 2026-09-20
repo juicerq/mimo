@@ -1,43 +1,38 @@
-# mimo-tui
+# mimo
 
-Bots pessoais no terminal, com a harness [Pi](https://www.npmjs.com/package/@earendil-works/pi-agent-core) e OpenTUI. Cada bot mantém sua conversa e memória própria. Seu propósito se desenvolve pelo uso.
+Bots pessoais num app de desktop, com a harness [Pi](https://www.npmjs.com/package/@earendil-works/pi-agent-core) e Electron. Cada bot mantém sua conversa e memória própria. Seu propósito se desenvolve pelo uso.
 
-A TUI e o agente rodam no mesmo processo: não há servidor nem daemon. Abrir até a lista de bots leva cerca de 200 ms.
+A tela e o agente rodam no mesmo processo: não há servidor nem daemon.
 
-O conteúdo fica junto ao composer: mensagens, listas e opções começam embaixo e sobem enquanto crescem.
+À esquerda fica a barra de bots, sempre visível: um bot por linha, com o rosto, a última mensagem e a marca do que ele faz agora — trabalhando, esperando aprovação, falhou, parado. O mais recente fica no topo. É como você sabe o que acontece nos outros bots sem sair da conversa. Clique num bot para abrir a conversa dele; trocar de bot não interrompe seu trabalho, e ao voltar o histórico e as aprovações pendentes estão lá.
 
-A conversa não tem cabeçalho: cada mensagem traz quem falou, `you:` na sua e `<nome do bot>:` na resposta. O cabeçalho só aparece nos painéis, com o nome do passo.
+Crie um bot pelo `+` no topo da barra: escreva o nome e confirme. Para apagar, clique com o botão direito no bot e escolha **Apagar bot**; a conversa, a memória e as rotinas daquele bot são apagadas. Toda exclusão entra no `actions.jsonl` com a hora, o nome e a origem. Não há limite de quantidade nem formulário de propósito.
 
-À esquerda fica a barra de bots, sempre visível: um bot por linha, com a marca do que ele faz agora — `●` trabalhando, `⏸` parado numa aprovação, `✗` falhou, nada quando está parado, e `·2` quando tem duas frentes abertas. O bot aberto fica com o nome claro. É como você sabe o que acontece nos outros bots sem sair da conversa. `Ctrl+E` foca a barra e põe o cursor num campo de busca: digite para filtrar. A primeira seta tira o foco do campo e passa para a lista; cada `↑↓` já abre o bot daquela linha, então você lê a conversa enquanto anda. `Enter` fica nesse bot e devolve o foco ao composer; `Esc` fecha a busca. Em terminal com menos de 90 colunas a barra encolhe para uma coluna de marcas e `Ctrl+E` a expande.
+O ⓘ no topo abre **Sobre o bot**, o painel da direita: a instrução permanente, o modelo, o esforço, a data de criação e, enquanto ele navega, a prévia do navegador. A escolha de modelo pertence ao bot e permanece salva ao reiniciar. Trocar de modelo não envia mensagem nenhuma e vale para a próxima resposta; uma resposta em andamento, inclusive a continuação depois de uma aprovação, termina com o modelo com que começou.
 
-Crie um bot com `/new <nome>`. Use `/bots` para ver a lista e digite o número para abrir uma conversa. `/delete` abre o painel com os bots: escolha o número e confirme com `1. Delete`; a conversa, a memória e as rotinas daquele bot são apagadas e a TUI volta para a lista. Toda exclusão entra no `actions.jsonl` com a hora, o nome e a origem — o painel, a tool de um bot pai ou a cascata que leva os filhos junto. Não há limite de quantidade nem formulário de propósito. Ao reabrir um bot, o histórico e as aprovações pendentes voltam à tela. Trocar de bot não interrompe seu trabalho.
+A engrenagem no pé da barra abre **Configurações**, com duas partes: **Aplicativo** (tema e detalhe) e **Contas** (entrar nos provedores de modelo, ver e desconectar as contas de Gmail).
 
-Use `/model` dentro da conversa para escolher o provedor, o modelo e o esforço pelo número. `Ctrl+P` abre o mesmo painel preservando o rascunho. `/effort` pula direto para o esforço do modelo atual. A conversa continua recebendo respostas enquanto o painel está aberto. Antes de confirmar a escolha, `/cancel` ou `Esc` volta à conversa sem alterar o modelo. A configuração pertence ao bot e permanece salva ao reiniciar.
+Depois de enviar, uma linha viva acima do composer mostra o que o bot faz, com o tempo correndo e um botão para parar. Parar descarta a fila junto com o turno; ações já concluídas não são desfeitas. Depois de uma falha ou interrupção, escreva "continue", ajuste o pedido ou mude de assunto normalmente.
 
-Um bot lê um `AGENTS.md`: o geral, em `~/.agents/AGENTS.md`, que vale para todo bot. É lido a cada turno, então editar vale já no turno seguinte, sem reiniciar. É o único arquivo que o bot trata como instrução sua; o resto continua sendo dado. Só `AGENTS.md`, sem `CLAUDE.md` nem `README.md` — um symlink resolve, e o mimo segue symlink. Não há teto no tamanho: quem regula é a compactação, que desconta o prompt de sistema antes de decidir quanto da conversa guardar, e avisa na conversa quando as instruções permanentes passam de metade da janela.
+Você pode escrever enquanto o bot trabalha. A mensagem fica acima do composer e entra na conversa assim que ele termina o passo atual. Várias mensagens esperam em ordem e chegam juntas, num turno só.
 
 O bot trabalha sem perguntar: `bash`, `write` e `edit` rodam direto, e cada ação fica registrada em `actions.jsonl`. A única exceção é enviar e-mail, que sempre para para você confirmar. Não há modo a escolher.
 
-`Ctrl+O` alterna quanto detalhe a conversa mostra. Detalhe é tudo que não é sua mensagem nem a resposta do bot: a ferramenta, o disparo de uma rotina e a ação de equipe. `brief` mostra uma linha por item, como `⚙ list_unread` ou `routine: check_emails started` (padrão); `full` acrescenta o detalhe cortado em 600 caracteres, como a entrada da ferramenta e o prompt da rotina; `off` esconde todos eles. A conversa é redesenhada inteira, então os turnos antigos acompanham.
+**Detalhe**, em Configurações › Aplicativo, controla quanto a conversa mostra além da sua mensagem e da resposta do bot. `Breve` mostra uma linha por item, como "Procurou na web"; `Completo` acrescenta a chamada da ferramenta e o resultado, cortados em 600 caracteres. Os cards que pedem uma resposta sua — conectar o Gmail, aprovar um envio, assumir o navegador — aparecem nos dois níveis.
 
-Depois de enviar, a conversa mostra uma linha viva com o que o bot faz: `⠙ thinking · 3s · esc esc to stop` antes da primeira ferramenta e `working` depois dela. A linha some quando o texto da resposta começa a chegar e dá lugar ao streaming. Abrir um bot mostra `loading` no mesmo lugar.
+O contexto é compactado automaticamente em 80% da janela do modelo: as mensagens antigas viram um resumo, que aparece na conversa como um bloco fechado, e a conversa anterior é arquivada. `search_history` busca em todas as conversas arquivadas do próprio bot e `read_history` lê as mensagens originais em volta dos trechos encontrados.
 
-Use `/details` para ver bot, modelo com esforço, contexto, detalhe e time. O estado do turno não fica ali: fica na conversa. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
-
-Enquanto os filhos trabalham, cada um aparece acima do composer como `team: <nome> · <tempo> · <tool>`, com a ferramenta do momento. A linha some quando o filho entrega o trabalho.
-
-Você pode escrever enquanto o bot trabalha. A mensagem fica acima do composer como `queue: <texto>` e entra na conversa assim que o bot termina o passo atual. Várias mensagens esperam em ordem e chegam juntas, num turno só. Dois `Esc` descartam a fila junto com o turno.
-
-Durante uma resposta, dois `Esc` em até 400 ms interrompem o turno. Um `Esc` isolado não interrompe; dentro do painel de modelos ele apenas volta à conversa. Se houver uma aprovação pendente, o atalho a recusa. Depois de uma falha ou interrupção, escreva “continue”, ajuste o pedido ou mude de assunto normalmente. Interromper não desfaz ações já concluídas.
+Um bot lê um `AGENTS.md`: o geral, em `~/.agents/AGENTS.md`, que vale para todo bot. É lido a cada turno, então editar vale já no turno seguinte, sem reiniciar. É o único arquivo que o bot trata como instrução sua; o resto continua sendo dado. Só `AGENTS.md`, sem `CLAUDE.md` nem `README.md` — um symlink resolve, e o mimo segue symlink. Não há teto no tamanho: quem regula é a compactação, que desconta o prompt de sistema antes de decidir quanto da conversa guardar, e avisa na conversa quando as instruções permanentes passam de metade da janela.
 
 ## Instalação
 
 ```sh
 bun install
-cd apps/mimo && bun link
+bun run build
+cd apps/desktop && bun link
 ```
 
-Isso dá o comando `mimo` em qualquer pasta. O link aponta para o código do repo, então `git pull` já atualiza o comando; não há build nem publicação no npm. Coloque suas chaves em `~/.mimo/.env`, no formato do `.env.example`.
+Isso dá o comando `mimo`, que abre o app compilado em qualquer pasta. O link aponta para o build dentro do repo, então atualizar é puxar o repo e rodar `bun run build` de novo. Coloque suas chaves em `~/.mimo/.env`, no formato do `.env.example`.
 
 ## Desenvolvimento
 
@@ -48,22 +43,22 @@ bun install
 bun run check
 ```
 
-Para conversar de verdade:
+Para mexer no app com recarga automática:
 
 ```sh
 bun run dev
 ```
 
-O comando abre a TUI e a reinicia quando `apps/mimo/src` ou `apps/agent/src` mudam. `Ctrl+C` fecha tudo.
+O `dev` sempre usa a Casa `.data-desktop`, nunca os seus bots reais, então ele e o app compilado convivem sem disputa. A tela recarrega sozinha; o processo principal (`apps/desktop/src/main`, `apps/agent/src`) exige reiniciar o comando.
 
-Para testar a versão compilada:
+Para conferir a versão compilada:
 
 ```sh
 bun run build
 bun start
 ```
 
-O painel oferece os modelos da assinatura OpenAI conectada no Codex e os modelos da OpenCode Go. Uma falha no catálogo de um provedor não esconde o outro. Cada modelo oferece os esforços que sua integração aceita.
+O painel de modelo oferece os modelos da assinatura OpenAI conectada no Codex e os modelos da OpenCode Go. Uma falha no catálogo de um provedor não esconde o outro. Cada modelo oferece os esforços que sua integração aceita.
 
 Para definir outro modelo como escolha inicial dos novos bots:
 
@@ -73,25 +68,15 @@ MIMO_MODEL=opencode-go/deepseek-v4-flash MIMO_REASONING=high bun run dev
 
 A integração OpenAI usa as credenciais locais do Codex em `~/.codex/auth.json`; a OpenCode Go usa `~/.local/share/opencode/auth.json`. O catálogo vem das mesmas contas. A assinatura tem seus próprios limites de uso, separados de uma chave de API.
 
-Use `/login` para conectar uma conta sem sair da TUI. O painel separa `providers` (OpenCode Go com chave de API, OpenAI com OAuth) de `plugins` (Gmail com OAuth), com numeração contínua. Na OpenAI, escolha login pelo navegador ou por código de dispositivo; a TUI mostra o link e `c` copia ele para a área de transferência. Cole o código de autorização no composer se o navegador não voltar sozinho. `/cancel` ou `Esc` aborta o login. `/logout` lista as contas de Gmail conectadas e desconecta pelo número. A credencial dos modelos é gravada nos mesmos arquivos do Codex e da OpenCode, e o token renovado é salvo a cada atualização. O Gmail segue o mesmo caminho e grava a conta em `~/.mimo/gmail/accounts.json`; a autorização volta sozinha do navegador.
+Configurações › Contas conecta uma conta sem sair do app: OpenCode Go por chave de API, OpenAI por OAuth e Gmail por OAuth. A credencial dos modelos é gravada nos mesmos arquivos do Codex e da OpenCode, e o token renovado é salvo a cada atualização. O Gmail grava a conta em `~/.mimo/gmail/accounts.json`; a autorização volta sozinha do navegador.
 
 O modelo inicial padrão é `openai-codex/gpt-5.6-luna` com esforço `max`. Um bot salvo com um provedor que o mimo não tem mais volta para esse padrão ao abrir. `MIMO_MODEL` e `MIMO_REASONING` definem apenas a configuração inicial de um bot novo. As escolhas salvas por bot prevalecem sobre o ambiente.
 
-Se uma chamada de modelo falhar, a TUI mostra o erro. Para mudar de provedor, use `/model` e depois escreva, por exemplo, “continue”. Escolher um modelo não envia nenhuma mensagem. Se o envio falhar, o texto permanece no composer para editar ou enviar novamente.
-
-O contexto é compactado automaticamente em 80% da janela do modelo: as mensagens antigas viram um resumo e a conversa anterior é arquivada. O rodapé mostra o consumo da última chamada e a janela do modelo selecionado.
-
-`search_history` busca em todas as conversas arquivadas do próprio bot; `read_history` lê as mensagens e resultados originais próximos aos trechos encontrados, com limite de saída e continuação. A busca nos arquivos é textual e retorna trechos originais. Memória e rotinas permanecem disponíveis.
+Se uma chamada de modelo falhar, o erro aparece na conversa. Para mudar de provedor, troque o modelo em Sobre o bot e depois escreva, por exemplo, "continue". Se o envio falhar, o texto permanece no composer para editar ou enviar novamente.
 
 ## Dados
 
-O mimo guarda tudo em `~/.mimo/`: bots, transcripts, memória, contas do Gmail, rotinas, registros de ações e as chaves em `~/.mimo/.env`. A casa não depende da pasta de onde você chamou o mimo, então `bun run dev` e o comando `mimo` veem os mesmos bots. Para experimentar sem tocar neles, rode o sandbox:
-
-```sh
-bun run dev:sandbox
-```
-
-Ele usa `.data-dev` (ignorado pelo git). Qualquer outro diretório serve com `MIMO_DATA_DIR` (relativo à pasta atual ou absoluto). Para conectar contas no sandbox, rode `/login` dentro dele: a conta é gravada no diretório de dados em uso.
+O mimo guarda tudo em `~/.mimo/`: bots, transcripts, memória, contas do Gmail, rotinas, registros de ações e as chaves em `~/.mimo/.env`. A casa não depende da pasta de onde você chamou o mimo. `MIMO_DATA_DIR` troca o lugar dos dados (relativo à pasta atual ou absoluto); as chaves e as credenciais seguem o `$HOME`, porque pertencem a você e não ao sandbox.
 
 A verificação de ponta a ponta (`verify-mimo`) também roda em sandbox por padrão e só usa os dados reais se for apontada para eles de propósito.
 
@@ -101,34 +86,34 @@ Cada bot tem memória isolada em `~/.mimo/bots/<id>/memory.md`. Ela registra fat
 
 O registro do bot fica em `~/.mimo/bots/<id>.json` e o transcript atual em `~/.mimo/bots/<id>/messages.json`. Cada compactação arquiva a conversa anterior em `~/.mimo/bots/<id>/sessions/<session-id>.json`. As ferramentas de histórico consultam todos os arquivos do próprio bot e omitem metadados técnicos na leitura, preservando as mensagens e o estado das ações.
 
-## Equipe
+## Os outros bots
 
-Um bot pode montar uma equipe de bots filhos. As tools `create_bot`, `update_bot`, `list_bots`, `delete_bot`, `delegate`, `check_team`, `stop_bot` e `list_models` existem só em bots sem pai. Um filho é um bot comum, com memória e sessão próprias, mas não aparece em `/bots` nem em `/delete`: quem cuida dele é o pai. Apagar o pai apaga a equipe inteira, e o painel de `/delete` avisa quais bots vão junto.
+Todo bot é igual: não há bot filho nem hierarquia. Um bot vê os outros com `list_bots` e pergunta a qualquer um deles pelo nome com `ask_bot`. Escrever `@nome` na sua mensagem aponta para esse bot.
 
-Ao criar um filho, o pai escolhe o nome, a instrução permanente e o modelo. O filho tem as mesmas tools do pai, menos as da equipe, então a equipe não tem netos. Sem modelo escolhido, o filho nasce com o padrão; `list_models` mostra os valores aceitos. As tools da equipe tratam o filho pelo nome, que é único dentro da equipe.
+Cada par de bots ganha uma conversa à parte, uma por direção. Ela aparece como uma linha no meio da conversa; clicando nela você abre e lê, mas não escreve. Por padrão a pergunta não segura o turno: quem perguntou segue conversando com você e a resposta chega depois, num turno novo. Um bot que está esperando resposta sua não pode ser perguntado de volta.
 
-As instruções da equipe fazem do pai um gerente: ele divide o trabalho em frentes e cuida delas para você, que fala só com ele. Toda feature, todo bug e toda investigação é uma frente, e cada frente vira um filho, com o problema inteiro do começo ao fim. O filho vive enquanto a frente está aberta, então voltar ao assunto delega de novo para o mesmo bot, que já tem a memória dela. O pai conta o que o filho trouxe; ele não refaz o trabalho nem manda outro filho revisar.
+## Navegador
 
-`delegate` começa o trabalho no filho e volta na hora: o turno do pai fecha e a pessoa continua conversando com ele. O filho não vê a conversa da pessoa, então o pedido precisa ser completo. Cada filho atende um trabalho por vez; vários filhos trabalham ao mesmo tempo. Um filho não delega e não cria bots, então a equipe tem um nível só.
+A tool `browse` dá ao bot um navegador dentro do app. Ele abre uma página, lê, clica, preenche campos e aperta teclas. A página chega a ele em texto, com um `ref` por elemento que aceita clique — ele nunca vê uma foto, e por isso custa menos e erra menos o alvo.
 
-As tools que mexem na equipe não aparecem como `⚙ delegate`: viram uma linha de conversa com o nome do filho, `▌ created ana`, `▌ delegated to ana`, `▌ stopped ana` e `▌ deleted ana`. A linha sai quando a ação termina, então uma tool recusada na aprovação ou que falhou não deixa linha nenhuma. Elas são detalhe, então `Ctrl+O off` as esconde junto com as ferramentas, e o trabalho fica no transcript ao reabrir o bot.
+Enquanto ele navega, a prévia da página aparece no topo de Sobre o bot. Ela some quando ele fecha o navegador.
 
-Quando o filho termina, a resposta dele chega sozinha como um aviso na conversa, `▌ O filho <nome> terminou e respondeu:`, e o pai fala em seguida. Se o pai estiver no meio de um turno, o aviso espera o fim dele. `check_team` diz o que cada filho faz agora e `stop_bot` para um filho que saiu do rumo.
+Quando a página pede algo que só você pode fazer — senha, código, captcha, aceitar um termo — o bot chama `handoff` e a conversa mostra um card com o motivo. **Abrir o navegador** põe a página em tela cheia dentro da janela, com uma barra embaixo: **Terminei** devolve a página ao bot, **Deixa pra lá** avisa que não deu. O turno fica parado até você responder.
 
-O filho não tem tela. Quando ele quer enviar um e-mail, o pedido sobe para quem o comanda e aparece com o nome dele: `⏸ approval: send_email · mate`. Pedidos em fila aparecem um de cada vez. Dois `Esc` param a resposta do pai; o filho continua o trabalho dele, e para com `stop_bot`.
+O navegador tem uma sessão própria, separada do seu navegador normal, e não abre nenhuma porta de depuração.
 
 ## Gmail
 
-Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão de uma conta pelo próprio bot: o link aparece no terminal e a pessoa autoriza no navegador. A tool `disconnect_gmail` apaga a conta guardada e revoga o acesso no Google. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria um rascunho, que você revisa e envia no Gmail, e `send_email` envia um e-mail; com `threadId`, ele entra naquela thread como resposta. Só `send_email` espera a sua confirmação; o resto acontece direto. Cada conta conectada guarda o refresh token em `~/.mimo/gmail/accounts.json`; o client id e o client secret ficam em `~/.mimo/.env`.
+Gmail é uma integração disponível para os bots. As contas conectadas pertencem a você e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão pelo próprio bot: a linha da tool vira um card na conversa e autorizar abre o navegador. A tool `disconnect_gmail` apaga a conta guardada e revoga o acesso no Google. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria um rascunho, que você revisa e envia no Gmail, e `send_email` envia um e-mail; com `threadId`, ele entra naquela thread como resposta. Só `send_email` espera a sua confirmação; o resto acontece direto. Cada conta conectada guarda o refresh token em `~/.mimo/gmail/accounts.json`; o client id e o client secret ficam em `~/.mimo/.env`.
 
 1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto e ative a Gmail API.
 2. Configure a tela de consentimento OAuth (tipo External, com você como usuário de teste).
 3. Em Credenciais, crie um cliente OAuth do tipo App para computador.
 4. Coloque o client id e o client secret em `~/.mimo/.env` (`GMAIL_CLIENT_ID` e `GMAIL_CLIENT_SECRET`).
-5. Rode `bun run dev` e peça ao bot para conectar sua conta do Gmail (ele chama `connect_gmail`), ou digite `/login` e escolha Gmail. Abra o link (`c` copia), autorize a conta e a TUI grava a conta e o refresh token sozinha; repita para conectar outras contas.
+5. Abra o mimo e peça ao bot para conectar sua conta do Gmail (ele chama `connect_gmail`), ou vá em Configurações › Contas. Autorize no navegador e o app grava a conta e o refresh token sozinho; repita para conectar outras contas.
 6. Peça para o bot listar os não lidos. Com mais de uma conta, diga qual.
 
-Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dias e a conta precisa ser conectada de novo com `/login`. Para evitar, publique o app em In production; o consentimento passa a mostrar o aviso de app não verificado, e para uso pessoal não é preciso concluir a verificação.
+Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dias e a conta precisa ser conectada de novo. Para evitar, publique o app em In production; o consentimento passa a mostrar o aviso de app não verificado, e para uso pessoal não é preciso concluir a verificação.
 
 ## Computador
 
@@ -146,8 +131,8 @@ EXA_API_KEY=
 
 ## Rotinas
 
-As rotinas ficam em `~/.mimo/routines.json` e pertencem ao bot que as criou. Um dispatcher de um minuto roda dentro da TUI e entrega o prompt ao bot pelo mesmo caminho usado pela conversa. Com a TUI fechada, nenhuma rotina dispara.
+As rotinas ficam em `~/.mimo/routines.json` e pertencem ao bot que as criou. Um dispatcher de um minuto roda dentro do app e entrega o prompt ao bot pelo mesmo caminho usado pela conversa. Com o app fechado, nenhuma rotina dispara.
 
 Cada rotina tem um nome curto, escolhido na criação e único dentro do bot, como `check_emails`. As tools `update_routine` e `delete_routine` tratam a rotina pelo nome, e `list_routines` mostra os nomes.
 
-O disparo aparece na conversa como `routine: <nome> started`. Não é `you:`: você não escreveu aquilo. Com `Ctrl+O full` a linha seguinte mostra o prompt da rotina, cortado em 600 caracteres. O bot recebe o prompt inteiro com a marca `[rotina: <nome>]`, então ele sabe de onde veio, e a marca sobrevive ao reabrir o bot. O aviso de um filho carrega a marca `[equipe]` do mesmo jeito.
+O disparo aparece na conversa como "Rotina `<nome>` começou". Não é sua mensagem: você não escreveu aquilo. Com o detalhe em `Completo` a linha seguinte mostra o prompt da rotina, cortado em 600 caracteres. O bot recebe o prompt inteiro com a marca `[rotina: <nome>]`, então ele sabe de onde veio, e a marca sobrevive ao reabrir o bot.

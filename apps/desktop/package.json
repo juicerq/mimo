@@ -4,6 +4,9 @@
 	"private": true,
 	"type": "module",
 	"main": "./out/main/index.js",
+	"bin": {
+		"mimo": "./bin/mimo"
+	},
 	"scripts": {
 		"dev": "MIMO_DATA_DIR=$PWD/../../.data-desktop electron-vite dev",
 		"build": "electron-vite build"

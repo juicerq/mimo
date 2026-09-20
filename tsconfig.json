@@ -15,5 +15,5 @@
 		"resolveJsonModule": true,
 		"types": ["bun", "node"]
 	},
-	"include": ["apps/*/src", "apps/agent/scripts", "scripts"]
+	"include": ["apps/*/src"]
 }

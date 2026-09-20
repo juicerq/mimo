@@ -6,8 +6,6 @@ import type { Provider } from "../model/types";
 
 const AUTH_TYPES: Record<Provider, AuthType> = { opencode: "api_key", "opencode-go": "api_key", "openai-codex": "oauth" };
 
-export const LOGIN_GROUP_NAMES = { provider: "providers", plugin: "plugins" } as const;
-
 export const LOGIN_TARGETS = [
 	{ id: "opencode", name: "OpenCode Zen", how: "API key", group: "provider" },
 	{ id: "opencode-go", name: "OpenCode Go", how: "API key", group: "provider" },
