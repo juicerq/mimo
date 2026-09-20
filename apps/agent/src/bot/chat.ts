@@ -1,4 +1,6 @@
 import { Agent, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
+import type { BrowserSession } from "../browser/browser";
+import { browserFor, closeBrowser } from "../browser/registry";
 import type { LoginSession, LoginTarget } from "../login/login";
 import { requestLogin } from "../login/registry";
 import { contentText } from "../messages";
@@ -111,6 +113,10 @@ export class Chat {
 		return this.failure;
 	}
 
+	browser(): BrowserSession {
+		return browserFor(this.record.id);
+	}
+
 	login(target: LoginTarget): LoginSession {
 		const session = requestLogin(target);
 		this.logins.add(session);
@@ -187,6 +193,7 @@ export class Chat {
 		for (const session of this.logins) {
 			session.cancel();
 		}
+		closeBrowser(this.record.id);
 		this.agent.abort();
 	}
 

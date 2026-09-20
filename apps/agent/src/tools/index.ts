@@ -1,5 +1,6 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
+import { browserTools } from "../browser/tools";
 import { computerInstructions, computerTools } from "../computer/tools";
 import { gmailTools } from "../gmail/tools";
 import { historyTools } from "../history/tools";
@@ -10,6 +11,7 @@ import { webTools } from "../web/tools";
 import type { ToolContext } from "./context";
 import { tool } from "./tool";
 import instructions from "../instructions.md" with { type: "text" };
+import browserInstructions from "../browser/instructions.md" with { type: "text" };
 import gmailInstructions from "../gmail/instructions.md" with { type: "text" };
 import peerInstructions from "../peers/instructions.md" with { type: "text" };
 import routineInstructions from "../routines/instructions.md" with { type: "text" };
@@ -24,7 +26,7 @@ const currentTime = tool({
 });
 
 export function botInstructions(): string {
-	return [instructions, gmailInstructions, routineInstructions, peerInstructions, computerInstructions()].join("\n\n");
+	return [instructions, gmailInstructions, routineInstructions, peerInstructions, browserInstructions, computerInstructions()].join("\n\n");
 }
 
 export function botTools(context: ToolContext): AgentTool[] {
@@ -35,6 +37,7 @@ export function botTools(context: ToolContext): AgentTool[] {
 		...gmailTools(context),
 		...routineTools(context),
 		...webTools(),
+		...browserTools(context),
 		...computerTools(),
 		...peerTools(context),
 	];

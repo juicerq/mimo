@@ -2,10 +2,12 @@ import { type RefObject, useCallback, useEffect, useRef, useState } from "react"
 import { Empty, EmptyDescription } from "@renderer/components/ui/empty";
 import { Bar } from "./bar";
 import { type BotRow, useBots } from "./bots";
+import { Browsers } from "./browsing";
 import { Composer } from "./composer";
 import { useConversation } from "./conversation";
 import { Head } from "./head";
 import { Info, useInfoPanel } from "./info";
+import { Viewer } from "./preview";
 import { Status, turnLabel } from "./status";
 import { DETAIL_LEVELS, type Detail, Transcript } from "./transcript";
 
@@ -99,6 +101,7 @@ export function App() {
 	}
 
 	return (
+		<Browsers>
 		<div className="flex h-screen">
 			<Bar bots={bots} error={error} selected={bot?.id} onSelect={select} focusComposer={focusComposer} level={level} onLevel={setLevel} />
 			<div className="flex min-w-0 flex-1 flex-col">
@@ -123,6 +126,8 @@ export function App() {
 					{bot && !thread && <Info botId={bot.id} name={bot.name} open={infoOpen} overlay={overlay} onClose={closeInfo} />}
 				</div>
 			</div>
+			{bot && <Viewer botId={bot.id} />}
 		</div>
+		</Browsers>
 	);
 }

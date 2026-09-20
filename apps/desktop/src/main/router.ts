@@ -3,6 +3,7 @@ import { lastMessage } from "@agent/bot/events";
 import { activity, deleteBot, mainChat, updateBot } from "@agent/bot/registry";
 import { createBot, listBots, readBot, readTranscript } from "@agent/bot/store";
 import { BotNameSchema, BotPromptSchema, type BotEvent } from "@agent/bot/types";
+import { browserSession, watchBrowsers, type BrowserActivity } from "@agent/browser/registry";
 import { disconnectAccount, listAccounts } from "@agent/gmail/accounts";
 import { LOGIN_TARGETS, LoginTargetSchema } from "@agent/login/login";
 import { loginSession, startLogin, watchLogins, type LoginActivity } from "@agent/login/registry";
@@ -80,6 +81,19 @@ async function* logins(signal?: AbortSignal) {
 	const publisher = new EventPublisher<{ activity: LoginActivity }>({ maxBufferedEvents: Number.POSITIVE_INFINITY });
 	const live = publisher.subscribe("activity", { ...signal && { signal } });
 	const unwatch = watchLogins((activity) => publisher.publish("activity", activity));
+	try {
+		for await (const activity of live) {
+			yield activity;
+		}
+	} finally {
+		unwatch();
+	}
+}
+
+async function* browsing(signal?: AbortSignal) {
+	const publisher = new EventPublisher<{ activity: BrowserActivity }>({ maxBufferedEvents: Number.POSITIVE_INFINITY });
+	const live = publisher.subscribe("activity", { ...signal && { signal } });
+	const unwatch = watchBrowsers((activity) => publisher.publish("activity", activity));
 	try {
 		for await (const activity of live) {
 			yield activity;
@@ -170,6 +184,19 @@ export const router = {
 			.input(z.object({ target: LoginTargetSchema }))
 			.handler(({ input }) => {
 				loginSession(input.target)?.cancel();
+			}),
+	},
+	browser: {
+		watch: agent.handler(({ signal }) => browsing(signal)),
+		present: agent
+			.input(BotInput.extend({ open: z.boolean() }))
+			.handler(({ input }) => {
+				browserSession(input.botId)?.present(input.open);
+			}),
+		answer: agent
+			.input(BotInput.extend({ helped: z.boolean() }))
+			.handler(({ input }) => {
+				browserSession(input.botId)?.answer(input.helped);
 			}),
 	},
 	accounts: {

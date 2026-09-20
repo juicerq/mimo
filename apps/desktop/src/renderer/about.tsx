@@ -17,6 +17,7 @@ import {
 } from "@renderer/components/ui/combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@renderer/components/ui/select";
 import { Textarea } from "@renderer/components/ui/textarea";
+import { Preview } from "./preview";
 import { orpc, rpc } from "./rpc";
 
 const REASONING_NAMES: Record<Reasoning, string> = {
@@ -236,6 +237,7 @@ export function About({ botId }: { botId: string }) {
 
 	return (
 		<>
+			<Preview botId={botId} />
 			<Instruction key={botId} botId={botId} prompt={bot.prompt ?? ""} onSave={apply} />
 			<Brain
 				model={bot.model}

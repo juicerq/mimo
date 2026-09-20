@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { CheckIcon, CircleXIcon, ClockIcon, type LucideIcon, MailIcon, MessageSquareIcon, SendIcon, SquareIcon, TriangleAlertIcon, WrenchIcon, XIcon } from "lucide-react";
+import { CheckIcon, CircleXIcon, ClockIcon, GlobeIcon, type LucideIcon, MailIcon, MessageSquareIcon, SendIcon, SquareIcon, TriangleAlertIcon, WrenchIcon, XIcon } from "lucide-react";
 import { type ComponentProps, Fragment, memo, type ReactNode, type RefObject, startTransition, useEffect, useRef, useState } from "react";
 import { Button } from "@renderer/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@renderer/components/ui/empty";
@@ -7,6 +7,7 @@ import { Input } from "@renderer/components/ui/input";
 import { Spinner } from "@renderer/components/ui/spinner";
 import { cn } from "cn";
 import { Avatar } from "./avatar";
+import { useBrowsing } from "./browsing";
 import type { Conversation, Line, ToolResult } from "./conversation";
 import { useLogins, type Login } from "./logins";
 import { Prose, StreamingProse } from "./prose";
@@ -29,6 +30,7 @@ const TOOL_LABELS: Record<string, string> = {
 	search_history: "Procurou no que já foi dito",
 	read_history: "Releu o que já foi dito",
 	web_search: "Procurou na web",
+	browse: "Usou o navegador",
 	list_bots: "Viu os outros bots",
 	connect_gmail: "Conectou o Gmail",
 	disconnect_gmail: "Desconectou o Gmail",
@@ -44,6 +46,7 @@ const TOOL_LABELS: Record<string, string> = {
 };
 const EMAIL_LABELS: Record<string, string> = { account: "De", to: "Para", cc: "Cópia", subject: "Assunto", threadId: "Thread" };
 const CONNECT_GMAIL = "connect_gmail";
+const BROWSE = "browse";
 const GMAIL_SCOPE = "ler, rascunhar e enviar e-mail em seu nome";
 const DETAIL_CHARACTERS = 600;
 const GIST_CHARACTERS = 160;
@@ -65,8 +68,24 @@ const TONES = {
 	err: { line: "text-destructive", icon: undefined },
 };
 
+function handoffReason(line: Line): string | null {
+	if (line.kind !== "tool" || line.name !== BROWSE || !line.input || typeof line.input !== "object") {
+		return null;
+	}
+	if (!("action" in line.input) || line.input.action !== "handoff") {
+		return null;
+	}
+	if (!("reason" in line.input) || typeof line.input.reason !== "string") {
+		return null;
+	}
+	return line.input.reason || null;
+}
+
 function verbose(line: Line): boolean {
-	return line.kind === "tool" && line.name !== CONNECT_GMAIL;
+	if (line.kind !== "tool" || line.name === CONNECT_GMAIL) {
+		return false;
+	}
+	return handoffReason(line) === null;
 }
 
 function oneLine(text: string): string {
@@ -285,7 +304,7 @@ function ConnectCard({ account, children }: { account: string | null; children: 
 	);
 }
 
-function ConnectActions({ children }: { children: ReactNode }) {
+function CardActions({ children }: { children: ReactNode }) {
 	return <div className="mt-3 flex items-center justify-end gap-2 pl-3">{children}</div>;
 }
 
@@ -305,9 +324,9 @@ function ConnectDone({ result }: { result: ToolResult }) {
 		<ConnectCard account={verdict?.account ?? null}>
 			{result.failed && <p className="mt-2 text-xs text-destructive">{truncate(result.text)}</p>}
 			{verdict && (
-				<ConnectActions>
+				<CardActions>
 					<ConnectOutcome account={verdict.account} />
-				</ConnectActions>
+				</CardActions>
 			)}
 		</ConnectCard>
 	);
@@ -318,14 +337,14 @@ function ConnectAsking({ onConnect }: { onConnect: () => void }) {
 
 	return (
 		<ConnectCard account={null}>
-			<ConnectActions>
+			<CardActions>
 				<Button variant="ghost" size="sm" disabled={cancel.isPending} onClick={() => cancel.mutate({ target: "gmail" })}>
 					Agora não
 				</Button>
 				<Button size="sm" onClick={onConnect}>
 					Conectar
 				</Button>
-			</ConnectActions>
+			</CardActions>
 		</ConnectCard>
 	);
 }
@@ -393,7 +412,7 @@ function ConnectWaiting({ login }: { login: Login | undefined }) {
 					</Button>
 				</form>
 			)}
-			<ConnectActions>
+			<CardActions>
 				<span className="mr-auto flex items-center gap-1.5 text-xs text-muted-foreground">
 					<Spinner className="size-3" />
 					<ConnectHint url={login?.url?.link ?? null} />
@@ -406,7 +425,7 @@ function ConnectWaiting({ login }: { login: Login | undefined }) {
 				<Button variant="ghost" size="sm" disabled={cancel.isPending} onClick={() => cancel.mutate({ target: "gmail" })}>
 					Cancelar
 				</Button>
-			</ConnectActions>
+			</CardActions>
 		</ConnectCard>
 	);
 }
@@ -423,14 +442,79 @@ function ConnectLive() {
 	if (login?.state === "done" || login?.state === "failed") {
 		return (
 			<ConnectCard account={login.account}>
-				<ConnectActions>
+				<CardActions>
 					<ConnectOutcome account={login.account} />
-				</ConnectActions>
+				</CardActions>
 			</ConnectCard>
 		);
 	}
 
 	return <ConnectWaiting login={login} />;
+}
+
+function handoffVerdict(result: ToolResult): boolean | null {
+	if (result.failed) {
+		return false;
+	}
+	const parsed: unknown = parseJson(result.text);
+	if (!parsed || typeof parsed !== "object" || !("helped" in parsed)) {
+		return null;
+	}
+	return parsed.helped === true;
+}
+
+function HandoffCard({ reason, children }: { reason: string; children: ReactNode }) {
+	return (
+		<Bubble from="bot" role="group" aria-label="Abrir o navegador">
+			<p>Preciso que você faça uma coisa no navegador.</p>
+			<div className={cn(QUOTE, "flex items-start gap-2.5")}>
+				<GlobeIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+				<span className="min-w-0 text-sm">{reason}</span>
+			</div>
+			{children}
+		</Bubble>
+	);
+}
+
+function HandoffDone({ reason, result }: { reason: string; result: ToolResult }) {
+	const helped = handoffVerdict(result);
+
+	return (
+		<HandoffCard reason={reason}>
+			{result.failed && <p className="mt-2 text-xs text-destructive">{truncate(result.text)}</p>}
+			{helped !== null && (
+				<CardActions>
+					<span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+						{helped ? <CheckIcon className="size-3.5 text-success" /> : <XIcon className="size-3.5 text-destructive" />}
+						{helped ? "Você fez" : "Você deixou pra lá"}
+					</span>
+				</CardActions>
+			)}
+		</HandoffCard>
+	);
+}
+
+function Handoff({ botId, reason, result }: { botId: string; reason: string; result?: ToolResult }) {
+	const browsing = useBrowsing(botId);
+	const present = useMutation(orpc.browser.present.mutationOptions());
+	const answer = useMutation(orpc.browser.answer.mutationOptions());
+
+	if (result) {
+		return <HandoffDone reason={reason} result={result} />;
+	}
+
+	return (
+		<HandoffCard reason={reason}>
+			<CardActions>
+				<Button variant="ghost" size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, helped: false })}>
+					Agora não
+				</Button>
+				<Button size="sm" disabled={present.isPending || browsing?.showing} onClick={() => present.mutate({ botId, open: true })}>
+					Abrir o navegador
+				</Button>
+			</CardActions>
+		</HandoffCard>
+	);
 }
 
 function Connect({ result }: { result?: ToolResult }) {
@@ -532,11 +616,16 @@ const LineView = memo(function LineView({ line, level, name, botId, onPeer }: Li
 					<p className="mt-2 whitespace-pre-wrap text-muted-foreground">{line.text}</p>
 				</details>
 			);
-		case "tool":
+		case "tool": {
 			if (line.name === CONNECT_GMAIL) {
 				return <Connect result={line.result} />;
 			}
+			const reason = handoffReason(line);
+			if (reason) {
+				return <Handoff botId={botId} reason={reason} result={line.result} />;
+			}
 			return <Tool name={line.name} input={line.input} result={line.result} />;
+		}
 		case "approval":
 			return <Approval line={line} name={name} botId={botId} />;
 		default:

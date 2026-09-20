@@ -1,9 +1,11 @@
 import { join } from "node:path";
 import { dropLegacyChildren } from "@agent/bot/registry";
+import { installBrowser } from "@agent/browser/registry";
 import { startRoutines } from "@agent/routines/dispatcher";
 import { loadEnv } from "@agent/storage/home";
 import { RPCHandler } from "@orpc/server/message-port";
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
+import { PageView } from "./browser/view";
 import { router } from "./router";
 
 loadEnv();
@@ -36,6 +38,7 @@ function openWindow(): void {
 		backgroundColor: nativeTheme.shouldUseDarkColors ? "#0a0a0a" : "#ffffff",
 		webPreferences: { preload: join(import.meta.dirname, "../preload/index.cjs") },
 	});
+	installBrowser(() => new PageView(window));
 	window.webContents.on("will-navigate", (event) => event.preventDefault());
 	window.webContents.setWindowOpenHandler(({ url }) => {
 		if (/^https?:\/\//u.test(url)) {
