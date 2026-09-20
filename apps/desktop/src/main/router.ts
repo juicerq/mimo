@@ -1,10 +1,12 @@
 import { Bot } from "@agent/bot/bot";
 import { lastMessage } from "@agent/bot/events";
 import { activity, runningBot } from "@agent/bot/registry";
-import { createBot, listBots, readTranscript } from "@agent/bot/store";
-import { BotNameSchema, type BotEvent } from "@agent/bot/types";
+import { createBot, listBots, readBot, readTranscript } from "@agent/bot/store";
+import { BotNameSchema, ToolGroupSchema, type BotEvent } from "@agent/bot/types";
+import { listModels } from "@agent/model/catalog";
+import { ModelSelectionSchema } from "@agent/model/types";
 import { EventPublisher, ORPCError, os, ValidationError } from "@orpc/server";
-import type { BrowserWindow } from "electron";
+import { type BrowserWindow, dialog } from "electron";
 import { z } from "zod";
 
 export type ScreenEvent = Exclude<BotEvent, { type: "login" }>;
@@ -95,6 +97,34 @@ export const router = {
 		create: agent
 			.input(z.object({ name: BotNameSchema }))
 			.handler(async ({ input }) => await createBot({ name: input.name })),
+	},
+	bot: {
+		info: agent
+			.input(BotInput)
+			.handler(async ({ input }) => await readBot(input.botId)),
+		models: agent.handler(listModels),
+		selectModel: agent
+			.input(BotInput.extend({ model: ModelSelectionSchema }))
+			.handler(async ({ input }) => {
+				const bot = await Bot.open(input.botId);
+				return await bot.selectModel(input.model);
+			}),
+		setTools: agent
+			.input(BotInput.extend({ tools: z.array(ToolGroupSchema) }))
+			.handler(async ({ input }) => {
+				const bot = await Bot.open(input.botId);
+				return await bot.setTools(input.tools);
+			}),
+		setFolder: agent
+			.input(BotInput.extend({ folder: z.string().min(1).nullable() }))
+			.handler(async ({ input }) => {
+				const bot = await Bot.open(input.botId);
+				return await bot.setFolder(input.folder ?? undefined);
+			}),
+		pickFolder: base.handler(async ({ context }) => {
+			const picked = await dialog.showOpenDialog(context.window, { properties: ["openDirectory"], title: "Escolha a pasta do bot" });
+			return picked.filePaths[0] ?? null;
+		}),
 	},
 	conversation: {
 		watch: agent

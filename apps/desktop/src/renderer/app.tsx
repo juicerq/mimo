@@ -62,7 +62,7 @@ export function App() {
 
 	return (
 		<div className="flex h-screen">
-			<Bar bots={bots} error={error} selected={bot?.id} onSelect={select} focusComposer={focusComposer} />
+			<Bar bots={bots} error={error} selected={bot?.id} onSelect={select} focusComposer={focusComposer} level={level} onLevel={setLevel} />
 			<div className="flex min-w-0 flex-1 flex-col">
 				<Head bot={bot} info={infoOpen} onInfo={toggleInfo} />
 				<div className="flex min-h-0 flex-1">
@@ -74,16 +74,7 @@ export function App() {
 							</Empty>
 						)}
 					</main>
-					{bot && (
-						<Info
-							name={bot.name}
-							open={infoOpen}
-							overlay={overlay}
-							level={level}
-							onClose={closeInfo}
-							onLevel={setLevel}
-						/>
-					)}
+					{bot && <Info botId={bot.id} name={bot.name} open={infoOpen} overlay={overlay} onClose={closeInfo} />}
 				</div>
 			</div>
 		</div>

@@ -7,6 +7,7 @@ import { Avatar, STATE_LABELS } from "./avatar";
 import type { BotRow } from "./bots";
 import { orpc } from "./rpc";
 import { Settings } from "./settings";
+import type { Detail } from "./transcript";
 
 const AVATAR = 48;
 
@@ -33,9 +34,11 @@ interface BarProps {
 	selected: string | undefined;
 	onSelect: (id: string) => void;
 	focusComposer: () => void;
+	level: Detail;
+	onLevel: (level: Detail) => void;
 }
 
-export function Bar({ bots, error, selected, onSelect, focusComposer }: BarProps) {
+export function Bar({ bots, error, selected, onSelect, focusComposer, level, onLevel }: BarProps) {
 	const queryClient = useQueryClient();
 	const [adding, setAdding] = useState(false);
 	const [name, setName] = useState("");
@@ -134,7 +137,7 @@ export function Bar({ bots, error, selected, onSelect, focusComposer }: BarProps
 				{error && <p className="p-2 text-xs text-destructive wrap-anywhere">{error.message}</p>}
 			</div>
 			<footer className="flex shrink-0 px-3 pt-2 pb-3">
-				<Settings />
+				<Settings level={level} onLevel={onLevel} />
 			</footer>
 		</aside>
 	);

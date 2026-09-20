@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Setting } from "@renderer/components/setting";
 import { cn } from "cn";
-import { DETAIL_LEVELS, DETAIL_NAMES, type Detail } from "./transcript";
+import { About } from "./about";
 
 const DOCKED = "mimo:info";
 const OVERLAY = "(width < 60rem)";
@@ -49,15 +48,14 @@ export function useInfoPanel() {
 }
 
 interface InfoProps {
+	botId: string;
 	name: string;
 	open: boolean;
 	overlay: boolean;
-	level: Detail;
 	onClose: () => void;
-	onLevel: (level: Detail) => void;
 }
 
-export function Info({ name, open, overlay, level, onClose, onLevel }: InfoProps) {
+export function Info({ botId, name, open, overlay, onClose }: InfoProps) {
 	if (!open && !overlay) {
 		return null;
 	}
@@ -74,7 +72,7 @@ export function Info({ name, open, overlay, level, onClose, onLevel }: InfoProps
 				)}
 			>
 				<div className="min-h-0 flex-1 overflow-y-auto p-5">
-					<Setting label="Detalhe" value={level} options={DETAIL_LEVELS} names={DETAIL_NAMES} onChange={onLevel} />
+					<About botId={botId} />
 				</div>
 			</aside>
 		</>

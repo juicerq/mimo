@@ -1,4 +1,14 @@
+import type { ReactNode } from "react";
 import { ToggleGroup, ToggleGroupItem } from "@renderer/components/ui/toggle-group";
+
+export function Field({ label, children }: { label: string; children: ReactNode }) {
+	return (
+		<section className="mt-5 first:mt-0">
+			<h3 className="mb-2 text-xs font-medium text-muted-foreground">{label}</h3>
+			{children}
+		</section>
+	);
+}
 
 interface SettingProps<T extends string> {
 	label: string;
@@ -10,8 +20,7 @@ interface SettingProps<T extends string> {
 
 export function Setting<T extends string>({ label, value, options, names, onChange }: SettingProps<T>) {
 	return (
-		<>
-			<h3 className="mb-2 text-xs font-medium text-muted-foreground">{label}</h3>
+		<Field label={label}>
 			<ToggleGroup
 				aria-label={label}
 				value={[value]}
@@ -35,6 +44,6 @@ export function Setting<T extends string>({ label, value, options, names, onChan
 					</ToggleGroupItem>
 				))}
 			</ToggleGroup>
-		</>
+		</Field>
 	);
 }
