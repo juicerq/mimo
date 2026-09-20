@@ -97,14 +97,6 @@ async function writeStore(routines: Routine[]): Promise<void> {
 	await writeTextFile(STORE_PATH, `${JSON.stringify({ routines }, null, "\t")}\n`, 0o600);
 }
 
-function requireRoutine(routines: Routine[], id: string): Routine {
-	const routine = routines.find((candidate) => candidate.id === id);
-	if (!routine) {
-		throw new Error(`Rotina ${id} não encontrada.`);
-	}
-	return routine;
-}
-
 function requireNamed(routines: Routine[], name: string): Routine {
 	const routine = routines.find((candidate) => candidate.name === name);
 	if (!routine) {
@@ -214,8 +206,12 @@ export async function claimDue(now: Date, limit: number) {
 export async function completeRoutine(id: string, now: Date): Promise<void> {
 	await serialize(async () => {
 		const routines = await readRoutines();
-		const current = requireRoutine(routines, id);
-		routines[routines.indexOf(current)] = { ...current, lastRunAt: now.toISOString(), lastError: undefined };
+		const at = routines.findIndex((routine) => routine.id === id);
+		const current = routines[at];
+		if (!current) {
+			return;
+		}
+		routines[at] = { ...current, lastRunAt: now.toISOString(), lastError: undefined };
 		await writeStore(routines);
 	});
 }
@@ -224,8 +220,12 @@ export async function failRoutine(id: string, error: unknown): Promise<void> {
 	const message = error instanceof Error ? error.message : String(error);
 	await serialize(async () => {
 		const routines = await readRoutines();
-		const current = requireRoutine(routines, id);
-		routines[routines.indexOf(current)] = { ...current, lastError: message };
+		const at = routines.findIndex((routine) => routine.id === id);
+		const current = routines[at];
+		if (!current) {
+			return;
+		}
+		routines[at] = { ...current, lastError: message };
 		await writeStore(routines);
 	});
 }
