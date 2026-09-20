@@ -205,7 +205,7 @@ function Approval({ line, name, botId }: { line: Extract<Line, { kind: "approval
 					</>
 				)}
 			</p>
-			<div className="mt-3 border-l-2 border-foreground/20 pl-3">
+			<div className="mt-3 rounded-r-md border-l-2 border-foreground/25 bg-black/15 px-3 py-2">
 				<Fields input={head} whole={whole} labels={EMAIL_LABELS} className="font-sans" />
 				{body.map(([key, value]) => (
 					<p key={key} className="mt-2 whitespace-pre-wrap first:mt-0">
