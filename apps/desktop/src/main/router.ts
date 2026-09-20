@@ -4,7 +4,7 @@ import { activity, runningBot } from "@agent/bot/registry";
 import { createBot, listBots, readBot, readTranscript } from "@agent/bot/store";
 import { BotNameSchema, ToolGroupSchema, type BotEvent } from "@agent/bot/types";
 import { listModels } from "@agent/model/catalog";
-import { ModelSelectionSchema } from "@agent/model/types";
+import { PROVIDER_NAMES, ModelSelectionSchema } from "@agent/model/types";
 import { EventPublisher, ORPCError, os, ValidationError } from "@orpc/server";
 import { type BrowserWindow, dialog } from "electron";
 import { z } from "zod";
@@ -102,7 +102,7 @@ export const router = {
 		info: agent
 			.input(BotInput)
 			.handler(async ({ input }) => await readBot(input.botId)),
-		models: agent.handler(listModels),
+		models: agent.handler(async () => ({ ...(await listModels()), providerNames: PROVIDER_NAMES })),
 		selectModel: agent
 			.input(BotInput.extend({ model: ModelSelectionSchema }))
 			.handler(async ({ input }) => {

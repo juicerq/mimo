@@ -1,11 +1,23 @@
-import type { ToolGroup } from "@agent/bot/types";
-import type { ModelOption, Provider, Reasoning } from "@agent/model/types";
+import type { BotInfo, ToolGroup } from "@agent/bot/types";
+import type { ModelInfo, ModelOption, ModelSelection, Provider, Reasoning } from "@agent/model/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderIcon, XIcon } from "lucide-react";
 import { Field } from "@renderer/components/setting";
 import { Button } from "@renderer/components/ui/button";
+import {
+	Combobox,
+	ComboboxCollection,
+	ComboboxContent,
+	ComboboxEmpty,
+	ComboboxGroup,
+	ComboboxInput,
+	ComboboxItem,
+	ComboboxLabel,
+	ComboboxList,
+	ComboboxTrigger,
+} from "@renderer/components/ui/combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@renderer/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@renderer/components/ui/toggle-group";
+import { Switch } from "@renderer/components/ui/switch";
 import { orpc, rpc } from "./rpc";
 
 const REASONING_NAMES: Record<Reasoning, string> = {
@@ -28,23 +40,101 @@ const TOOL_NAMES: Record<ToolGroup, string> = {
 
 const TOOL_ORDER: ToolGroup[] = ["computer", "web", "gmail", "routines", "team"];
 
+type Catalog = Awaited<ReturnType<typeof rpc.bot.models>>;
+
+interface ModelItem {
+	value: string;
+	label: string;
+}
+
+interface ModelGroup {
+	value: string;
+	items: ModelItem[];
+}
+
 function modelKey(model: Pick<ModelOption, "provider" | "id">): string {
 	return `${model.provider}|${model.id}`;
 }
 
-interface ChooseProps<T extends string> {
-	label: string;
-	value: T;
-	options: readonly T[];
-	names: Record<string, string>;
-	onChange: (value: T) => void;
+function groupModels(models: ModelOption[], providers: Record<Provider, string>): ModelGroup[] {
+	const groups: ModelGroup[] = [];
+	for (const model of models) {
+		const name = providers[model.provider];
+		const group = groups.find((entry) => entry.value === name);
+		const item = { value: modelKey(model), label: model.name };
+		if (group) {
+			group.items.push(item);
+			continue;
+		}
+		groups.push({ value: name, items: [item] });
+	}
+	return groups;
 }
 
-function Choose<T extends string>({ label, value, options, names, onChange }: ChooseProps<T>) {
+interface ModelProps {
+	name: string;
+	provider: string;
+	current: ModelItem | null;
+	groups: ModelGroup[];
+	loading: boolean;
+	onChange: (key: string) => void;
+}
+
+function Model({ name, provider, current, groups, loading, onChange }: ModelProps) {
+	return (
+		<Combobox
+			items={groups}
+			value={current}
+			isItemEqualToValue={(item: ModelItem, other: ModelItem) => item.value === other.value}
+			onValueChange={(item: ModelItem | null) => {
+				if (item) {
+					onChange(item.value);
+				}
+			}}
+		>
+			<ComboboxTrigger
+				aria-label="Modelo"
+				render={<Button variant="outline" className="h-auto w-full justify-between py-1.5 font-normal" />}
+			>
+				<span className="flex min-w-0 flex-col items-start">
+					<span className="max-w-full truncate">{name}</span>
+					<span className="max-w-full truncate text-xs text-muted-foreground">{provider}</span>
+				</span>
+			</ComboboxTrigger>
+			<ComboboxContent align="end" className="w-72">
+				<ComboboxInput placeholder="Procurar modelo" showTrigger={false} />
+				<ComboboxEmpty>{loading ? "Carregando modelos…" : "Nenhum modelo com esse nome."}</ComboboxEmpty>
+				<ComboboxList>
+					{(group: ModelGroup) => (
+						<ComboboxGroup key={group.value} items={group.items}>
+							<ComboboxLabel>{group.value}</ComboboxLabel>
+							<ComboboxCollection>
+								{(item: ModelItem) => (
+									<ComboboxItem key={item.value} value={item}>
+										{item.label}
+									</ComboboxItem>
+								)}
+							</ComboboxCollection>
+						</ComboboxGroup>
+					)}
+				</ComboboxList>
+			</ComboboxContent>
+		</Combobox>
+	);
+}
+
+interface EffortProps {
+	value: Reasoning;
+	options: readonly Reasoning[];
+	onChange: (value: Reasoning) => void;
+}
+
+function Effort({ value, options, onChange }: EffortProps) {
 	return (
 		<Select
-			items={options.map((option) => ({ label: names[option] ?? option, value: option }))}
+			items={options.map((option) => ({ label: REASONING_NAMES[option], value: option }))}
 			value={value}
+			disabled={options.length < 2}
 			onValueChange={(next) => {
 				const picked = options.find((option) => option === next);
 				if (picked) {
@@ -52,13 +142,13 @@ function Choose<T extends string>({ label, value, options, names, onChange }: Ch
 				}
 			}}
 		>
-			<SelectTrigger size="sm" className="w-full" aria-label={label}>
+			<SelectTrigger size="sm" className="w-full" aria-label="Esforço">
 				<SelectValue />
 			</SelectTrigger>
-			<SelectContent>
+			<SelectContent alignItemWithTrigger={false} align="end">
 				{options.map((option) => (
 					<SelectItem key={option} value={option}>
-						{names[option] ?? option}
+						{REASONING_NAMES[option]}
 					</SelectItem>
 				))}
 			</SelectContent>
@@ -66,10 +156,53 @@ function Choose<T extends string>({ label, value, options, names, onChange }: Ch
 	);
 }
 
+interface BrainProps {
+	model: ModelInfo;
+	catalog: Catalog | undefined;
+	loading: boolean;
+	onChange: (model: ModelSelection) => void;
+}
+
+function Brain({ model, catalog, loading, onChange }: BrainProps) {
+	const models = catalog?.models ?? [];
+	const chosen = models.find((option) => modelKey(option) === modelKey(model));
+	const groups = catalog ? groupModels(models, catalog.providerNames) : [];
+	const current = groups.flatMap((group) => group.items).find((item) => item.value === modelKey(model)) ?? null;
+
+	function pick(key: string): void {
+		const picked = models.find((option) => modelKey(option) === key);
+		if (picked) {
+			onChange({ provider: picked.provider, id: picked.id, reasoning: picked.defaultReasoning });
+		}
+	}
+
+	return (
+		<>
+			<Field label="Modelo">
+				<Model
+					name={chosen?.name ?? model.id}
+					provider={catalog?.providerNames[model.provider] ?? model.provider}
+					current={current}
+					groups={groups}
+					loading={loading}
+					onChange={pick}
+				/>
+			</Field>
+			<Field label="Esforço">
+				<Effort
+					value={model.reasoning}
+					options={chosen?.reasoningOptions ?? [model.reasoning]}
+					onChange={(reasoning) => onChange({ provider: model.provider, id: model.id, reasoning })}
+				/>
+			</Field>
+		</>
+	);
+}
+
 function Folder({ folder, onPick, onClear }: { folder: string | null; onPick: () => void; onClear: () => void }) {
 	return (
 		<div className="flex items-center gap-1">
-			<Button variant="outline" size="sm" className="min-w-0 flex-1 justify-start" onClick={onPick}>
+			<Button variant="outline" size="sm" className="min-w-0 flex-1 justify-start" onClick={onPick} title={folder ?? undefined}>
 				<FolderIcon className="shrink-0" />
 				<span className="truncate">{folder === null ? "Escolher pasta" : folder.split("/").at(-1)}</span>
 			</Button>
@@ -83,26 +216,21 @@ function Folder({ folder, onPick, onClear }: { folder: string | null; onPick: ()
 }
 
 function Tools({ tools, onChange }: { tools: ToolGroup[]; onChange: (tools: ToolGroup[]) => void }) {
+	function toggle(tool: ToolGroup, on: boolean): void {
+		onChange(TOOL_ORDER.filter((entry) => (entry === tool ? on : tools.includes(entry))));
+	}
+
 	return (
-		<ToggleGroup
-			aria-label="Ferramentas"
-			multiple
-			value={tools}
-			onValueChange={(next) => onChange(TOOL_ORDER.filter((tool) => next.includes(tool)))}
-			className="w-full flex-wrap"
-		>
+		<div className="flex flex-col">
 			{TOOL_ORDER.map((tool) => (
-				<ToggleGroupItem
-					key={tool}
-					value={tool}
-					size="sm"
-					variant="outline"
-					className="text-muted-foreground aria-pressed:border-transparent aria-pressed:text-foreground"
-				>
-					{TOOL_NAMES[tool]}
-				</ToggleGroupItem>
+				<div key={tool} className="flex h-8 items-center justify-between gap-2">
+					<label htmlFor={`tool-${tool}`} className="text-sm">
+						{TOOL_NAMES[tool]}
+					</label>
+					<Switch id={`tool-${tool}`} checked={tools.includes(tool)} onCheckedChange={(on) => toggle(tool, on)} />
+				</div>
 			))}
-		</ToggleGroup>
+		</div>
 	);
 }
 
@@ -110,12 +238,12 @@ export function About({ botId }: { botId: string }) {
 	const queryClient = useQueryClient();
 	const info = useQuery(orpc.bot.info.queryOptions({ input: { botId } }));
 	const catalog = useQuery(orpc.bot.models.queryOptions());
-	const refresh = async () => {
-		await queryClient.invalidateQueries({ queryKey: orpc.bot.info.key({ input: { botId } }) });
+	const apply = (record: BotInfo) => {
+		queryClient.setQueryData(orpc.bot.info.key({ input: { botId }, type: "query" }), record);
 	};
-	const selectModel = useMutation(orpc.bot.selectModel.mutationOptions({ onSuccess: refresh }));
-	const setTools = useMutation(orpc.bot.setTools.mutationOptions({ onSuccess: refresh }));
-	const setFolder = useMutation(orpc.bot.setFolder.mutationOptions({ onSuccess: refresh }));
+	const selectModel = useMutation(orpc.bot.selectModel.mutationOptions({ onSuccess: apply }));
+	const setTools = useMutation(orpc.bot.setTools.mutationOptions({ onSuccess: apply }));
+	const setFolder = useMutation(orpc.bot.setFolder.mutationOptions({ onSuccess: apply }));
 	const bot = info.data;
 
 	if (!bot) {
@@ -123,10 +251,6 @@ export function About({ botId }: { botId: string }) {
 	}
 
 	const failure = selectModel.error ?? setTools.error ?? setFolder.error ?? catalog.error;
-	const models = catalog.data?.models ?? [];
-	const chosen = models.find((model) => modelKey(model) === modelKey(bot.model));
-	const efforts = chosen?.reasoningOptions ?? [bot.model.reasoning];
-	const modelNames = Object.fromEntries(models.map((model) => [modelKey(model), model.name]));
 
 	async function pickFolder(): Promise<void> {
 		const picked = await rpc.bot.pickFolder();
@@ -135,35 +259,14 @@ export function About({ botId }: { botId: string }) {
 		}
 	}
 
-	function choose(provider: Provider, id: string, reasoning: Reasoning): void {
-		selectModel.mutate({ botId, model: { provider, id, reasoning } });
-	}
-
 	return (
 		<>
-			<Field label="Modelo">
-				<Choose
-					label="Modelo"
-					value={modelKey(bot.model)}
-					options={models.map(modelKey)}
-					names={modelNames}
-					onChange={(key) => {
-						const picked = models.find((model) => modelKey(model) === key);
-						if (picked) {
-							choose(picked.provider, picked.id, picked.defaultReasoning);
-						}
-					}}
-				/>
-			</Field>
-			<Field label="Esforço">
-				<Choose
-					label="Esforço"
-					value={bot.model.reasoning}
-					options={efforts}
-					names={REASONING_NAMES}
-					onChange={(reasoning) => choose(bot.model.provider, bot.model.id, reasoning)}
-				/>
-			</Field>
+			<Brain
+				model={bot.model}
+				catalog={catalog.data}
+				loading={catalog.isPending}
+				onChange={(model) => selectModel.mutate({ botId, model })}
+			/>
 			<Field label="Ferramentas">
 				<Tools tools={bot.tools} onChange={(tools) => setTools.mutate({ botId, tools })} />
 			</Field>
