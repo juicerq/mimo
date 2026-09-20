@@ -1,4 +1,5 @@
 import type { AuthEvent, AuthInteraction, AuthPrompt, AuthType } from "@earendil-works/pi-ai";
+import { z } from "zod";
 import { connectGmail } from "../gmail/connect";
 import { models } from "../model/models";
 import type { Provider } from "../model/types";
@@ -16,6 +17,8 @@ export const LOGIN_TARGETS = [
 
 export type LoginTarget = (typeof LOGIN_TARGETS)[number]["id"];
 
+export const LoginTargetSchema = z.enum(LOGIN_TARGETS.map((target) => target.id));
+
 interface LoginOption {
 	id: string;
 	label: string;
@@ -28,11 +31,13 @@ export interface LoginPrompt {
 }
 
 export type LoginEvent =
+	| { type: "asked" }
+	| { type: "started" }
 	| { type: "info"; text: string }
 	| { type: "url"; url: string; instructions: string | null }
 	| { type: "prompt"; prompt: LoginPrompt }
-	| { type: "done" }
-	| { type: "failed"; message: string };
+	| { type: "done"; account: string | null }
+	| { type: "failed"; message: string; refused: boolean };
 
 interface Pending {
 	prompt: LoginPrompt;
@@ -61,13 +66,42 @@ export class LoginSession {
 	private readonly aborter = new AbortController();
 	private settle: { resolve: () => void; reject: (reason: Error) => void } | null = null;
 	private pending: Pending | null = null;
+	private started = false;
+	private ended = false;
+	private dropped = false;
+	private connected: string | null = null;
 
-	constructor(target: LoginTarget) {
+	constructor(private readonly target: LoginTarget) {
 		this.finished = new Promise<void>((resolve, reject) => {
 			this.settle = { resolve, reject };
 		});
 		this.finished.catch(() => {});
-		void this.run(target);
+		this.emit({ type: "asked" });
+	}
+
+	get over(): boolean {
+		return this.ended;
+	}
+
+	get account(): string | null {
+		return this.connected;
+	}
+
+	get refused(): boolean {
+		return this.dropped;
+	}
+
+	begin(): void {
+		if (this.started) {
+			return;
+		}
+		this.started = true;
+		this.emit({ type: "started" });
+		void this.run();
+	}
+
+	get past(): readonly LoginEvent[] {
+		return this.history;
 	}
 
 	subscribe(listener: (event: LoginEvent) => void): () => void {
@@ -88,9 +122,17 @@ export class LoginSession {
 	}
 
 	cancel(): void {
-		this.pending?.reject(new Error("Login cancelled."));
+		if (this.ended) {
+			return;
+		}
+		this.dropped = true;
+		this.pending?.reject(new Error("Login cancelado."));
 		this.pending = null;
 		this.aborter.abort();
+		if (!this.started) {
+			this.started = true;
+			this.finish(new Error("Você não conectou a conta agora."));
+		}
 	}
 
 	private emit(event: LoginEvent): void {
@@ -113,35 +155,46 @@ export class LoginSession {
 	}
 
 	private readonly ask = async (prompt: AuthPrompt): Promise<string> => {
+		if (this.aborter.signal.aborted) {
+			throw new Error("Login cancelado.");
+		}
 		const translated = toPrompt(prompt);
 		return await new Promise<string>((resolve, reject) => {
 			this.pending = { prompt: translated, resolve, reject };
 			prompt.signal?.addEventListener("abort", () => {
 				this.pending = null;
-				reject(new Error("Prompt cancelled."));
+				reject(new Error("Login cancelado."));
 			}, { once: true });
 			this.emit({ type: "prompt", prompt: translated });
 		});
 	}
 
-	private async run(target: LoginTarget): Promise<void> {
+	private finish(failure: Error | null): void {
+		this.ended = true;
+		if (failure) {
+			this.emit({ type: "failed", message: failure.message, refused: this.dropped });
+			this.settle?.reject(failure);
+			return;
+		}
+		this.emit({ type: "done", account: this.connected });
+		this.settle?.resolve();
+	}
+
+	private async run(): Promise<void> {
 		const interaction: AuthInteraction = {
 			signal: this.aborter.signal,
 			prompt: this.ask,
 			notify: this.notify,
 		};
 		try {
-			if (target === "gmail") {
-				await connectGmail(interaction);
+			if (this.target === "gmail") {
+				this.connected = await connectGmail(interaction);
 			} else {
-				await models().login(target, AUTH_TYPES[target], interaction);
+				await models().login(this.target, AUTH_TYPES[this.target], interaction);
 			}
-			this.emit({ type: "done" });
-			this.settle?.resolve();
+			this.finish(null);
 		} catch (error) {
-			const failure = error instanceof Error ? error : new Error(String(error));
-			this.emit({ type: "failed", message: failure.message });
-			this.settle?.reject(failure);
+			this.finish(error instanceof Error ? error : new Error(String(error)));
 		}
 	}
 }

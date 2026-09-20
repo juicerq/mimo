@@ -1,5 +1,6 @@
 import { disconnectAccount, listAccounts } from "@agent/gmail/accounts";
-import { LOGIN_GROUP_NAMES, LOGIN_TARGETS, LoginSession, type LoginEvent, type LoginPrompt, type LoginTarget } from "@agent/login/login";
+import { LOGIN_GROUP_NAMES, LOGIN_TARGETS, type LoginEvent, type LoginPrompt, type LoginSession, type LoginTarget } from "@agent/login/login";
+import { startLogin } from "@agent/login/registry";
 import { copyToClipboard } from "../clipboard";
 import { CANCEL_HINT, choicePanel, type Panel, type PanelView } from "../panel";
 
@@ -13,7 +14,7 @@ export function loginTargetsPanel(): Panel {
 				group: LOGIN_GROUP_NAMES[target.group],
 			})),
 		}),
-		pick: (target, view) => view.show(loginPanel(target, new LoginSession(target))),
+		pick: (target, view) => view.show(loginPanel(target, startLogin(target))),
 	});
 }
 
@@ -26,6 +27,7 @@ export function loginPanel(target: LoginTarget, session: LoginSession): Panel {
 		heading: `${name}  ·  login`,
 		placeholder: "waiting",
 		start(view) {
+			session.begin();
 			session.subscribe((event) => {
 				if (event.type === "url") {
 					url = event.url;
@@ -77,6 +79,9 @@ export function accountsPanel(): Panel {
 }
 
 function showLoginEvent(event: LoginEvent, target: LoginTarget, view: PanelView): void {
+	if (event.type === "asked" || event.type === "started") {
+		return;
+	}
 	if (event.type === "info") {
 		view.line(event.text, "note");
 		return;

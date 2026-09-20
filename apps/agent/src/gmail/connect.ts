@@ -86,7 +86,7 @@ async function serveCallback(state: string): Promise<{ code: Promise<string>; st
 	};
 }
 
-export async function connectGmail(interaction: AuthInteraction): Promise<void> {
+export async function connectGmail(interaction: AuthInteraction): Promise<string> {
 	const { verifier, challenge } = createPkce();
 	const state = randomUUID();
 	const callback = await serveCallback(state);
@@ -109,6 +109,7 @@ export async function connectGmail(interaction: AuthInteraction): Promise<void> 
 		const email = await fetchAccountEmail(tokens.accessToken);
 		await saveAccount({ email, refreshToken: tokens.refreshToken });
 		interaction.notify({ type: "info", message: `Conta ${email} conectada.` });
+		return email;
 	} finally {
 		callback.stop();
 	}

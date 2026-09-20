@@ -3,6 +3,9 @@ import { lastMessage } from "@agent/bot/events";
 import { activity, deleteBot, mainChat, updateBot } from "@agent/bot/registry";
 import { createBot, listBots, readBot, readTranscript } from "@agent/bot/store";
 import { BotNameSchema, BotPromptSchema, type BotEvent } from "@agent/bot/types";
+import { disconnectAccount, listAccounts } from "@agent/gmail/accounts";
+import { LOGIN_TARGETS, LoginTargetSchema } from "@agent/login/login";
+import { loginSession, startLogin, watchLogins, type LoginActivity } from "@agent/login/registry";
 import { listModels, selectModel } from "@agent/model/catalog";
 import { PROVIDER_NAMES, ModelSelectionSchema } from "@agent/model/types";
 import { EventPublisher, ORPCError, os, ValidationError } from "@orpc/server";
@@ -73,6 +76,19 @@ async function* maximized(window: BrowserWindow, signal?: AbortSignal) {
 	}
 }
 
+async function* logins(signal?: AbortSignal) {
+	const publisher = new EventPublisher<{ activity: LoginActivity }>({ maxBufferedEvents: Number.POSITIVE_INFINITY });
+	const live = publisher.subscribe("activity", { ...signal && { signal } });
+	const unwatch = watchLogins((activity) => publisher.publish("activity", activity));
+	try {
+		for await (const activity of live) {
+			yield activity;
+		}
+	} finally {
+		unwatch();
+	}
+}
+
 async function* watch(chat: Chat, signal?: AbortSignal) {
 	const publisher = new EventPublisher<{ event: ScreenEvent }>({ maxBufferedEvents: Number.POSITIVE_INFINITY });
 	const live = publisher.subscribe("event", { ...signal && { signal } });
@@ -136,6 +152,31 @@ export const router = {
 				const chat = await Chat.open(input);
 				chat.cancel();
 			}),
+	},
+	login: {
+		targets: agent.handler(() => LOGIN_TARGETS),
+		watch: agent.handler(({ signal }) => logins(signal)),
+		start: agent
+			.input(z.object({ target: LoginTargetSchema }))
+			.handler(({ input }) => {
+				startLogin(input.target);
+			}),
+		answer: agent
+			.input(z.object({ target: LoginTargetSchema, text: z.string().min(1) }))
+			.handler(({ input }) => {
+				loginSession(input.target)?.answer(input.text);
+			}),
+		cancel: agent
+			.input(z.object({ target: LoginTargetSchema }))
+			.handler(({ input }) => {
+				loginSession(input.target)?.cancel();
+			}),
+	},
+	accounts: {
+		list: agent.handler(async () => (await listAccounts()).map((account) => account.email)),
+		disconnect: agent
+			.input(z.object({ email: z.string().min(1) }))
+			.handler(async ({ input }) => await disconnectAccount(input.email)),
 	},
 	window: {
 		minimize: base.handler(({ context }) => context.window.minimize()),

@@ -1,5 +1,6 @@
 import { Agent, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
-import { LoginSession, type LoginTarget } from "../login/login";
+import type { LoginSession, LoginTarget } from "../login/login";
+import { requestLogin } from "../login/registry";
 import { contentText } from "../messages";
 import { resolveModel } from "../model/catalog";
 import { modelFailure } from "../model/failure";
@@ -29,6 +30,7 @@ export class Chat {
 	private readonly approvals = new Approvals((event) => this.emit(event));
 	private readonly entries = new Queue((event) => this.emit(event));
 	private readonly running = new Map<string, string>();
+	private readonly logins = new Set<LoginSession>();
 	readonly chat: ChatKey;
 	private record: BotInfo;
 	private archive: AgentMessage[];
@@ -110,12 +112,10 @@ export class Chat {
 	}
 
 	login(target: LoginTarget): LoginSession {
-		const screen = this.screen();
-		if (!screen) {
-			throw new Error("Este bot não está na tela. A pessoa precisa abrir o bot para autorizar.");
-		}
-		const session = new LoginSession(target);
-		screen.emit({ type: "login", target, session });
+		const session = requestLogin(target);
+		this.logins.add(session);
+		void session.finished.catch(() => {}).finally(() => this.logins.delete(session));
+		this.screen()?.emit({ type: "login", target, session });
 		return session;
 	}
 
@@ -184,6 +184,9 @@ export class Chat {
 		this.running.clear();
 		this.entries.discard(this.outcome());
 		this.approvals.denyAll();
+		for (const session of this.logins) {
+			session.cancel();
+		}
 		this.agent.abort();
 	}
 

@@ -1,11 +1,14 @@
 import { useMutation } from "@tanstack/react-query";
-import { CheckIcon, CircleXIcon, ClockIcon, type LucideIcon, MessageSquareIcon, SendIcon, SquareIcon, TriangleAlertIcon, WrenchIcon, XIcon } from "lucide-react";
+import { CheckIcon, CircleXIcon, ClockIcon, type LucideIcon, MailIcon, MessageSquareIcon, SendIcon, SquareIcon, TriangleAlertIcon, WrenchIcon, XIcon } from "lucide-react";
 import { type ComponentProps, Fragment, memo, type ReactNode, type RefObject, startTransition, useEffect, useRef, useState } from "react";
 import { Button } from "@renderer/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@renderer/components/ui/empty";
+import { Input } from "@renderer/components/ui/input";
+import { Spinner } from "@renderer/components/ui/spinner";
 import { cn } from "cn";
 import { Avatar } from "./avatar";
 import type { Conversation, Line, ToolResult } from "./conversation";
+import { useLogins, type Login } from "./logins";
 import { Prose, StreamingProse } from "./prose";
 import { orpc } from "./rpc";
 
@@ -40,6 +43,8 @@ const TOOL_LABELS: Record<string, string> = {
 	delete_routine: "Apagou uma rotina",
 };
 const EMAIL_LABELS: Record<string, string> = { account: "De", to: "Para", cc: "Cópia", subject: "Assunto", threadId: "Thread" };
+const CONNECT_GMAIL = "connect_gmail";
+const GMAIL_SCOPE = "ler, rascunhar e enviar e-mail em seu nome";
 const DETAIL_CHARACTERS = 600;
 const GIST_CHARACTERS = 160;
 const PAGE_LINES = 40;
@@ -50,6 +55,7 @@ const DOCK =
 	"sticky bottom-0 order-first shrink-0 bg-background before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-10 before:bg-linear-to-t before:from-background";
 const LABEL = "shrink-0";
 const GIST = "truncate before:mr-1.5 before:content-['·']";
+const QUOTE = "mt-3 rounded-r-md border-l-2 border-foreground/25 bg-black/15 px-3 py-2";
 const BUBBLES = {
 	you: "ml-auto rounded-br-none bg-primary whitespace-pre-wrap text-primary-foreground",
 	bot: "rounded-bl-none bg-muted",
@@ -60,7 +66,7 @@ const TONES = {
 };
 
 function verbose(line: Line): boolean {
-	return line.kind === "tool";
+	return line.kind === "tool" && line.name !== CONNECT_GMAIL;
 }
 
 function oneLine(text: string): string {
@@ -72,6 +78,14 @@ function truncate(text: string): string {
 		return text;
 	}
 	return `${text.slice(0, DETAIL_CHARACTERS)}…`;
+}
+
+function parseJson(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return null;
+	}
 }
 
 function valueText(value: unknown): string {
@@ -207,7 +221,7 @@ function Approval({ line, name, botId }: { line: Extract<Line, { kind: "approval
 					</>
 				)}
 			</p>
-			<div className="mt-3 rounded-r-md border-l-2 border-foreground/25 bg-black/15 px-3 py-2">
+			<div className={QUOTE}>
 				<Fields input={head} whole={whole} labels={EMAIL_LABELS} className="font-sans" />
 				{body.map(([key, value]) => (
 					<p key={key} className="mt-2 whitespace-pre-wrap first:mt-0">
@@ -239,6 +253,191 @@ function Approval({ line, name, botId }: { line: Extract<Line, { kind: "approval
 			</div>
 		</Bubble>
 	);
+}
+
+function connectVerdict(result: ToolResult): { account: string | null } | null {
+	if (result.failed) {
+		return { account: null };
+	}
+	const parsed: unknown = parseJson(result.text);
+	if (!parsed || typeof parsed !== "object" || !("account" in parsed)) {
+		return null;
+	}
+	if (typeof parsed.account === "string") {
+		return { account: parsed.account };
+	}
+	return { account: null };
+}
+
+function ConnectCard({ account, children }: { account: string | null; children: ReactNode }) {
+	return (
+		<Bubble from="bot" role="group" aria-label="Conectar o Gmail">
+			<p>Preciso da sua conta do Google para isso.</p>
+			<div className={cn(QUOTE, "flex items-center gap-2.5")}>
+				<MailIcon className="size-4 shrink-0 text-muted-foreground" />
+				<span className="min-w-0">
+					<span className="block truncate text-sm">{account ?? "Gmail"}</span>
+					<span className="block truncate text-xs text-muted-foreground">{GMAIL_SCOPE}</span>
+				</span>
+			</div>
+			{children}
+		</Bubble>
+	);
+}
+
+function ConnectActions({ children }: { children: ReactNode }) {
+	return <div className="mt-3 flex items-center justify-end gap-2 pl-3">{children}</div>;
+}
+
+function ConnectOutcome({ account }: { account: string | null }) {
+	return (
+		<span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+			{account ? <CheckIcon className="size-3.5 text-success" /> : <XIcon className="size-3.5 text-destructive" />}
+			{account ? "Conectado" : "Não conectou"}
+		</span>
+	);
+}
+
+function ConnectDone({ result }: { result: ToolResult }) {
+	const verdict = connectVerdict(result);
+
+	return (
+		<ConnectCard account={verdict?.account ?? null}>
+			{result.failed && <p className="mt-2 text-xs text-destructive">{truncate(result.text)}</p>}
+			{verdict && (
+				<ConnectActions>
+					<ConnectOutcome account={verdict.account} />
+				</ConnectActions>
+			)}
+		</ConnectCard>
+	);
+}
+
+function ConnectAsking({ onConnect }: { onConnect: () => void }) {
+	const cancel = useMutation(orpc.login.cancel.mutationOptions());
+
+	return (
+		<ConnectCard account={null}>
+			<ConnectActions>
+				<Button variant="ghost" size="sm" disabled={cancel.isPending} onClick={() => cancel.mutate({ target: "gmail" })}>
+					Agora não
+				</Button>
+				<Button size="sm" onClick={onConnect}>
+					Conectar
+				</Button>
+			</ConnectActions>
+		</ConnectCard>
+	);
+}
+
+function ConnectHint({ url }: { url: string | null }) {
+	if (!url) {
+		return <span>Autorize na janela do navegador</span>;
+	}
+
+	return (
+		<span>
+			<button
+				type="button"
+				className="cursor-pointer rounded underline-offset-2 hover:underline focus-visible:outline-2"
+				onClick={() => window.open(url)}
+			>
+				Autorize
+			</button>{" "}
+			na janela do navegador
+		</span>
+	);
+}
+
+function ConnectWaiting({ login }: { login: Login | undefined }) {
+	const cancel = useMutation(orpc.login.cancel.mutationOptions());
+	const answer = useMutation(orpc.login.answer.mutationOptions());
+	const [pasting, setPasting] = useState(false);
+	const [code, setCode] = useState("");
+
+	useEffect(() => {
+		if (!login?.url) {
+			return;
+		}
+		const once = `login-aberto:gmail:${login.run}`;
+		if (sessionStorage.getItem(once)) {
+			return;
+		}
+		sessionStorage.setItem(once, "1");
+		window.open(login.url.link);
+	}, [login?.url, login?.run]);
+
+	return (
+		<ConnectCard account={null}>
+			{pasting && (
+				<form
+					className="mt-3 flex gap-1.5"
+					onSubmit={(event) => {
+						event.preventDefault();
+						if (code.trim()) {
+							answer.mutate({ target: "gmail", text: code });
+						}
+					}}
+				>
+					<Input
+						autoFocus
+						aria-label="Código de autorização"
+						value={code}
+						spellCheck={false}
+						placeholder="Cole o código ou a URL"
+						className="h-7 text-sm"
+						onChange={(event) => setCode(event.target.value)}
+					/>
+					<Button size="sm" type="submit" disabled={!code.trim() || answer.isPending}>
+						Enviar
+					</Button>
+				</form>
+			)}
+			<ConnectActions>
+				<span className="mr-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+					<Spinner className="size-3" />
+					<ConnectHint url={login?.url?.link ?? null} />
+				</span>
+				{login?.url && !pasting && (
+					<Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setPasting(true)}>
+						colar o código na mão
+					</Button>
+				)}
+				<Button variant="ghost" size="sm" disabled={cancel.isPending} onClick={() => cancel.mutate({ target: "gmail" })}>
+					Cancelar
+				</Button>
+			</ConnectActions>
+		</ConnectCard>
+	);
+}
+
+function ConnectLive() {
+	const logins = useLogins();
+	const login = logins.gmail;
+	const start = useMutation(orpc.login.start.mutationOptions());
+
+	if ((!login || login.state === "asked") && !start.isPending && !start.isSuccess) {
+		return <ConnectAsking onConnect={() => start.mutate({ target: "gmail" })} />;
+	}
+
+	if (login?.state === "done" || login?.state === "failed") {
+		return (
+			<ConnectCard account={login.account}>
+				<ConnectActions>
+					<ConnectOutcome account={login.account} />
+				</ConnectActions>
+			</ConnectCard>
+		);
+	}
+
+	return <ConnectWaiting login={login} />;
+}
+
+function Connect({ result }: { result?: ToolResult }) {
+	if (result) {
+		return <ConnectDone result={result} />;
+	}
+	return <ConnectLive />;
 }
 
 type Happening = Extract<Line, { kind: "routine" | "asked" | "answered" | "warning" | "error" | "stopped" }>;
@@ -334,6 +533,9 @@ const LineView = memo(function LineView({ line, level, name, botId, onPeer }: Li
 				</details>
 			);
 		case "tool":
+			if (line.name === CONNECT_GMAIL) {
+				return <Connect result={line.result} />;
+			}
 			return <Tool name={line.name} input={line.input} result={line.result} />;
 		case "approval":
 			return <Approval line={line} name={name} botId={botId} />;

@@ -35,11 +35,19 @@ export function gmailTools(context: ToolContext) {
 		tool({
 			name: "connect_gmail",
 			description:
-				"Inicia a conexão de uma conta do Gmail: mostra o link de autorização no terminal e espera a pessoa autorizar. Use quando não houver conta conectada ou a autorização tiver expirado.",
+				"Pede à pessoa para conectar uma conta do Gmail e espera a resposta dela. Use quando não houver conta conectada ou a autorização tiver expirado. Ela pode recusar.",
 			input: z.object({}),
 			async execute() {
-				await context.login("gmail").finished;
-				return { accounts: (await listAccounts()).map((account) => account.email) };
+				const session = context.login("gmail");
+				try {
+					await session.finished;
+				} catch (error) {
+					if (!session.refused) {
+						throw error;
+					}
+					return { account: null, refused: true };
+				}
+				return { account: session.account };
 			},
 		}),
 		tool({
