@@ -9,7 +9,7 @@ import { recallMemory } from "../memory/memory";
 import { isTeamCall } from "../team/tools";
 import { resolveFolder } from "../computer/folder";
 import { botRules } from "../rules/rules";
-import { APPROVAL_TOOLS } from "../gmail/tools";
+import { approvalInput } from "../gmail/tools";
 import { botInstructions, botTools } from "../tools";
 import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
@@ -381,10 +381,11 @@ export class Bot {
 	}
 
 	private async approve(toolCallId: string, toolName: string, args: unknown, signal?: AbortSignal) {
-		if (!APPROVAL_TOOLS.has(toolName)) {
+		const asking = await approvalInput(toolName, args);
+		if (!asking) {
 			return;
 		}
-		const approved = await this.commander().approvals.ask({ id: toolCallId, bot: this.record.name, toolName, input: args }, signal);
+		const approved = await this.commander().approvals.ask({ id: toolCallId, bot: this.record.name, toolName, input: asking.input }, signal);
 		if (approved) {
 			return;
 		}

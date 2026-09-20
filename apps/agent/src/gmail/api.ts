@@ -54,6 +54,11 @@ const draftSchema = z.object({
 	message: z.object({ id: z.string(), threadId: z.string().optional() }).optional(),
 });
 
+const draftContentSchema = z.object({
+	id: z.string(),
+	message: messageSchema.optional(),
+});
+
 interface UnreadEmail {
 	id: string;
 	threadId: string;
@@ -358,6 +363,32 @@ export async function createDraft(request: DraftRequest): Promise<CreatedDraft> 
 		threadId: draft.message?.threadId ?? request.threadId ?? null,
 		to: envelope.to,
 		subject: envelope.subject,
+	};
+}
+
+export interface DraftContent {
+	to: string | null;
+	cc: string | null;
+	subject: string | null;
+	body: string;
+}
+
+export async function readDraft(account: GmailAccount, draftId: string): Promise<DraftContent> {
+	const draft = await gmailRequest(
+		account,
+		`/drafts/${encodeURIComponent(draftId)}?format=full`,
+		draftContentSchema,
+	);
+	const message = draft.message;
+	if (!message) {
+		throw new Error(`O rascunho ${draftId} não tem mensagem para ler.`);
+	}
+	const headers = message.payload?.headers;
+	return {
+		to: headerValue(headers, "To"),
+		cc: headerValue(headers, "Cc"),
+		subject: headerValue(headers, "Subject"),
+		body: messageBody(message),
 	};
 }
 

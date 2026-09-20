@@ -31,7 +31,7 @@ const NEEDS: Record<Line["kind"], Detail> = {
 	tool: "full",
 };
 const TEAM_VERBS = { created: "Criou", delegated: "Delegou para", stopped: "Parou", deleted: "Apagou" } as const;
-const EMAIL_LABELS: Record<string, string> = { account: "De", to: "Para", cc: "Cópia", subject: "Assunto", draftId: "Rascunho" };
+const EMAIL_LABELS: Record<string, string> = { account: "De", to: "Para", cc: "Cópia", subject: "Assunto" };
 const DETAIL_CHARACTERS = 600;
 const PLUGINS = [remarkGfm];
 const SCROLL = "flex min-h-0 flex-1 flex-col-reverse overflow-y-auto scrollbar-gutter-both";

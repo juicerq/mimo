@@ -3,9 +3,23 @@ import { recordAction, recordFailure, type ActionInput } from "../actions/action
 import type { ToolContext } from "../tools/context";
 import { tool } from "../tools/tool";
 import { accountField, disconnectAccount, listAccounts, resolveAccount } from "./accounts";
-import { createDraft, listUnread, readThread, sendDraft, sendEmail } from "./api";
+import { createDraft, listUnread, readDraft, readThread, sendDraft, sendEmail } from "./api";
 
-export const APPROVAL_TOOLS = new Set(["send_email", "send_draft"]);
+const draftRef = z.object({ account: accountField, draftId: z.string().min(1) });
+
+export async function approvalInput(toolName: string, args: unknown): Promise<{ input: unknown } | null> {
+	if (toolName === "send_email") {
+		return { input: args };
+	}
+	if (toolName !== "send_draft") {
+		return null;
+	}
+	const { account, draftId } = draftRef.parse(args);
+	const resolved = await resolveAccount(account);
+	const draft = await readDraft(resolved, draftId);
+	const filled = Object.entries(draft).filter(([, value]) => value !== null);
+	return { input: { account: resolved.email, ...Object.fromEntries(filled) } };
+}
 
 async function recordOrWarn(action: ActionInput): Promise<{ warning?: string }> {
 	return await recordAction(action).then(
