@@ -1,12 +1,12 @@
 # Configurações
 
-Um diálogo com duas escolhas do app inteiro: o Tema (Claro ou Escuro) e o Detalhe da conversa (Oculto, Breve ou Completo). As duas ficam no `localStorage`.
+Um diálogo com duas escolhas do app inteiro: o Tema (Claro ou Escuro) e o Detalhe da conversa (Breve ou Completo). As duas ficam no `localStorage`.
 
 ## Sub-features
 
 - `settings-open` a engrenagem no pé da barra de bots abre o diálogo; `Esc` fecha.
 - `settings-theme` troca entre Claro e Escuro na hora.
-- `settings-detail` `Oculto` mostra só mensagens, confirmações, avisos e erros; `Breve` soma rotinas, equipe e troca de grupos de tools; `Completo` soma as linhas de tool com entrada e resultado.
+- `settings-detail` `Breve` mostra mensagens, confirmações, avisos, erros, rotinas e equipe; `Completo` soma as linhas de tool com entrada e resultado.
 
 ## How to get to it (user POV)
 
@@ -20,7 +20,7 @@ Preconditions:
 
 - **Abrir.** `$CONTROL browser click '[aria-label="Configurações"]'`. A árvore mostra `dialog "Configurações"` com `group "Tema"` e `group "Detalhe"`.
 - **Tema.** Tire um `snapshot` e clique na referência de `button "Claro"`. `$CONTROL capture 06-tema-claro`: o fundo da janela fica claro. Volte com `button "Escuro"`.
-- **Detalhe.** Clique na referência de `button "Completo"` e feche com `$CONTROL browser press Escape`. `$CONTROL browser snapshot | grep -c current_time` é maior que zero numa conversa que usou essa tool. Repita com `Oculto`: a contagem cai para `0` e as bolhas continuam.
+- **Detalhe.** Clique na referência de `button "Completo"` e feche com `$CONTROL browser press Escape`. `$CONTROL browser snapshot | grep -c current_time` é maior que zero numa conversa que usou essa tool. Repita com `Breve`: a contagem cai para `0` e as bolhas continuam.
 - **Prova.** Um `capture` por nível de Detalhe, com a mesma conversa na tela.
 
 ## Gotchas

@@ -2,7 +2,7 @@ import { BoxRenderable, CliRenderEvents, RenderableEvents, TextareaRenderable, t
 import { Bot } from "@agent/bot/bot";
 import { activity, deleteBot, type BotActivity } from "@agent/bot/registry";
 import { createBot, listBots } from "@agent/bot/store";
-import { BotNameSchema, type BotEvent, type BotInfo, type ToolGroup } from "@agent/bot/types";
+import { BotNameSchema, type BotEvent, type BotInfo } from "@agent/bot/types";
 import { modelOption } from "@agent/model/catalog";
 import type { ModelSelection } from "@agent/model/types";
 import { Bar, NEXT_TEAM_VIEW, type TeamView } from "./bar";
@@ -14,10 +14,8 @@ import { Screen } from "./screen";
 import { Sidebar } from "./sidebar";
 import { deletePanel } from "./panels/delete";
 import { detailsPanel, type DetailsSnapshot } from "./panels/details";
-import { folderPanel } from "./panels/folder";
 import { accountsPanel, loginTargetsPanel } from "./panels/login";
 import { effortPanel, modelPanel } from "./panels/model";
-import { toolsPanel } from "./panels/tools";
 import { Transcript } from "./transcript";
 import { Turn } from "./turn";
 import { View } from "./view";
@@ -330,12 +328,6 @@ export class MimoApp {
 			}],
 			["/cancel", this.panels.cancel],
 			["/model", this.showModels],
-			["/tools", () => {
-				this.showBotPanel("Open a bot to choose its tools.", (info) => toolsPanel(info, this.saveTools));
-			}],
-			["/folder", () => {
-				this.showBotPanel("Open a bot to choose its folder.", (info) => folderPanel(info, this.saveFolder));
-			}],
 			["/effort", () => {
 				this.showBotPanel("Open a bot to choose its effort.", (info) => effortPanel(modelOption(info.model), this.saveModel));
 			}],
@@ -385,21 +377,11 @@ export class MimoApp {
 		return {
 			name: info?.name ?? null,
 			model: info?.model ?? null,
-			folder: info?.folder ?? null,
-			tools: info?.tools ?? [],
 			detail: this.transcript.level,
 			team: this.teamView,
 			context: info === undefined || info === null ? "—" : `0/${formatDetailsTokens(info.model.contextWindowTokens)}`,
 		};
 	}
-
-	private readonly saveTools = async (tools: ToolGroup[]): Promise<BotInfo> => {
-		return await this.screen.require().setTools(tools);
-	};
-
-	private readonly saveFolder = async (folder: string | undefined): Promise<BotInfo> => {
-		return await this.screen.require().setFolder(folder);
-	};
 
 	private readonly saveModel = async (selection: ModelSelection): Promise<BotInfo> => {
 		return await this.screen.require().selectModel(selection);

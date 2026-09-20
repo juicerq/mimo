@@ -27,5 +27,5 @@ O mimo deixa de ser TUI e vira um app Electron. No fim fica só um: o Electron.
 1. **Ponte.** O agent roda no processo principal; a tela abre um bot, entrega mensagens e recebe os eventos pelo IPC. `Bun.serve` em `gmail/connect.ts` e os imports de `.md` deixam de depender do Bun.
 2. **Conversa.** Barra de bots, composer, markdown na resposta e Detalhe.
 3. **Turno.** Aprovação, Fila, parar e as linhas da Equipe.
-4. **Painéis.** Modelo, tools, Pasta, login, apagar e details. Com o login na tela, o fluxo troca `observe` por `subscribe` e passa a contar como tela.
+4. **Painéis.** Modelo, login, apagar e details. Com o login na tela, o fluxo troca `observe` por `subscribe` e passa a contar como tela.
 5. **Troca.** Apagar `apps/mimo` e renomear o repo.

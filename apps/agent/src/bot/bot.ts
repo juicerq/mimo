@@ -7,7 +7,6 @@ import { models } from "../model/models";
 import type { ModelSelection } from "../model/types";
 import { recallMemory } from "../memory/memory";
 import { isTeamCall } from "../team/tools";
-import { resolveFolder } from "../computer/folder";
 import { botRules } from "../rules/rules";
 import { approvalInput } from "../gmail/tools";
 import { botInstructions, botTools } from "../tools";
@@ -19,7 +18,7 @@ import { withoutBorrowedReasoning } from "./reasoning";
 import { entryEvent, entryMessage, lastMessage, replayMessage, resultEvent, summaryStart, toolErrorText, toolResultText, usageEvent, type Entry, type LastMessage } from "./events";
 import { deleteBot, openOnce, runningBot } from "./registry";
 import { readBot, readTranscript, writeBot, writeTranscript, type BotPatch } from "./store";
-import type { Approval, BotEvent, BotInfo, Delegation, TeamMember, ToolGroup } from "./types";
+import type { Approval, BotEvent, BotInfo, Delegation, TeamMember } from "./types";
 
 interface Work {
 	task: string;
@@ -97,14 +96,6 @@ export class Bot {
 		return this.record.parentId;
 	}
 
-	get tools(): ToolGroup[] {
-		return this.record.tools;
-	}
-
-	get folder(): string | undefined {
-		return this.record.folder;
-	}
-
 	get queue(): string[] {
 		return this.entries.texts;
 	}
@@ -112,7 +103,7 @@ export class Bot {
 	get team(): TeamMember[] {
 		const members: TeamMember[] = [];
 		for (const [bot, work] of this.crew) {
-			members.push({ name: bot.record.name, task: work.task, worktree: bot.record.branch ?? null, tool: bot.tool, startedAt: work.startedAt });
+			members.push({ name: bot.record.name, task: work.task, tool: bot.tool, startedAt: work.startedAt });
 		}
 		return members;
 	}
@@ -145,19 +136,6 @@ export class Bot {
 		const session = new LoginSession(target);
 		screen.emit({ type: "login", target, session });
 		return session;
-	}
-
-	async setTools(tools: ToolGroup[]): Promise<BotInfo> {
-		const record = await this.save({ tools });
-		this.agent.state.tools = botTools(this);
-		this.emit({ type: "tools", tools });
-		return record;
-	}
-
-	async setFolder(folder: string | undefined): Promise<BotInfo> {
-		const record = await this.save({ folder: folder === undefined ? undefined : await resolveFolder(folder) });
-		this.agent.state.tools = botTools(this);
-		return record;
 	}
 
 	async delegate(delegation: Delegation): Promise<void> {
@@ -193,9 +171,9 @@ export class Bot {
 		return updated;
 	}
 
-	async deleteChild(botId: string, discard: boolean): Promise<void> {
+	async deleteChild(botId: string): Promise<void> {
 		await this.child(botId);
-		await deleteBot(botId, "tool", discard);
+		await deleteBot(botId, "tool");
 	}
 
 	subscribe(listener: (event: BotEvent) => void): () => void {
@@ -336,7 +314,6 @@ export class Bot {
 		this.record = record;
 		this.agent.state.model = resolveModel(record.model);
 		this.agent.state.thinkingLevel = record.model.reasoning;
-		this.agent.state.tools = botTools(this);
 	}
 
 	private screen(): Bot | null {
@@ -359,8 +336,7 @@ export class Bot {
 	}
 
 	private async systemPrompt(): Promise<string> {
-		const rules = await botRules(this.record.folder);
-		return [this.basePrompt(), rules, await recallMemory(this.record.id)].filter(Boolean).join("\n\n");
+		return [this.basePrompt(), await botRules(), await recallMemory(this.record.id)].filter(Boolean).join("\n\n");
 	}
 
 	private basePrompt(): string {
@@ -381,7 +357,7 @@ export class Bot {
 	}
 
 	private async approve(toolCallId: string, toolName: string, args: unknown, signal?: AbortSignal) {
-		const asking = await approvalInput(toolName, args);
+		const asking = approvalInput(toolName, args);
 		if (!asking) {
 			return;
 		}

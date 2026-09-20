@@ -14,19 +14,15 @@ Crie um bot com `/new <nome>`. Use `/bots` para ver a lista e digite o número p
 
 Use `/model` dentro da conversa para escolher o provedor, o modelo e o esforço pelo número. `Ctrl+P` abre o mesmo painel preservando o rascunho. `/effort` pula direto para o esforço do modelo atual. A conversa continua recebendo respostas enquanto o painel está aberto. Antes de confirmar a escolha, `/cancel` ou `Esc` volta à conversa sem alterar o modelo. A configuração pertence ao bot e permanece salva ao reiniciar.
 
-Use `/tools` para escolher os grupos de tools do bot. O painel lista `computer`, `web`, `gmail`, `routines` e `team` com `[x]` ou `[ ]`; o número liga e desliga um grupo na hora. Um grupo desligado tira as tools e também o bloco de instruções dele do contexto, então um bot de e-mail não carrega as regras do computador nem da equipe. Hora, memória, histórico e registro de ações ficam sempre disponíveis. A conversa também resolve: peça "desligue o gmail" e o bot chama `set_tools`. A escolha aparece na conversa como `tools: <grupos>` e permanece salva.
+Um bot lê um `AGENTS.md`: o geral, em `~/.agents/AGENTS.md`, que vale para todo bot. É lido a cada turno, então editar vale já no turno seguinte, sem reiniciar. É o único arquivo que o bot trata como instrução sua; o resto continua sendo dado. Só `AGENTS.md`, sem `CLAUDE.md` nem `README.md` — um symlink resolve, e o mimo segue symlink. Não há teto no tamanho: quem regula é a compactação, que desconta o prompt de sistema antes de decidir quanto da conversa guardar, e avisa na conversa quando as instruções permanentes passam de metade da janela.
 
-Use `/folder` para dar uma pasta ao bot — o projeto dele. Digite o caminho inteiro; `~` vale e `-` tira a pasta. A partir daí `bash`, `read`, `write` e `edit` rodam de lá, e o bot sabe disso pelas instruções do grupo `computer`. O nome da pasta aparece no `/details`. Sem pasta, as tools rodam do seu `$HOME`, como antes. Um bot filho nasce com a pasta do pai. A pasta precisa existir na hora de salvar; se ela sumir depois, o `bash` falha apontando para ela.
+O bot trabalha sem perguntar: `bash`, `write` e `edit` rodam direto, e cada ação fica registrada em `actions.jsonl`. A única exceção é enviar e-mail, que sempre para para você confirmar. Não há modo a escolher.
 
-Um bot lê dois `AGENTS.md`: o geral, em `~/.agents/AGENTS.md`, que vale para todo bot, e o do projeto, na raiz da pasta. São lidos a cada turno, então editar um vale já no turno seguinte, sem reiniciar. São os únicos arquivos que o bot trata como instrução sua; o resto continua sendo dado. Quando os dois brigam, vale o do projeto. Só `AGENTS.md`, sem `CLAUDE.md` nem `README.md` — um symlink resolve, e o mimo segue symlink. Não há teto no tamanho: quem regula é a compactação, que desconta o prompt de sistema antes de decidir quanto da conversa guardar, e avisa na conversa quando as instruções permanentes passam de metade da janela.
-
-O bot trabalha sem perguntar: `bash`, `write` e `edit` rodam direto, e cada ação fica registrada em `actions.jsonl` — `list_actions` lê de volta. A única exceção é enviar e-mail, que sempre para para você confirmar. Não há modo a escolher.
-
-`Ctrl+O` alterna quanto detalhe a conversa mostra. Detalhe é tudo que não é sua mensagem nem a resposta do bot: a ferramenta, o disparo de uma rotina, a ação de equipe e a troca de grupos de tools. `brief` mostra uma linha por item, como `⚙ list_unread` ou `routine: check_emails started` (padrão); `full` acrescenta o detalhe cortado em 600 caracteres, como a entrada da ferramenta e o prompt da rotina; `off` esconde todos eles. A conversa é redesenhada inteira, então os turnos antigos acompanham.
+`Ctrl+O` alterna quanto detalhe a conversa mostra. Detalhe é tudo que não é sua mensagem nem a resposta do bot: a ferramenta, o disparo de uma rotina e a ação de equipe. `brief` mostra uma linha por item, como `⚙ list_unread` ou `routine: check_emails started` (padrão); `full` acrescenta o detalhe cortado em 600 caracteres, como a entrada da ferramenta e o prompt da rotina; `off` esconde todos eles. A conversa é redesenhada inteira, então os turnos antigos acompanham.
 
 Depois de enviar, a conversa mostra uma linha viva com o que o bot faz: `⠙ thinking · 3s · esc esc to stop` antes da primeira ferramenta e `working` depois dela. A linha some quando o texto da resposta começa a chegar e dá lugar ao streaming. Abrir um bot mostra `loading` no mesmo lugar.
 
-Use `/details` para ver bot, modelo com esforço, contexto, pasta, tools, detalhe e time. O estado do turno não fica ali: fica na conversa. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
+Use `/details` para ver bot, modelo com esforço, contexto, detalhe e time. O estado do turno não fica ali: fica na conversa. A troca vale para a próxima resposta. Uma resposta em andamento, inclusive sua continuação após aprovação, termina com o modelo com que começou. A borda do composer fica mais clara quando ele está focado.
 
 Enquanto os filhos trabalham, cada um aparece acima do composer como `team: <nome> · <tempo> · <tool>`, com a ferramenta do momento. A linha some quando o filho entrega o trabalho.
 
@@ -107,13 +103,11 @@ O registro do bot fica em `~/.mimo/bots/<id>.json` e o transcript atual em `~/.m
 
 ## Equipe
 
-Um bot pode montar uma equipe de bots filhos. As tools `create_bot`, `update_bot`, `list_bots`, `delete_bot`, `delegate`, `check_team`, `stop_bot` e `list_models` vêm do grupo `team`, que só bots sem pai têm. Um filho é um bot comum, com memória e sessão próprias, mas não aparece em `/bots` nem em `/delete`: quem cuida dele é o pai. Apagar o pai apaga a equipe inteira, e o painel de `/delete` avisa quais bots vão junto.
+Um bot pode montar uma equipe de bots filhos. As tools `create_bot`, `update_bot`, `list_bots`, `delete_bot`, `delegate`, `check_team`, `stop_bot` e `list_models` existem só em bots sem pai. Um filho é um bot comum, com memória e sessão próprias, mas não aparece em `/bots` nem em `/delete`: quem cuida dele é o pai. Apagar o pai apaga a equipe inteira, e o painel de `/delete` avisa quais bots vão junto.
 
-Ao criar um filho, o pai escolhe o nome, a instrução permanente, os grupos de tools e o modelo. Os grupos são `computer`, `web`, `gmail` e `routines`; `team` não é oferecido a um filho, então a equipe não tem netos. Sem modelo escolhido, o filho nasce com o padrão; `list_models` mostra os valores aceitos. As tools da equipe tratam o filho pelo nome, que é único dentro da equipe.
+Ao criar um filho, o pai escolhe o nome, a instrução permanente e o modelo. O filho tem as mesmas tools do pai, menos as da equipe, então a equipe não tem netos. Sem modelo escolhido, o filho nasce com o padrão; `list_models` mostra os valores aceitos. As tools da equipe tratam o filho pelo nome, que é único dentro da equipe.
 
-As instruções do grupo `team` fazem do pai um gerente: ele divide o trabalho em frentes e cuida delas para você, que fala só com ele. Toda feature, todo bug e toda investigação é uma frente, e cada frente vira um filho, com o problema inteiro do começo ao fim. O filho vive enquanto a frente está aberta, então voltar ao assunto delega de novo para o mesmo bot, que já tem a memória dela. O pai conta o que o filho trouxe; ele não refaz o trabalho nem manda outro filho revisar.
-
-Duas frentes no mesmo repositório se atropelam, então o pai pode pedir `worktree` no `create_bot`: o filho nasce numa cópia isolada do projeto, num git worktree com branch próprio em `~/.mimo/worktrees/<id>`. A cópia vira a pasta daquele filho e dura o que ele dura; apagar o filho apaga a cópia e deixa o branch, para você juntar o trabalho quando quiser. Só o que teve commit fica no branch, então `delete_bot` recusa fechar uma frente com trabalho sem commit e pede o commit primeiro; `discard` força o fechamento e joga fora. O rail mostra o nome da cópia embaixo da task do filho.
+As instruções da equipe fazem do pai um gerente: ele divide o trabalho em frentes e cuida delas para você, que fala só com ele. Toda feature, todo bug e toda investigação é uma frente, e cada frente vira um filho, com o problema inteiro do começo ao fim. O filho vive enquanto a frente está aberta, então voltar ao assunto delega de novo para o mesmo bot, que já tem a memória dela. O pai conta o que o filho trouxe; ele não refaz o trabalho nem manda outro filho revisar.
 
 `delegate` começa o trabalho no filho e volta na hora: o turno do pai fecha e a pessoa continua conversando com ele. O filho não vê a conversa da pessoa, então o pedido precisa ser completo. Cada filho atende um trabalho por vez; vários filhos trabalham ao mesmo tempo. Um filho não delega e não cria bots, então a equipe tem um nível só.
 
@@ -125,7 +119,7 @@ O filho não tem tela. Quando ele quer enviar um e-mail, o pedido sobe para quem
 
 ## Gmail
 
-Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão de uma conta pelo próprio bot: o link aparece no terminal e a pessoa autoriza no navegador. A tool `disconnect_gmail` apaga a conta guardada e revoga o acesso no Google. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria rascunhos, `send_draft` envia um rascunho e `send_email` inicia um e-mail novo. `send_draft` e `send_email` sempre esperam a sua confirmação; o resto acontece direto. Cada conta conectada guarda o refresh token em `~/.mimo/gmail/accounts.json`; o client id e o client secret ficam em `~/.mimo/.env`.
+Gmail é uma integração disponível para os bots. As contas conectadas pertencem à pessoa e podem ser usadas por qualquer bot. Memória e rotinas pertencem ao bot. A tool `connect_gmail` inicia a conexão de uma conta pelo próprio bot: o link aparece no terminal e a pessoa autoriza no navegador. A tool `disconnect_gmail` apaga a conta guardada e revoga o acesso no Google. As tools `list_accounts`, `list_unread` e `read_thread` leem a caixa de entrada; `create_draft` cria um rascunho, que você revisa e envia no Gmail, e `send_email` envia um e-mail; com `threadId`, ele entra naquela thread como resposta. Só `send_email` espera a sua confirmação; o resto acontece direto. Cada conta conectada guarda o refresh token em `~/.mimo/gmail/accounts.json`; o client id e o client secret ficam em `~/.mimo/.env`.
 
 1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto e ative a Gmail API.
 2. Configure a tela de consentimento OAuth (tipo External, com você como usuário de teste).
@@ -140,7 +134,7 @@ Com a tela de consentimento em Testing, o Google expira o refresh token em 7 dia
 
 O bot alcança a máquina pelas tools do próprio Pi: `bash` roda um comando, `read` lê um arquivo (texto ou imagem, com `offset` e `limit`), `write` grava o arquivo inteiro e `edit` troca trechos e mostra o diff. O Pi corta a saída longa e guarda o resto num arquivo temporário.
 
-As tools partem da pasta do bot, ou da pasta pessoal quando ele não tem uma; caminhos absolutos valem. Não há pasta proibida: o bot alcança o que o seu usuário alcança. `bash`, `write` e `edit` rodam direto, sem pedir aprovação.
+As tools partem da sua pasta pessoal (`$HOME`); caminhos absolutos valem, e basta dizer ao bot em que pasta trabalhar. Não há pasta proibida: o bot alcança o que o seu usuário alcança. `bash`, `write` e `edit` rodam direto, sem pedir aprovação.
 
 ## Busca na web
 

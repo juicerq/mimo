@@ -38,7 +38,7 @@ Cada arquivo começa com um H1 e um parágrafo com o comportamento visível. Dep
 - [Bots](./bots.md) cobre o primeiro bot, criar outro, trocar de bot, a prévia na lista e a persistência.
 - [Conversa](./chat.md) cobre envio, resposta, o rótulo do turno, parar, o nível de Detalhe e falha de turno.
 - [Fila](./queue.md) cobre escrever durante o trabalho do bot, a ordem e o descarte ao parar.
-- [Sobre o bot](./about.md) cobre a barra lateral: Modelo, Esforço, Ferramentas e Pasta.
+- [Sobre o bot](./about.md) cobre a barra lateral: Modelo e Esforço.
 - [Configurações](./settings.md) cobre Tema e Detalhe.
 - [Tools do agente](./agent-tools.md) cobre web, computador, memória, rotinas e equipe pedidos na conversa.
 - [Gmail](./gmail.md) cobre leitura, rascunho e a confirmação de envio.

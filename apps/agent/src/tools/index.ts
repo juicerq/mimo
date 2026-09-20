@@ -1,7 +1,5 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
-import { actionTools } from "../actions/tools";
-import { ToolGroupSchema } from "../bot/types";
 import { computerInstructions, computerTools } from "../computer/tools";
 import { gmailTools } from "../gmail/tools";
 import { historyTools } from "../history/tools";
@@ -16,10 +14,6 @@ import gmailInstructions from "../gmail/instructions.md" with { type: "text" };
 import routineInstructions from "../routines/instructions.md" with { type: "text" };
 import teamInstructions from "../team/instructions.md" with { type: "text" };
 
-const SetToolsInput = z.object({
-	tools: z.array(ToolGroupSchema).describe("Os grupos que ficam ligados. A lista substitui a atual."),
-});
-
 const currentTime = tool({
 	name: "current_time",
 	description: "Retorna a data e a hora atuais.",
@@ -29,45 +23,25 @@ const currentTime = tool({
 	},
 });
 
-function setTools(context: ToolContext): AgentTool {
-	return tool({
-		name: "set_tools",
-		description:
-			"Liga e desliga grupos de tools deste bot. Desligar um grupo também tira as instruções dele do contexto. Use só a pedido explícito do usuário.",
-		input: SetToolsInput,
-		async execute({ tools }) {
-			const previous = context.tools;
-			await context.setTools(tools);
-			return { previous, tools };
-		},
-	});
-}
-
 export function botInstructions(context: ToolContext): string {
-	const groups = new Set(context.tools);
-
 	return [
 		instructions,
-		...groups.has("gmail") ? [gmailInstructions] : [],
-		...groups.has("routines") ? [routineInstructions] : [],
-		...groups.has("computer") ? [computerInstructions(context.folder)] : [],
-		...groups.has("team") ? [teamInstructions] : [],
+		gmailInstructions,
+		routineInstructions,
+		computerInstructions(),
+		...context.parentId === undefined ? [teamInstructions] : [],
 	].join("\n\n");
 }
 
 export function botTools(context: ToolContext): AgentTool[] {
-	const groups = new Set(context.tools);
-
 	return [
 		currentTime,
 		...memoryTools(context),
 		...historyTools(context),
-		...actionTools(context),
-		...groups.has("gmail") ? gmailTools(context) : [],
-		...groups.has("routines") ? routineTools(context) : [],
-		...groups.has("web") ? webTools() : [],
-		...groups.has("computer") ? computerTools(context.folder) : [],
-		...groups.has("team") ? teamTools(context) : [],
-		...context.parentId === undefined ? [setTools(context)] : [],
+		...gmailTools(context),
+		...routineTools(context),
+		...webTools(),
+		...computerTools(),
+		...context.parentId === undefined ? teamTools(context) : [],
 	];
 }

@@ -10,28 +10,14 @@ import { Avatar } from "./avatar";
 import type { Conversation, Line, ToolResult } from "./conversation";
 import { orpc } from "./rpc";
 
-export const DETAIL_LEVELS = ["off", "brief", "full"] as const;
+export const DETAIL_LEVELS = ["brief", "full"] as const;
 
 export type Detail = (typeof DETAIL_LEVELS)[number];
 
-export const DETAIL_NAMES: Record<Detail, string> = { off: "Oculto", brief: "Breve", full: "Completo" };
+export const DETAIL_NAMES: Record<Detail, string> = { brief: "Breve", full: "Completo" };
 
-const NEEDS: Record<Line["kind"], Detail> = {
-	you: "off",
-	reply: "off",
-	summary: "off",
-	approval: "off",
-	warning: "off",
-	error: "off",
-	stopped: "off",
-	routine: "brief",
-	team: "brief",
-	note: "brief",
-	tools: "brief",
-	tool: "full",
-};
 const TEAM_VERBS = { created: "Criou", delegated: "Delegou para", stopped: "Parou", deleted: "Apagou" } as const;
-const EMAIL_LABELS: Record<string, string> = { account: "De", to: "Para", cc: "Cópia", subject: "Assunto" };
+const EMAIL_LABELS: Record<string, string> = { account: "De", to: "Para", cc: "Cópia", subject: "Assunto", threadId: "Thread" };
 const DETAIL_CHARACTERS = 600;
 const PLUGINS = [remarkGfm];
 const SCROLL = "flex min-h-0 flex-1 flex-col-reverse overflow-y-auto scrollbar-gutter-both";
@@ -54,15 +40,8 @@ const COMPONENTS: Components = {
 	),
 };
 
-function needOf(line: Line): Detail {
-	if (line.kind === "team" && line.call.kind === "created") {
-		return "full";
-	}
-	return NEEDS[line.kind];
-}
-
-function shows(level: Detail, need: Detail): boolean {
-	return DETAIL_LEVELS.indexOf(level) >= DETAIL_LEVELS.indexOf(need);
+function verbose(line: Line): boolean {
+	return line.kind === "tool" || (line.kind === "team" && line.call.kind === "created");
 }
 
 function truncate(text: string): string {
@@ -239,7 +218,7 @@ function Approval({ line, name, botId }: { line: Extract<Line, { kind: "approval
 	);
 }
 
-type Happening = Extract<Line, { kind: "routine" | "team" | "note" | "tools" | "warning" | "error" | "stopped" }>;
+type Happening = Extract<Line, { kind: "routine" | "team" | "note" | "warning" | "error" | "stopped" }>;
 
 function HappeningView({ line, level }: { line: Happening; level: Detail }) {
 	switch (line.kind) {
@@ -276,8 +255,6 @@ function HappeningView({ line, level }: { line: Happening; level: Detail }) {
 			);
 		case "note":
 			return <EventLine icon={UsersIcon} head={<span>{line.text}</span>} />;
-		case "tools":
-			return <EventLine icon={WrenchIcon} head={<span>{line.tools.length > 0 ? `Grupos de tools: ${line.tools.join(", ")}` : "Nenhum grupo de tools"}</span>} />;
 		case "warning":
 			return <EventLine tone="warn" icon={TriangleAlertIcon} head={<span>{line.text}</span>} />;
 		case "error":
@@ -316,7 +293,7 @@ const LineView = memo(function LineView({ line, level, name, botId }: { line: Li
 });
 
 const Lines = memo(function Lines({ lines, level, name, botId }: { lines: Line[]; level: Detail; name: string; botId: string }) {
-	return lines.map((line, index) => shows(level, needOf(line)) && <LineView key={index} line={line} level={level} name={name} botId={botId} />);
+	return lines.map((line, index) => (level === "full" || !verbose(line)) && <LineView key={index} line={line} level={level} name={name} botId={botId} />);
 });
 
 interface TranscriptProps {

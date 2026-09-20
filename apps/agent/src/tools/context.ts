@@ -1,17 +1,14 @@
 import type { LoginSession, LoginTarget } from "../login/login";
 import type { BotPatch } from "../bot/store";
-import type { BotInfo, Delegation, TeamMember, ToolGroup } from "../bot/types";
+import type { BotInfo, Delegation, TeamMember } from "../bot/types";
 
 export interface ToolContext {
 	readonly botId: string;
-	readonly folder?: string;
 	readonly parentId?: string;
-	readonly tools: ToolGroup[];
-	setTools(tools: ToolGroup[]): Promise<BotInfo>;
 	login(target: LoginTarget): LoginSession;
 	delegate(delegation: Delegation): Promise<void>;
 	stopChild(botId: string): string;
 	readonly team: TeamMember[];
 	updateChild(botId: string, patch: BotPatch): Promise<BotInfo>;
-	deleteChild(botId: string, discard: boolean): Promise<void>;
+	deleteChild(botId: string): Promise<void>;
 }

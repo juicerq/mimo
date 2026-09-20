@@ -25,7 +25,7 @@ Preconditions:
 
 - **Primeira tela.** `$CONTROL browser snapshot`. A árvore tem `textbox "Nome do novo bot"` e o texto `Dê um nome ao seu primeiro bot na barra ao lado.`
 - **Criar.** `$CONTROL browser fill '[aria-label="Nome do novo bot"]' 'Ana'` e `$CONTROL browser press Enter`. `$CONTROL wait 'heading "Ana , parado"' 20` confirma o bot aberto, e a árvore mostra `heading "Comece a conversa com Ana"`.
-- **No disco.** `ls "$($CONTROL data)/bots"` mostra um `<id>.json`; o arquivo traz `"name": "Ana"`, `model` e os cinco grupos em `tools`.
+- **No disco.** `ls "$($CONTROL data)/bots"` mostra um `<id>.json`; o arquivo traz `"name": "Ana"` e `model`.
 - **Segundo bot.** `$CONTROL browser click '[aria-label="Novo bot"]'`, preencha `Bia` e Enter. `$CONTROL wait 'heading "Bia , parado"' 20`.
 - **Desistir.** `$CONTROL browser click '[aria-label="Novo bot"]'` e `$CONTROL browser press Escape`. O `textbox "Nome do novo bot"` some e nenhum arquivo novo aparece em `bots/`.
 - **Trocar.** Envie `MIMO-ANA-<run>` para a Ana (veja [chat.md](./chat.md)). Tire um `snapshot` e clique na referência de `button "Bia ..."`. A conversa da Bia não contém `MIMO-ANA-<run>`. Volte para a Ana: o marcador está lá.

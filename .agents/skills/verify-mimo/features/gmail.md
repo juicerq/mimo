@@ -7,8 +7,9 @@ O usuário pergunta pelas contas, lê não lidos e threads, cria rascunhos e env
 - `gmail-accounts` lista as contas conectadas (`list_accounts`).
 - `gmail-unread` lista não lidos de uma conta (`list_unread`).
 - `gmail-thread` lê o corpo de uma thread (`read_thread`).
-- `gmail-draft` cria rascunho sem enviar (`create_draft`).
+- `gmail-draft` cria rascunho sem enviar (`create_draft`); o bot não envia o rascunho, a pessoa envia pelo Gmail.
 - `gmail-confirm` o envio abre a bolha `Confirmar envio` com De, Para, Assunto, o corpo e os botões `Não` e `Enviar`; o bot fica `esperando aprovação`.
+- `gmail-reply` `send_email` com `threadId` responde dentro da thread; a confirmação mostra a linha `Thread`.
 - `gmail-deny` `Não` troca os botões por `Você recusou` e nada é enviado.
 - `gmail-send` `Enviar` mostra `Você aprovou`, envia e registra em `actions.jsonl`.
 

@@ -1,7 +1,6 @@
-import type { BotInfo, ToolGroup } from "@agent/bot/types";
+import type { BotInfo } from "@agent/bot/types";
 import type { ModelInfo, ModelOption, ModelSelection, Provider, Reasoning } from "@agent/model/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FolderIcon, XIcon } from "lucide-react";
 import { Field } from "@renderer/components/setting";
 import { Button } from "@renderer/components/ui/button";
 import {
@@ -17,7 +16,6 @@ import {
 	ComboboxTrigger,
 } from "@renderer/components/ui/combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@renderer/components/ui/select";
-import { Switch } from "@renderer/components/ui/switch";
 import { orpc, rpc } from "./rpc";
 
 const REASONING_NAMES: Record<Reasoning, string> = {
@@ -29,16 +27,6 @@ const REASONING_NAMES: Record<Reasoning, string> = {
 	xhigh: "Muito alto",
 	max: "Máximo",
 };
-
-const TOOL_NAMES: Record<ToolGroup, string> = {
-	computer: "Computador",
-	web: "Web",
-	gmail: "Gmail",
-	routines: "Rotinas",
-	team: "Equipe",
-};
-
-const TOOL_ORDER: ToolGroup[] = ["computer", "web", "gmail", "routines", "team"];
 
 type Catalog = Awaited<ReturnType<typeof rpc.bot.models>>;
 
@@ -199,41 +187,6 @@ function Brain({ model, catalog, loading, onChange }: BrainProps) {
 	);
 }
 
-function Folder({ folder, onPick, onClear }: { folder: string | null; onPick: () => void; onClear: () => void }) {
-	return (
-		<div className="flex items-center gap-1">
-			<Button variant="outline" size="sm" className="min-w-0 flex-1 justify-start" onClick={onPick} title={folder ?? undefined}>
-				<FolderIcon className="shrink-0" />
-				<span className="truncate">{folder === null ? "Escolher pasta" : folder.split("/").at(-1)}</span>
-			</Button>
-			{folder !== null && (
-				<Button variant="ghost" size="sm" aria-label="Tirar a pasta" onClick={onClear}>
-					<XIcon />
-				</Button>
-			)}
-		</div>
-	);
-}
-
-function Tools({ tools, onChange }: { tools: ToolGroup[]; onChange: (tools: ToolGroup[]) => void }) {
-	function toggle(tool: ToolGroup, on: boolean): void {
-		onChange(TOOL_ORDER.filter((entry) => (entry === tool ? on : tools.includes(entry))));
-	}
-
-	return (
-		<div className="flex flex-col">
-			{TOOL_ORDER.map((tool) => (
-				<div key={tool} className="flex h-8 items-center justify-between gap-2">
-					<label htmlFor={`tool-${tool}`} className="text-sm">
-						{TOOL_NAMES[tool]}
-					</label>
-					<Switch id={`tool-${tool}`} checked={tools.includes(tool)} onCheckedChange={(on) => toggle(tool, on)} />
-				</div>
-			))}
-		</div>
-	);
-}
-
 export function About({ botId }: { botId: string }) {
 	const queryClient = useQueryClient();
 	const info = useQuery(orpc.bot.info.queryOptions({ input: { botId } }));
@@ -242,22 +195,13 @@ export function About({ botId }: { botId: string }) {
 		queryClient.setQueryData(orpc.bot.info.key({ input: { botId }, type: "query" }), record);
 	};
 	const selectModel = useMutation(orpc.bot.selectModel.mutationOptions({ onSuccess: apply }));
-	const setTools = useMutation(orpc.bot.setTools.mutationOptions({ onSuccess: apply }));
-	const setFolder = useMutation(orpc.bot.setFolder.mutationOptions({ onSuccess: apply }));
 	const bot = info.data;
 
 	if (!bot) {
 		return null;
 	}
 
-	const failure = selectModel.error ?? setTools.error ?? setFolder.error ?? catalog.error;
-
-	async function pickFolder(): Promise<void> {
-		const picked = await rpc.bot.pickFolder();
-		if (picked) {
-			setFolder.mutate({ botId, folder: picked });
-		}
-	}
+	const failure = selectModel.error ?? catalog.error;
 
 	return (
 		<>
@@ -267,12 +211,6 @@ export function About({ botId }: { botId: string }) {
 				loading={catalog.isPending}
 				onChange={(model) => selectModel.mutate({ botId, model })}
 			/>
-			<Field label="Ferramentas">
-				<Tools tools={bot.tools} onChange={(tools) => setTools.mutate({ botId, tools })} />
-			</Field>
-			<Field label="Pasta">
-				<Folder folder={bot.folder ?? null} onPick={pickFolder} onClear={() => setFolder.mutate({ botId, folder: null })} />
-			</Field>
 			<Field label="Criado">
 				<p className="text-sm">{new Date(bot.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</p>
 			</Field>

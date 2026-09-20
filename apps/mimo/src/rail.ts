@@ -4,7 +4,7 @@ import { listBots } from "@agent/bot/store";
 import { elapsed } from "./bar";
 import { Lines, type Line } from "./lines";
 import { cols, cut, pad } from "./text";
-import { T1, T2, T3, T5, T6, T8 } from "./theme";
+import { T1, T2, T3, T6, T8 } from "./theme";
 
 const RAIL_MS = 1000;
 const RAIL_COLS = 44;
@@ -115,9 +115,6 @@ function body(bot: BotActivity, inner: number): Line[] {
 	for (const member of bot.team) {
 		lines.push({ text: `  ${pad(member.name, width)} ${elapsed(member.startedAt).padStart(4)}  ${member.tool ?? ""}`.trimEnd(), fg: T2 });
 		lines.push({ text: `  ${member.task}`, fg: T3 });
-		if (member.worktree !== null) {
-			lines.push({ text: `  ${member.worktree}`, fg: T5 });
-		}
 	}
 	if (bot.waiting !== null) {
 		lines.push({ text: `  ⏸ approval: ${bot.waiting}`, fg: T2 });

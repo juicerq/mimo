@@ -3,22 +3,13 @@ import { recordAction, recordFailure, type ActionInput } from "../actions/action
 import type { ToolContext } from "../tools/context";
 import { tool } from "../tools/tool";
 import { accountField, disconnectAccount, listAccounts, resolveAccount } from "./accounts";
-import { createDraft, listUnread, readDraft, readThread, sendDraft, sendEmail } from "./api";
+import { createDraft, listUnread, readThread, sendEmail } from "./api";
 
-const draftRef = z.object({ account: accountField, draftId: z.string().min(1) });
-
-export async function approvalInput(toolName: string, args: unknown): Promise<{ input: unknown } | null> {
-	if (toolName === "send_email") {
-		return { input: args };
-	}
-	if (toolName !== "send_draft") {
+export function approvalInput(toolName: string, args: unknown): { input: unknown } | null {
+	if (toolName !== "send_email") {
 		return null;
 	}
-	const { account, draftId } = draftRef.parse(args);
-	const resolved = await resolveAccount(account);
-	const draft = await readDraft(resolved, draftId);
-	const filled = Object.entries(draft).filter(([, value]) => value !== null);
-	return { input: { account: resolved.email, ...Object.fromEntries(filled) } };
+	return { input: args };
 }
 
 async function recordOrWarn(action: ActionInput): Promise<{ warning?: string }> {
@@ -87,7 +78,7 @@ export function gmailTools(context: ToolContext) {
 		tool({
 			name: "create_draft",
 			description:
-				"Cria um rascunho no Gmail sem enviar nada. Para responder, informe threadId e o corpo; to e subject são derivados da thread.",
+				"Cria um rascunho no Gmail sem enviar nada; a pessoa revisa e envia pelo Gmail. Para responder, informe threadId e o corpo; to e subject são derivados da thread.",
 			input: z.object({
 				account: accountField,
 				threadId: z.string().min(1).optional().describe("Thread a responder, como veio de list_unread ou read_thread."),
@@ -101,43 +92,15 @@ export function gmailTools(context: ToolContext) {
 			},
 		}),
 		tool({
-			name: "send_draft",
-			description: "Envia um rascunho existente do Gmail. A pessoa confirma o envio antes de sair.",
-			input: z.object({
-				account: accountField,
-				draftId: z.string().min(1).describe("O id do rascunho, como veio de create_draft."),
-			}),
-			async execute({ account, draftId }) {
-				const resolved = await resolveAccount(account);
-				const base = {
-					kind: "send_draft" as const,
-					botId: context.botId,
-					account: resolved.email,
-				};
-				const sent = await sendDraft(resolved, draftId).catch(async (error: unknown) => {
-					await recordFailure({ ...base, summary: `rascunho ${draftId}` }, error).catch(() => {});
-					throw error;
-				});
-
-				return {
-					...sent,
-					...await recordOrWarn({
-						...base,
-						summary: `rascunho ${draftId} para ${sent.to ?? "destinatário ausente"}: ${sent.subject ?? "sem assunto"}`,
-						detail: { messageId: sent.messageId, draftId },
-					}),
-				};
-			},
-		}),
-		tool({
 			name: "send_email",
 			description:
-				"Envia um e-mail novo. A pessoa confirma o envio antes de sair, e a ação fica registrada.",
+				"Envia um e-mail. Com threadId, a mensagem entra naquela thread como resposta. A pessoa confirma o envio antes de sair, e a ação fica registrada.",
 			input: z.object({
 				account: accountField,
+				threadId: z.string().min(1).optional().describe("Thread a responder, como veio de list_unread ou read_thread."),
 				to: z.string().min(1).describe("Destinatários separados por vírgula."),
 				cc: z.string().min(1).optional().describe("Destinatários em cópia, separados por vírgula."),
-				subject: z.string().min(1).describe("Assunto."),
+				subject: z.string().min(1).describe("Assunto. Numa resposta, use o assunto da thread com Re: na frente."),
 				body: z.string().min(1).describe("Corpo do e-mail em texto puro."),
 			}),
 			async execute({ account, ...email }) {

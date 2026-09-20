@@ -1,8 +1,7 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
-import { createBot, listChildren, removeBot, writeBot, type BotPatch } from "../bot/store";
-import { addWorktree } from "../computer/worktree";
-import { BotNameSchema, BotPromptSchema, ChildGroupSchema, type BotInfo, type TeamCall, type TeamCallKind, type TeamMember } from "../bot/types";
+import { createBot, listChildren, type BotPatch } from "../bot/store";
+import { BotNameSchema, BotPromptSchema, type BotInfo, type TeamCall, type TeamCallKind, type TeamMember } from "../bot/types";
 import { listModels, selectModel } from "../model/catalog";
 import { ModelSelectionSchema } from "../model/types";
 import type { ToolContext } from "../tools/context";
@@ -10,30 +9,22 @@ import { parseJson, tool } from "../tools/tool";
 
 const NameInput = z.string().describe("Nome curto do filho.").pipe(BotNameSchema);
 const PromptInput = BotPromptSchema.describe("Instrução permanente do filho, escrita sem depender desta conversa.");
-const ToolsInput = z.array(ChildGroupSchema).min(1).describe("Grupos de tools liberados para o filho.");
 const ModelInput = ModelSelectionSchema.describe("Modelo do filho. Veja os valores em list_models.");
 
 const CreateBotInput = z.object({
 	name: NameInput,
 	prompt: PromptInput,
-	tools: ToolsInput.optional(),
 	model: ModelInput.optional(),
-	worktree: z.boolean().optional().describe("Abre uma cópia isolada do projeto para este filho, num git worktree com branch próprio. Use quando duas frentes mexem no mesmo repositório."),
 });
 
 const UpdateBotInput = z.object({
 	bot: NameInput,
 	name: NameInput.optional(),
 	prompt: PromptInput.optional(),
-	tools: ToolsInput.optional(),
 	model: ModelInput.optional(),
 });
 
 const DeleteBotInput = z.object({ bot: NameInput });
-
-const CloseBotInput = DeleteBotInput.extend({
-	discard: z.boolean().optional().describe("Joga fora o que não teve commit na cópia isolada deste filho. Só use depois de a pessoa dizer que aquele trabalho não serve."),
-});
 
 const DelegateInput = z.object({
 	bot: NameInput,
@@ -70,33 +61,10 @@ export function isTeamCall(toolName: string): boolean {
 	return TEAM_CALLS[toolName] !== undefined;
 }
 
-function isolatedFolder(worktree: boolean | undefined, folder: string | undefined): string | null {
-	if (worktree !== true) {
-		return null;
-	}
-	if (folder === undefined) {
-		throw new Error("Este bot não tem pasta, então não dá para abrir uma cópia isolada. Peça à pessoa para escolher a pasta do projeto.");
-	}
-	return folder;
-}
-
-async function openWorktree(bot: BotInfo, folder: string): Promise<BotInfo> {
-	const worktree = await addWorktree(folder, bot.id, bot.name).catch(async (error: unknown) => {
-		await removeBot(bot.id);
-		throw error;
-	});
-	const updated = { ...bot, folder: worktree.folder, branch: worktree.branch };
-	await writeBot(updated);
-	return updated;
-}
-
 function botView(bot: BotInfo) {
 	return {
 		name: bot.name,
-		folder: bot.folder ?? null,
-		branch: bot.branch ?? null,
 		prompt: bot.prompt ?? null,
-		tools: bot.tools,
 		model: `${bot.model.provider}/${bot.model.id}`,
 		reasoning: bot.model.reasoning,
 	};
@@ -106,7 +74,6 @@ function botPatch(input: z.output<typeof UpdateBotInput>): BotPatch {
 	return {
 		...input.name && { name: input.name },
 		...input.prompt && { prompt: input.prompt },
-		...input.tools && { tools: input.tools },
 		...input.model && { model: selectModel(input.model) },
 	};
 }
@@ -115,7 +82,7 @@ function teamView(name: string, member: TeamMember | undefined) {
 	if (!member) {
 		return { name, working: false };
 	}
-	return { name, working: true, task: member.task, worktree: member.worktree, tool: member.tool, seconds: Math.floor((Date.now() - member.startedAt) / 1_000) };
+	return { name, working: true, task: member.task, tool: member.tool, seconds: Math.floor((Date.now() - member.startedAt) / 1_000) };
 }
 
 async function child(context: ToolContext, name: string): Promise<BotInfo> {
@@ -130,24 +97,18 @@ export function teamTools(context: ToolContext): AgentTool[] {
 	return [
 		tool({
 			name: "create_bot",
-			description: "Cria um bot filho com instrução, tools e modelo próprios. Ele pertence a você e não aparece na lista da pessoa.",
+			description: "Cria um bot filho com instrução e modelo próprios. Ele pertence a você e não aparece na lista da pessoa.",
 			input: CreateBotInput,
-			async execute({ model, worktree, ...draft }) {
-				const isolated = isolatedFolder(worktree, context.folder);
+			async execute({ model, ...draft }) {
 				const taken = (await listChildren(context.botId)).some((bot) => bot.name === draft.name);
 				if (taken) {
 					throw new Error(`Você já tem um filho chamado ${draft.name}.`);
 				}
-				const created = await createBot({
+				return botView(await createBot({
 					...draft,
 					parentId: context.botId,
-					...context.folder !== undefined && { folder: context.folder },
 					...model && { model: selectModel(model) },
-				});
-				if (isolated === null) {
-					return botView(created);
-				}
-				return botView(await openWorktree(created, isolated));
+				}));
 			},
 		}),
 		tool({
@@ -180,7 +141,7 @@ export function teamTools(context: ToolContext): AgentTool[] {
 		}),
 		tool({
 			name: "update_bot",
-			description: "Muda o nome, a instrução, as tools ou o modelo de um filho. Só os campos enviados mudam.",
+			description: "Muda o nome, a instrução ou o modelo de um filho. Só os campos enviados mudam.",
 			input: UpdateBotInput,
 			async execute(input) {
 				const target = await child(context, input.bot);
@@ -189,7 +150,7 @@ export function teamTools(context: ToolContext): AgentTool[] {
 		}),
 		tool({
 			name: "list_bots",
-			description: "Lista os filhos desta equipe com a instrução, as tools e o modelo de cada um.",
+			description: "Lista os filhos desta equipe com a instrução e o modelo de cada um.",
 			input: z.object({}),
 			async execute() {
 				return (await listChildren(context.botId)).map(botView);
@@ -197,11 +158,11 @@ export function teamTools(context: ToolContext): AgentTool[] {
 		}),
 		tool({
 			name: "delete_bot",
-			description: "Apaga um filho com a memória e as rotinas dele. Recusa quando a cópia isolada tem trabalho sem commit.",
-			input: CloseBotInput,
+			description: "Apaga um filho com a memória e as rotinas dele.",
+			input: DeleteBotInput,
 			async execute(input) {
 				const target = await child(context, input.bot);
-				await context.deleteChild(target.id, input.discard === true);
+				await context.deleteChild(target.id);
 				return { bot: target.name, status: "deleted" };
 			},
 		}),

@@ -18,24 +18,14 @@ const NAME_RULE = "Use um nome de 1 a 80 caracteres visíveis.";
 
 export const BotNameSchema = z.string().trim().min(1, NAME_RULE).max(80, NAME_RULE).regex(/^[^\p{Cc}\p{Cf}]+$/u, NAME_RULE);
 export const BotPromptSchema = z.string().trim().min(1).max(4_000);
-export const ToolGroupSchema = z.enum(["computer", "web", "gmail", "routines", "team"]);
-export const ChildGroupSchema = ToolGroupSchema.exclude(["team"]);
-
-export const TOOL_GROUPS = ToolGroupSchema.options;
-export const CHILD_GROUPS = ChildGroupSchema.options;
-
-export type ToolGroup = z.infer<typeof ToolGroupSchema>;
 
 export interface BotInfo {
 	id: string;
 	name: string;
 	createdAt: string;
 	model: ModelInfo;
-	tools: ToolGroup[];
 	parentId?: string;
 	prompt?: string;
-	folder?: string;
-	branch?: string;
 }
 
 export interface Approval {
@@ -62,7 +52,6 @@ export interface TeamCall {
 export interface TeamMember {
 	name: string;
 	task: string;
-	worktree: string | null;
 	tool: string | null;
 	startedAt: number;
 }
@@ -85,7 +74,6 @@ export type BotEvent =
 	| { type: "login"; target: LoginTarget; session: LoginSession }
 	| { type: "approval-resolved"; outcome: "approved" | "denied" }
 	| { type: "usage"; contextTokens: number }
-	| { type: "tools"; tools: readonly ToolGroup[] }
 	| { type: "turn-started" }
 	| { type: "turn-finished" }
 	| { type: "turn-failed"; message: string }

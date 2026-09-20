@@ -16,7 +16,6 @@ export type Line =
 	| { kind: "routine"; name: string; prompt: string }
 	| { kind: "team"; call: EventMap["team-call"]["call"] }
 	| { kind: "note"; text: string }
-	| { kind: "tools"; tools: readonly string[] }
 	| { kind: "tool"; id: string; name: string; input: unknown; result?: ToolResult }
 	| { kind: "approval"; approval: EventMap["approval"]["approval"]; outcome?: EventMap["approval-resolved"]["outcome"] }
 	| { kind: "warning"; text: string }
@@ -90,7 +89,6 @@ const EDITS: Edits = {
 	approval: adds((event) => ({ kind: "approval", approval: event.approval })),
 	"approval-resolved": (lines, event) => resolveApproval(lines, event.outcome),
 	usage: unchanged,
-	tools: adds((event) => ({ kind: "tools", tools: event.tools })),
 	"turn-started": unchanged,
 	"turn-finished": unchanged,
 	"turn-failed": adds((event) => ({ kind: "error", text: event.message })),

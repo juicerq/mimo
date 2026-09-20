@@ -1,4 +1,4 @@
-import type { Approval, BotEvent, TeamCall, ToolGroup } from "@agent/bot/types";
+import type { Approval, BotEvent, TeamCall } from "@agent/bot/types";
 import type { Bar } from "./bar";
 import type { Panel } from "./panel";
 import { loginPanel } from "./panels/login";
@@ -81,9 +81,6 @@ export class View {
 			case "login":
 				this.showPanel(loginPanel(event.target, event.session));
 				return;
-			case "tools":
-				this.showToolGroups(event.tools);
-				return;
 			case "approval-resolved":
 				this.transcript.note(`⏸ ${event.outcome}`, T6);
 				this.turn.enter("thinking");
@@ -155,11 +152,6 @@ export class View {
 		this.transcript.seal();
 		const task = call.task === undefined ? "" : ` · ${call.task}`;
 		this.transcript.detailed(`▌ ${TEAM_VERBS[call.kind]} ${call.bot}${task}`, T6);
-	}
-
-	private showToolGroups(tools: readonly ToolGroup[]): void {
-		this.transcript.seal();
-		this.transcript.detailed(`tools: ${tools.length === 0 ? "none" : tools.join(", ")}`, T4);
 	}
 
 	private showRoutine(name: string, prompt: string): void {

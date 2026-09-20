@@ -55,7 +55,7 @@ $CONTROL wait 'MIMO-CHAT-OK' 30
 $CONTROL capture 02-chat
 ```
 
-- Use seletor CSS pelo `aria-label`: `[aria-label="Mensagem"]`, `[aria-label="Modelo"]`, `[aria-label="Sobre o bot"]`. Os interruptores de Ferramentas respondem pelo rótulo: `label[for="tool-gmail"]`.
+- Use seletor CSS pelo `aria-label`: `[aria-label="Mensagem"]`, `[aria-label="Modelo"]`, `[aria-label="Sobre o bot"]`.
 - O que não tem `aria-label` (opções de lista, botões de texto como `Não` e `Completo`) sai do `snapshot`: clique na referência, `$CONTROL browser click @e30`. A referência muda a cada snapshot; tire um novo antes de clicar.
 - `agent-browser find role|label ...` **não acha nada** nesta instância. Não use.
 - `send` preenche o campo `Mensagem`, aperta Enter e só retorna quando o turno termina, imprimindo o estado final. `send --no-wait` retorna na hora; é o caminho para a Fila.
@@ -71,7 +71,7 @@ Padrões de prova:
 
 - exercite o caminho real do usuário pela janela, não o router oRPC nem módulos internos;
 - capture a ação e o estado resultante, não só a tela final;
-- confirme efeitos colaterais onde eles vivem, no diretório de `$CONTROL data`: `bots/<id>.json` (modelo, tools, pasta), `bots/<id>/messages.json`, `bots/<id>/memory.md`, `routines.json`, `actions.jsonl`. Mensagem de sucesso sozinha não conta;
+- confirme efeitos colaterais onde eles vivem, no diretório de `$CONTROL data`: `bots/<id>.json` (modelo), `bots/<id>/messages.json`, `bots/<id>/memory.md`, `routines.json`, `actions.jsonl`. Mensagem de sucesso sozinha não conta;
 - o modelo é remoto e a redação varia: asserte tokens únicos, ids, nomes de tool e caminhos, não frases;
 - Gmail, rascunhos e envios são reais. A prova padrão de aprovação é **recusar** (`Não`); envio aprovado só para endereço próprio, com assunto `VERIFICACAO ...`, e limpeza manual depois.
 

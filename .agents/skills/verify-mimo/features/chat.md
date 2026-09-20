@@ -33,7 +33,7 @@ Preconditions:
 
 ## Gotchas
 
-- Com o Detalhe em `Breve` (padrão) ou `Oculto`, as linhas de tool não existem na árvore. `wait` num nome de tool falha por isso, não porque a tool não rodou.
+- Com o Detalhe em `Breve` (padrão), as linhas de tool não existem na árvore. `wait` num nome de tool falha por isso, não porque a tool não rodou.
 - `send` decide o fim do turno pelo estado do título, que atualiza a cada segundo. Um turno muito curto pode nem aparecer como `trabalhando`; o `send` avisa e retorna depois de 8 s.
 - A resposta chega em pedaços; espere o marcador final, não o primeiro trecho.
 - O campo guarda o rascunho por bot enquanto o app está aberto.

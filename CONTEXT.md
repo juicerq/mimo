@@ -45,7 +45,7 @@ _Evitar_: Subagente, worker
 _Dono_: `apps/agent/src/team/tools.ts`; o registro, `apps/agent/src/bot/store.ts` (`parentId`)
 
 **Equipe**:
-Os Bots filhos de um Bot. O pai cria, ajusta e apaga os membros, e escolhe a instrução permanente, os grupos de tools e o modelo de cada um.
+Os Bots filhos de um Bot. O pai cria, ajusta e apaga os membros, e escolhe a instrução permanente e o modelo de cada um.
 _Evitar_: Time, squad, pool
 _Dono_: `apps/agent/src/bot/bot.ts` (`crew`, `team`); as tools, `apps/agent/src/team/tools.ts`
 
@@ -70,24 +70,9 @@ _Evitar_: Agendamento, cron job, automação
 _Dono_: `apps/agent/src/routines/routines.ts`; o disparo, `apps/agent/src/routines/dispatcher.ts`; a marca `[rotina: <nome>]`, `apps/agent/src/bot/events.ts`
 
 **Detalhe**:
-Tudo que aparece na conversa e não é a entrega da pessoa nem a resposta do Bot: a tool, o disparo de uma Rotina, a ação de equipe e a troca de Grupo de tools. A pessoa escolhe quanto ver com `Ctrl+O`: `off` esconde, `brief` mostra uma linha por item e `full` acrescenta o conteúdo. No desktop os níveis se chamam Oculto, Breve e Completo, também escolhidos no painel da direita, e a chamada de tool só aparece no Completo.
+Tudo que aparece na conversa e não é a entrega da pessoa nem a resposta do Bot: a tool, o disparo de uma Rotina e a ação de equipe. A pessoa escolhe quanto ver com `Ctrl+O`: `off` esconde, `brief` mostra uma linha por item e `full` acrescenta o conteúdo. No desktop os níveis são Breve e Completo, e a chamada de tool só aparece no Completo.
 _Evitar_: Tool view, log, verbosidade
 _Dono_: `apps/mimo/src/transcript.ts` (`DETAIL_LEVELS`, `cycle`); no desktop, `apps/desktop/src/renderer/transcript.tsx`
-
-**Grupo de tools**:
-Um conjunto de tools que um Bot tem ou não tem: `computer`, `web`, `gmail`, `routines` e `team`. O grupo pode carregar junto um bloco de instruções, e aí desligá-lo também tira esse bloco do contexto do Bot. A pessoa escolhe pelo Painel de tools ou pedindo ao Bot. Um Bot filho nunca recebe `team`.
-_Evitar_: Permissão, capacidade, plugin
-_Dono_: `apps/agent/src/tools/index.ts` (`botTools`, `botInstructions`); o Painel, `apps/mimo/src/panels/tools.ts`
-
-**Pasta**:
-A pasta em que as tools do grupo `computer` de um Bot rodam — o projeto dele. É opcional: sem Pasta, elas rodam a partir de `$HOME`, como sempre. A pessoa escolhe por `/folder`, e o nome dela aparece no rodapé. Um Bot filho nasce com a Pasta do pai, ou com a Cópia dele.
-_Evitar_: Diretório de trabalho, projeto, cwd
-_Dono_: a regra, `apps/agent/src/computer/folder.ts` (`resolveFolder`, `workDir`); o estado, `apps/agent/src/bot/bot.ts` (`setFolder`); o Painel, `apps/mimo/src/panels/folder.ts`
-
-**Cópia**:
-Uma cópia isolada do projeto para um Bot filho, num git worktree com branch próprio, em `~/.mimo/worktrees/<id>`. Serve para duas frentes mexerem no mesmo repositório sem escrever uma por cima da outra. O pai pede no `create_bot`; a Cópia vira a Pasta daquele filho e dura o que ele dura. Apagar o filho apaga a Cópia e deixa o branch, e recusa enquanto houver trabalho sem commit.
-_Evitar_: worktree, branch do bot
-_Dono_: `apps/agent/src/computer/worktree.ts` (`addWorktree`, `removeWorktree`)
 
 **Barra de bots**:
 A coluna da esquerda, sempre visível, com todos os Bots sem pai e a marca do estado de cada um: trabalhando, esperando Aprovação, falhou, parado. Também é por onde se troca de Bot, com `Ctrl+E`. Responde "o que está acontecendo"; a Sidebar da equipe (`Ctrl+T`) responde "o que os filhos deste Bot fazem". No desktop cada Bot mostra também um rosto e a última mensagem, e o mais recente fica no topo.
@@ -95,7 +80,7 @@ _Evitar_: sidebar, lista de bots, rail
 _Dono_: `apps/mimo/src/sidebar.ts`; no desktop, `apps/desktop/src/renderer/bar.tsx`, a lista e a ordem em `apps/desktop/src/renderer/bots.ts` e o rosto em `apps/desktop/src/renderer/avatar.tsx`; o estado de cada Bot, `apps/agent/src/bot/registry.ts` (`activity`); a última mensagem, `apps/agent/src/bot/events.ts` (`lastMessage`)
 
 **Regras**:
-Os `AGENTS.md` que entram no prompt de todo Turno de um Bot: o geral, em `~/.agents/AGENTS.md`, e o do projeto, na raiz da Pasta. São os únicos arquivos tratados como instrução da pessoa, e não como dado. Lidos a cada Turno, então editar um vale no Turno seguinte, sem reiniciar. Quando as duas brigam, vale a do projeto, que vem depois.
+O `~/.agents/AGENTS.md`, que entra no prompt de todo Turno de um Bot. É o único arquivo tratado como instrução da pessoa, e não como dado. Lido a cada Turno, então editar vale no Turno seguinte, sem reiniciar.
 _Evitar_: Configuração, perfil, memória
 _Dono_: `apps/agent/src/rules/rules.ts` (`botRules`); no prompt, `apps/agent/src/bot/bot.ts` (`systemPrompt`)
 
@@ -107,15 +92,15 @@ _Dono_: `apps/agent/src/memory/memory.ts`
 **Aprovação**:
 A confirmação da pessoa antes de enviar um e-mail. É o único freio do app: o resto das ações acontece direto e fica no registro de ações. O Turno para até a pessoa responder; ela não perde o pedido ao trocar de Bot, porque ele volta à tela quando o Bot reabre.
 _Evitar_: Permissão, consentimento, modo
-_Dono_: quais tools pedem, `apps/agent/src/gmail/tools.ts` (`APPROVAL_TOOLS`); a fila de pendentes, `apps/agent/src/bot/approvals.ts`; quem pergunta, `apps/agent/src/bot/bot.ts` (`approve`); na tela, `apps/mimo/src/view.ts`; no desktop, `apps/desktop/src/renderer/transcript.tsx`
+_Dono_: quais tools pedem, `apps/agent/src/gmail/tools.ts` (`approvalInput`); a fila de pendentes, `apps/agent/src/bot/approvals.ts`; quem pergunta, `apps/agent/src/bot/bot.ts` (`approve`); na tela, `apps/mimo/src/view.ts`; no desktop, `apps/desktop/src/renderer/transcript.tsx`
 
 **Rascunho**:
-Uma resposta escrita pelo Bot que só vira e-mail enviado depois da Aprovação da pessoa.
+Um e-mail escrito pelo Bot que fica no Gmail para a pessoa revisar e enviar por lá. O Bot não envia um Rascunho.
 _Evitar_: Minuta
 _Dono_: `apps/agent/src/gmail/tools.ts`
 
 **Painel**:
-A tela que substitui a conversa para uma escolha ou uma conexão: modelo, esforço, tools, login e logout. Tem título, itens numerados e volta à conversa com `/cancel` ou `Esc`, preservando o rascunho.
+A tela que substitui a conversa para uma escolha ou uma conexão: modelo, esforço, login e logout. Tem título, itens numerados e volta à conversa com `/cancel` ou `Esc`, preservando o rascunho.
 _Evitar_: Seletor, modal, picker
 _Dono_: `apps/mimo/src/panel.ts`; cada um, `apps/mimo/src/panels/`
 
@@ -137,7 +122,7 @@ O app desktop (`apps/desktop`, Electron) está nascendo e vai substituir a TUI; 
 
 O dispatcher de Rotinas vive **dentro do processo da TUI** (ou do processo principal do desktop) e faz um tick por minuto. Com o app fechado, nenhuma Rotina dispara.
 
-Um Grupo de tools pode carregar um bloco de instruções, em `apps/agent/src/<grupo>/instructions.md`. Hoje `gmail`, `routines`, `computer` e `team` têm um; `web` não tem. `botInstructions` em `apps/agent/src/tools/index.ts` monta o texto, então desligar o grupo tira as tools e também o bloco.
+Os blocos de instruções ficam em `apps/agent/src/<área>/instructions.md`, e `botInstructions` em `apps/agent/src/tools/index.ts` junta todos. Só o bloco da equipe depende de o Bot não ter pai.
 
 Tudo o que dura fica na Casa (`MIMO_DATA_DIR`, padrão `~/.mimo`): `bots/<id>.json`, `bots/<id>/messages.json`, `routines.json` e `actions.jsonl`. As chaves entram por `loadEnv()`, chamado no começo de `main()`: ele lê `~/.mimo/.env` e não sobrescreve variável já definida no ambiente.
 
