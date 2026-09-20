@@ -1,5 +1,6 @@
 import type { BotInfo } from "@agent/bot/types";
 import type { ModelInfo, ModelOption, ModelSelection, Provider, Reasoning } from "@agent/model/types";
+import { useState } from "react";
 import { Slider } from "@base-ui/react/slider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Field } from "@renderer/components/setting";
@@ -139,34 +140,43 @@ const STARS = [
 ];
 
 function Effort({ value, options, onChange }: EffortProps) {
+	const [held, setHeld] = useState<number | null>(null);
 	const index = Math.max(options.indexOf(value), 0);
-	const last = Math.max(options.length - 1, 1);
-	const half = Math.floor(last / 2);
-	const spark = Math.max(index - half + 1, 0) / (last - half + 1);
+
+	if (held === index) {
+		setHeld(null);
+	}
+
+	const shown = held ?? index;
+	const name = REASONING_NAMES[options.at(shown) ?? value];
+	const steps = Math.max(options.length - 1, 1);
+	const half = Math.ceil(steps / 2);
+	const spark = options.length < 2 ? 0 : Math.max(shown - half + 1, 0) / (steps - half + 1);
 
 	function tick(step: number): string {
-		const ratio = step / last;
+		const ratio = step / steps;
 		return `calc(${ratio * 100}% + ${THUMB / 2 - ratio * THUMB}px)`;
 	}
 
 	return (
 		<Slider.Root
 			className="mt-5"
-			value={index}
+			value={shown}
 			min={0}
-			max={last}
+			max={steps}
 			disabled={options.length < 2}
 			thumbAlignment="edge"
-			onValueChange={(next) => {
+			onValueChange={setHeld}
+			onValueCommitted={(next) => {
 				const picked = options.at(next);
-				if (picked) {
+				if (picked && picked !== value) {
 					onChange(picked);
 				}
 			}}
 		>
 			<div className="flex items-baseline justify-between">
 				<Slider.Label className="text-xs font-medium text-muted-foreground">Esforço</Slider.Label>
-				<span className="text-xs font-medium">{REASONING_NAMES[value]}</span>
+				<span className="text-xs font-medium">{name}</span>
 			</div>
 			<Slider.Control
 				className="mt-2 flex w-full touch-none items-center select-none data-disabled:opacity-50"
@@ -187,8 +197,8 @@ function Effort({ value, options, onChange }: EffortProps) {
 					>
 						{STARS.map((star) => (
 							<span
-								key={`${star.x}`}
-								className="absolute animate-twinkle rounded-full bg-white"
+								key={star.x}
+								className="absolute animate-twinkle rounded-full bg-foreground"
 								style={{
 									left: `${star.x * 100}%`,
 									top: `${star.y * 100}%`,
@@ -201,6 +211,7 @@ function Effort({ value, options, onChange }: EffortProps) {
 					</span>
 					<Slider.Thumb
 						className="rounded-full bg-foreground shadow-sm outline-offset-2 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring"
+						getAriaValueText={() => name}
 						style={{ height: THUMB, width: THUMB }}
 					/>
 				</Slider.Track>
