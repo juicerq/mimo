@@ -23,7 +23,9 @@ export function IconButton({ label, tip, side = "bottom", className, ...props }:
 					/>
 				}
 			/>
-			<TooltipContent side={side}>{tip ?? label}</TooltipContent>
+			<TooltipContent side={side} className="duration-100 ease-out">
+				{tip ?? label}
+			</TooltipContent>
 		</Tooltip>
 	);
 }

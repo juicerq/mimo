@@ -14,7 +14,7 @@ if (!root) {
 createRoot(root).render(
 	<StrictMode>
 		<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } } })}>
-			<TooltipProvider delay={500}>
+			<TooltipProvider delay={200} closeDelay={80} timeout={800}>
 				<App />
 			</TooltipProvider>
 		</QueryClientProvider>
