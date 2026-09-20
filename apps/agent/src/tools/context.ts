@@ -1,19 +1,10 @@
+import type { BrowserSession } from "../browser/browser";
 import type { LoginSession, LoginTarget } from "../login/login";
-import type { BotPatch } from "../bot/store";
-import type { BotInfo, BotMode, Delegation, TeamMember, ToolGroup } from "../bot/types";
+import type { Ask, AskResult, ChatKey } from "../bot/types";
 
 export interface ToolContext {
-	readonly botId: string;
-	readonly folder?: string;
-	readonly mode: BotMode;
-	readonly parentId?: string;
-	readonly tools: ToolGroup[];
-	setMode(mode: BotMode): Promise<void>;
-	setTools(tools: ToolGroup[]): Promise<BotInfo>;
+	readonly chat: ChatKey;
 	login(target: LoginTarget): LoginSession;
-	delegate(delegation: Delegation): Promise<void>;
-	stopChild(botId: string): string;
-	readonly team: TeamMember[];
-	updateChild(botId: string, patch: BotPatch): Promise<BotInfo>;
-	deleteChild(botId: string, discard: boolean): Promise<void>;
+	browser(): BrowserSession;
+	ask(ask: Ask, signal?: AbortSignal): Promise<AskResult>;
 }

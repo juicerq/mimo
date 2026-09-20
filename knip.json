@@ -1,0 +1,5 @@
+{
+	"ignoreIssues": {
+		"apps/desktop/src/renderer/components/ui/**": ["exports", "types"]
+	}
+}

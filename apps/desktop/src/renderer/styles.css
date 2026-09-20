@@ -1,0 +1,262 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+@custom-variant short (@media (height < 30rem));
+
+@theme {
+	--spacing-bar: 3.5rem;
+}
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-subtle: var(--subtle);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-hover: var(--sidebar-hover);
+	--color-sidebar-active: var(--sidebar-active);
+	--color-border-strong: var(--border-strong);
+	--color-link: var(--link);
+	--color-info: var(--info);
+	--color-success: var(--success);
+	--color-warning: var(--warning);
+	--color-scrim: var(--scrim);
+	--radius-sm: calc(var(--radius) * 0.6);
+	--radius-md: calc(var(--radius) * 0.8);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-2xl: calc(var(--radius) * 1.8);
+	--radius-3xl: calc(var(--radius) * 2.2);
+	--radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+	color-scheme: light;
+	--radius: 0.625rem;
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.145 0 0);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.145 0 0);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.145 0 0);
+	--primary: oklch(0.205 0 0);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.97 0 0);
+	--secondary-foreground: oklch(0.205 0 0);
+	--muted: oklch(0.97 0 0);
+	--muted-foreground: oklch(0.556 0 0);
+	--accent: oklch(0.97 0 0);
+	--accent-foreground: oklch(0.205 0 0);
+	--destructive: oklch(0.577 0.245 27.325);
+	--destructive-foreground: oklch(0.985 0 0);
+	--border: oklch(0.922 0 0);
+	--input: oklch(0.922 0 0);
+	--ring: oklch(0.708 0 0);
+	--subtle: oklch(0.985 0 0);
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-hover: oklch(0.95 0 0);
+	--sidebar-active: oklch(0.915 0 0);
+	--border-strong: oklch(0.87 0 0);
+	--link: oklch(0.546 0.245 262.881);
+	--info: oklch(0.623 0.214 259.815);
+	--success: oklch(0.627 0.194 149.214);
+	--warning: oklch(0.666 0.179 58.318);
+	--scrim: oklch(0 0 0 / 20%);
+}
+
+.dark {
+	color-scheme: dark;
+	--background: oklch(0.145 0 0);
+	--foreground: oklch(0.985 0 0);
+	--card: oklch(0.205 0 0);
+	--card-foreground: oklch(0.985 0 0);
+	--popover: oklch(0.205 0 0);
+	--popover-foreground: oklch(0.985 0 0);
+	--primary: oklch(0.922 0 0);
+	--primary-foreground: oklch(0.205 0 0);
+	--secondary: oklch(0.269 0 0);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.269 0 0);
+	--muted-foreground: oklch(0.708 0 0);
+	--accent: oklch(0.269 0 0);
+	--accent-foreground: oklch(0.985 0 0);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.556 0 0);
+	--subtle: oklch(0.205 0 0);
+	--sidebar: oklch(0.11 0 0);
+	--sidebar-hover: oklch(0.16 0 0);
+	--sidebar-active: oklch(0.21 0 0);
+	--border-strong: oklch(1 0 0 / 20%);
+	--link: oklch(0.707 0.165 254.624);
+	--info: oklch(0.707 0.165 254.624);
+	--success: oklch(0.723 0.219 149.579);
+	--warning: oklch(0.769 0.188 70.08);
+	--scrim: oklch(0 0 0 / 50%);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	::-webkit-scrollbar {
+		@apply size-2;
+	}
+
+	::-webkit-scrollbar-button {
+		display: none;
+	}
+
+	::-webkit-scrollbar-thumb {
+		@apply rounded-full bg-border;
+	}
+
+	::-webkit-scrollbar-track,
+	::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+
+	:root {
+		@variant short {
+			--spacing-bar: 3rem;
+		}
+	}
+
+	body {
+		@apply overflow-hidden text-sm text-foreground antialiased surface-background;
+	}
+
+	body:has(#root:empty) {
+		background-color: transparent;
+	}
+
+	:focus-visible {
+		@apply outline-2 outline-offset-2 outline-ring;
+	}
+
+	button:not(:disabled),
+	[role="button"]:not(:disabled) {
+		cursor: pointer;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		::before,
+		::after {
+			animation: none !important;
+			transition: none !important;
+		}
+	}
+}
+
+@utility drag {
+	-webkit-app-region: drag;
+	user-select: none;
+}
+
+@utility no-drag {
+	-webkit-app-region: no-drag;
+}
+
+@utility column {
+	width: 100%;
+	max-width: 53rem;
+	margin-inline: auto;
+	padding-inline: --spacing(6);
+}
+
+@utility surface-* {
+	--surface: --value(--color-*);
+	background-color: var(--surface);
+}
+
+@layer components {
+	.markdown {
+		@apply leading-relaxed;
+
+		& > * + * {
+			@apply mt-2.5;
+		}
+
+		& > * + :is(h1, h2, h3, h4, h5, h6) {
+			@apply mt-4;
+		}
+
+		& :is(h1, h2, h3, h4, h5, h6) {
+			@apply text-base leading-snug font-semibold;
+		}
+
+		& strong {
+			@apply font-semibold;
+		}
+
+		& ul {
+			@apply list-disc pl-5;
+		}
+
+		& ol {
+			@apply list-decimal pl-5;
+		}
+
+		& li + li {
+			@apply mt-0.5;
+		}
+
+		& li::marker {
+			@apply text-muted-foreground;
+		}
+
+		& :not(pre) > code {
+			@apply rounded-full bg-background px-1.5 py-px;
+			font-size: 0.875em;
+		}
+
+		& pre {
+			@apply overflow-x-auto rounded-xl border border-border-strong bg-background px-3.5 py-3 text-xs leading-relaxed wrap-normal;
+		}
+
+		& table {
+			@apply text-xs;
+		}
+
+		& :is(th, td) {
+			@apply border-b border-border-strong py-1.5 pr-5 text-left;
+		}
+
+		& th {
+			@apply font-medium text-muted-foreground;
+		}
+
+		& blockquote {
+			@apply border-l-2 border-border-strong pl-3.5 text-muted-foreground;
+		}
+
+		& a {
+			@apply text-link underline underline-offset-3;
+		}
+
+		& hr {
+			@apply border-border-strong;
+		}
+	}
+}

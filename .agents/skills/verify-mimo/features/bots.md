@@ -1,19 +1,41 @@
 # Bots
 
-Cada bot mantém seu transcript, com compactação automática, e memória isolada. Quando o contexto é compactado, as mensagens anteriores vão para `bots/<id>/sessions/` e a conversa segue com um resumo. A lista é a tela inicial; `/new <nome>` cria e abre um bot, `/bots` volta à lista, o número abre a conversa e `/delete` apaga um bot depois de confirmar. Um bot que espera Aprovação aparece na lista com `⏸ approval: <tool>`, porque a Aprovação espera em vez de ser recusada quando ninguém está com ele na tela.
+A barra da esquerda lista os bots. Cada linha mostra o nome, a prévia da última mensagem e o estado. O usuário cria um bot pelo nome, troca de bot com um clique, e cada bot guarda a própria conversa.
 
-## Verificação
+## Sub-features
 
-1. Suba um sandbox e capture a lista vazia. Crie `/new Estudos` e envie um pedido sobre um assunto sem relação com Gmail. Confira o nome como prefixo da resposta, modelo e esforço no rodapé e resposta em streaming.
-2. Peça para salvar um fato banal com marcador único. Confira `⚙ save_memory` e o arquivo `bots/<id>/memory.md` no diretório de dados.
-3. Crie `/new Escrita`. Pergunte pelo mesmo fato sem citar seu valor: ele não deve conhecê-lo. Salve outro fato e confirme que está no `memory.md` do outro bot.
-4. Use `/bots` e abra Estudos pelo número. Confira que o transcript reaparece uma vez e só contém as mensagens desse bot.
-5. Encerre com `stop --keep-state`, suba com o mesmo `--data`, abra Estudos e converse. O transcript em `bots/<id>/messages.json` e o rodapé de contexto devem permanecer.
-6. Crie uma rotina com intervalo longo e confirme que só aparece no bot que a criou. Peça para apagá-la, volte à lista enquanto aguarda aprovação e reabra o bot: a aprovação deve continuar respondível. Recuse para provar a retomada sem executar a exclusão.
-7. Para conferir a compactação automática, acumule contexto até passar de 80% da janela do modelo. Confira que a conversa responde, que um arquivo novo aparece em `bots/<id>/sessions/` e que a memória continua disponível.
-8. Depois da compactação, peça para consultar a conversa anterior: `search_history` e `read_history` devem recuperar mensagens e resultados reais. Confira isolamento entre bots e continuação de um registro longo.
-9. Crie um bot descartável com uma rotina, use `/delete`, escolha o número e confirme com `1`. A TUI deve voltar à lista com `Deleted "<nome>".`; confira que `bots/<id>.json`, `bots/<id>/` e a rotina daquele bot sumiram do diretório de dados e que os outros bots continuam. Repita com `2` para provar que a recusa não apaga nada.
+- `bots-first` sem nenhum bot, a barra já abre o campo do nome e o centro pede o primeiro bot.
+- `bots-create` cria um bot pelo botão `Novo bot` e abre a conversa dele.
+- `bots-cancel` `Esc` ou sair do campo vazio desiste da criação.
+- `bots-select` troca de bot e mostra só a conversa dele.
+- `bots-preview` a linha do bot mostra a última mensagem; `Você: ...` quando foi do usuário.
+- `bots-persist` bots e conversas voltam depois de reiniciar com os mesmos dados.
 
-10. Ponha uma mensagem sem papel conhecido no fim de `bots/<id>/messages.json` (por exemplo `{"role":"lixo"}`) e reinicie a TUI com `--data` no mesmo diretório. Abrir o bot precisa mostrar `✗ error: A conversa gravada está estragada e não foi tocada: <caminho>`, e o arquivo precisa continuar com o mesmo número de mensagens. Devolva o arquivo bom e confira que a conversa volta inteira. O bot precisa ser reaberto **depois** de reiniciar: um bot já aberto vem da memória e não lê o disco.
+## How to get to it (user POV)
 
-Capture a tela e o estado em disco a cada etapa. Não apague o histórico real para preparar uma verificação.
+- Abra o app. Sem bots, digite o nome no campo `Nome do bot` e aperte Enter.
+- Com bots, clique no `+` (`Novo bot`) no topo da barra.
+- Clique numa linha da barra para abrir aquele bot.
+
+## Driving it with control-mimo
+
+Preconditions:
+
+- `$CONTROL launch` num sandbox novo; `$CONTROL doctor` mostra `bots: 0`.
+
+- **Primeira tela.** `$CONTROL browser snapshot`. A árvore tem `textbox "Nome do novo bot"` e o texto `Dê um nome ao seu primeiro bot na barra ao lado.`
+- **Criar.** `$CONTROL browser fill '[aria-label="Nome do novo bot"]' 'Ana'` e `$CONTROL browser press Enter`. `$CONTROL wait 'heading "Ana , parado"' 20` confirma o bot aberto, e a árvore mostra `heading "Comece a conversa com Ana"`.
+- **No disco.** `ls "$($CONTROL data)/bots"` mostra um `<id>.json`; o arquivo traz `"name": "Ana"` e `model`.
+- **Segundo bot.** `$CONTROL browser click '[aria-label="Novo bot"]'`, preencha `Bia` e Enter. `$CONTROL wait 'heading "Bia , parado"' 20`.
+- **Desistir.** `$CONTROL browser click '[aria-label="Novo bot"]'` e `$CONTROL browser press Escape`. O `textbox "Nome do novo bot"` some e nenhum arquivo novo aparece em `bots/`.
+- **Trocar.** Envie `MIMO-ANA-<run>` para a Ana (veja [chat.md](./chat.md)). Tire um `snapshot` e clique na referência de `button "Bia ..."`. A conversa da Bia não contém `MIMO-ANA-<run>`. Volte para a Ana: o marcador está lá.
+- **Prévia.** Na árvore, a linha da Ana é `button "Ana <última mensagem> parado"`.
+- **Persistência.** `$CONTROL stop`, depois `$CONTROL launch --data <data do run anterior>`. A barra lista os mesmos bots e a conversa da Ana reaparece.
+- **Prova.** `$CONTROL capture 01-bots`.
+
+## Gotchas
+
+- O título sai como `heading "Ana , parado"`, com espaço antes da vírgula.
+- O bot aberto por último fica no `localStorage`. O HOME de sandbox é novo a cada `launch`, então depois de reiniciar o app abre o primeiro bot da lista, não o último usado.
+- O campo aceita até 80 caracteres; um nome recusado pelo agente mostra o erro embaixo do campo, em vermelho.
+- Apagar bot ainda não existe na janela.

@@ -14,29 +14,22 @@ function isMessage(value: unknown): boolean {
 
 export const MessageSchema = z.custom<AgentMessage>(isMessage, "Esta mensagem não tem um papel conhecido.");
 
-export const BotNameSchema = z.string().trim().min(1).max(80).regex(/^[^\p{Cc}\p{Cf}]+$/u);
-export const BotModeSchema = z.enum(["normal", "autonomous"]);
+const NAME_RULE = "Use um nome de 1 a 80 caracteres visíveis.";
+
+export const BotNameSchema = z.string().trim().min(1, NAME_RULE).max(80, NAME_RULE).regex(/^[^\p{Cc}\p{Cf}]+$/u, NAME_RULE);
 export const BotPromptSchema = z.string().trim().min(1).max(4_000);
-export const ToolGroupSchema = z.enum(["computer", "web", "gmail", "routines", "team"]);
-export const ChildGroupSchema = ToolGroupSchema.exclude(["team"]);
-
-export const TOOL_GROUPS = ToolGroupSchema.options;
-export const CHILD_GROUPS = ChildGroupSchema.options;
-
-export type BotMode = z.infer<typeof BotModeSchema>;
-export type ToolGroup = z.infer<typeof ToolGroupSchema>;
 
 export interface BotInfo {
 	id: string;
 	name: string;
 	createdAt: string;
 	model: ModelInfo;
-	mode: BotMode;
-	tools: ToolGroup[];
-	parentId?: string;
 	prompt?: string;
-	folder?: string;
-	branch?: string;
+}
+
+export interface ChatKey {
+	botId: string;
+	askedBy?: string;
 }
 
 export interface Approval {
@@ -46,48 +39,32 @@ export interface Approval {
 	input: unknown;
 }
 
-export interface Delegation {
-	botId: string;
-	task: string;
-	prompt: string;
-}
-
-export type TeamCallKind = "created" | "delegated" | "stopped" | "deleted";
-
-export interface TeamCall {
-	kind: TeamCallKind;
+export interface Ask {
 	bot: string;
-	task?: string;
+	prompt: string;
+	wait: boolean;
 }
 
-export interface TeamMember {
-	name: string;
-	task: string;
-	worktree: string | null;
-	tool: string | null;
-	startedAt: number;
-}
+export type AskResult = { bot: string; reply: string } | { bot: string; status: string };
 
 export type BotEvent =
 	| { type: "user"; text: string }
 	| { type: "queue"; items: readonly string[] }
-	| { type: "note"; text: string }
 	| { type: "summary"; text: string }
 	| { type: "warning"; text: string }
 	| { type: "routine"; name: string; prompt: string }
 	| { type: "reply-delta"; delta: string }
 	| { type: "reply"; text: string }
-	| { type: "tool"; toolName: string; input: unknown }
-	| { type: "team-call"; call: TeamCall }
-	| { type: "tool-result"; toolName: string; output: string }
+	| { type: "tool"; id: string; toolName: string; input: unknown }
+	| { type: "asked"; id: string; peer: string; prompt: string }
+	| { type: "answered"; peer: string; text: string; failed: boolean }
+	| { type: "tool-result"; id: string; toolName: string; output: string }
 	| { type: "tool-warned"; message: string }
-	| { type: "tool-failed"; message: string }
+	| { type: "tool-failed"; id: string; toolName: string; message: string }
 	| { type: "approval"; approval: Approval }
 	| { type: "login"; target: LoginTarget; session: LoginSession }
 	| { type: "approval-resolved"; outcome: "approved" | "denied" }
 	| { type: "usage"; contextTokens: number }
-	| { type: "mode"; mode: BotMode }
-	| { type: "tools"; tools: readonly ToolGroup[] }
 	| { type: "turn-started" }
 	| { type: "turn-finished" }
 	| { type: "turn-failed"; message: string }

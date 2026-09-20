@@ -21,10 +21,10 @@ export function modelFailure(raw: string, provider: Provider): string {
 
 function advice(status: number, detail: string, name: string): string {
 	if (NO_BALANCE.test(detail)) {
-		return `${name} has no balance left. Use /model to choose another provider, then continue the conversation.`;
+		return `${name} has no balance left. Pick another provider in the bot panel, then continue the conversation.`;
 	}
 	if (status === 401 || status === 403) {
-		return `${name} did not accept the credential. Use /login to connect it again, then continue the conversation.`;
+		return `${name} did not accept the credential. Connect it again in Settings, then continue the conversation.`;
 	}
 	if (status === 429) {
 		return `${name} is limiting the requests. Wait a few seconds, then continue the conversation.`;

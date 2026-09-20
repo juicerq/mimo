@@ -254,19 +254,13 @@ export interface CreatedDraft {
 	subject: string;
 }
 
-export interface SentDraft {
-	account: string;
-	messageId: string;
-	to: string | null;
-	subject: string | null;
-}
-
 export interface EmailRequest {
 	account: GmailAccount;
 	to: string;
 	cc?: string;
 	subject: string;
 	body: string;
+	threadId?: string;
 }
 
 export interface SentEmail {
@@ -322,17 +316,21 @@ function replySubject(subject: string | undefined): string | undefined {
 	return `Re: ${subject}`;
 }
 
-async function replyEnvelope(request: DraftRequest, threadId: string): Promise<Envelope> {
+async function lastHeaders(account: GmailAccount, threadId: string) {
 	const params = new URLSearchParams({ format: "metadata" });
 	for (const name of ["From", "Reply-To", "Subject", "Message-ID"]) {
 		params.append("metadataHeaders", name);
 	}
 	const thread = await gmailRequest(
-		request.account,
+		account,
 		`/threads/${encodeURIComponent(threadId)}?${params.toString()}`,
 		threadSchema,
 	);
-	const headers = thread.messages?.at(-1)?.payload?.headers;
+	return thread.messages?.at(-1)?.payload?.headers;
+}
+
+async function replyEnvelope(request: DraftRequest, threadId: string): Promise<Envelope> {
+	const headers = await lastHeaders(request.account, threadId);
 	const to = request.to ?? headerText(headers, "Reply-To") ?? headerText(headers, "From");
 	const subject = request.subject ?? replySubject(headerText(headers, "Subject"));
 	if (!to || !subject) {
@@ -361,30 +359,12 @@ export async function createDraft(request: DraftRequest): Promise<CreatedDraft> 
 	};
 }
 
-export async function sendDraft(account: GmailAccount, draftId: string): Promise<SentDraft> {
-	const sent = await gmailRequest(account, "/drafts/send", receiptSchema, {
-		method: "POST",
-		body: JSON.stringify({ id: draftId }),
-	});
-	const delivered = await gmailRequest(
-		account,
-		`/messages/${encodeURIComponent(sent.id)}?format=metadata&metadataHeaders=To&metadataHeaders=Subject`,
-		messageSchema,
-	).catch(() => null);
-
-	return {
-		account: account.email,
-		messageId: sent.id,
-		to: headerValue(delivered?.payload?.headers, "To"),
-		subject: headerValue(delivered?.payload?.headers, "Subject"),
-	};
-}
-
 export async function sendEmail(request: EmailRequest): Promise<SentEmail> {
-	const raw = mime({ to: request.to, cc: request.cc, subject: request.subject, body: request.body });
-	const sent = await gmailRequest(request.account, "/messages/send", receiptSchema, {
+	const { account, threadId, ...letter } = request;
+	const inReplyTo = threadId ? headerText(await lastHeaders(account, threadId), "Message-ID") : undefined;
+	const sent = await gmailRequest(account, "/messages/send", receiptSchema, {
 		method: "POST",
-		body: JSON.stringify({ raw }),
+		body: JSON.stringify({ raw: mime({ ...letter, inReplyTo }), ...threadId && { threadId } }),
 	});
 	return {
 		account: request.account.email,

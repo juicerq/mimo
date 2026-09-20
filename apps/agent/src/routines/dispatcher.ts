@@ -1,19 +1,25 @@
-import { Bot } from "../bot/bot";
-import { claimDue, completeRoutine, failRoutine } from "./routines";
+import { Chat } from "../bot/chat";
+import { claimDue, completeRoutine, failRoutine, type Routine } from "./routines";
 
 const TICK_MS = 60_000;
 const DISPATCH_LIMIT = 10;
 
-async function dispatchDue(): Promise<void> {
-	for (const routine of await claimDue(new Date(), DISPATCH_LIMIT)) {
-		try {
-			const bot = await Bot.open(routine.botId);
-			await bot.runRoutine({ name: routine.name, prompt: routine.prompt });
-			await completeRoutine(routine.id, new Date());
-		} catch (error) {
-			await failRoutine(routine.id, error);
+async function dispatch(routine: Routine): Promise<void> {
+	try {
+		const chat = await Chat.open({ botId: routine.botId });
+		if (chat.busy) {
+			return;
 		}
+		await chat.runRoutine({ name: routine.name, prompt: routine.prompt });
+		await completeRoutine(routine.id, new Date());
+	} catch (error) {
+		await failRoutine(routine.id, error);
 	}
+}
+
+async function dispatchDue(): Promise<void> {
+	const due = await claimDue(new Date(), DISPATCH_LIMIT);
+	await Promise.allSettled(due.map(dispatch));
 }
 
 export function startRoutines(): () => void {

@@ -14,7 +14,7 @@ export function historyTools(context: ToolContext) {
 				limit: z.number().int().min(1).max(15).default(8),
 			}),
 			async execute(input) {
-				return await searchHistory({ ...input, botId: context.botId });
+				return await searchHistory({ ...input, chat: context.chat });
 			},
 		}),
 		tool({
@@ -26,7 +26,7 @@ export function historyTools(context: ToolContext) {
 				limit: z.number().int().min(1).max(20).default(6),
 			}),
 			async execute(input) {
-				return await readHistory({ ...input, botId: context.botId });
+				return await readHistory({ ...input, chat: context.chat });
 			},
 		}),
 	];

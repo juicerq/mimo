@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+
+app=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
+main="$app/out/main/index.js"
+
+if [ ! -f "$main" ]; then
+	echo "mimo: o app ainda não foi compilado. Rode: bun run build" >&2
+	exit 1
+fi
+
+for candidate in "$app/node_modules/electron/dist/electron" "$app/../../node_modules/electron/dist/electron"; do
+	if [ -x "$candidate" ]; then
+		exec "$candidate" "$main" "$@"
+	fi
+done
+
+echo "mimo: o electron não está instalado. Rode: bun install" >&2
+exit 1

@@ -1,35 +1,20 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
-import { actionTools } from "../actions/tools";
-import { BotModeSchema, ToolGroupSchema, type BotMode } from "../bot/types";
+import { browserTools } from "../browser/tools";
 import { computerInstructions, computerTools } from "../computer/tools";
 import { gmailTools } from "../gmail/tools";
 import { historyTools } from "../history/tools";
 import { memoryTools } from "../memory/tools";
+import { peerTools } from "../peers/tools";
 import { routineTools } from "../routines/tools";
-import { teamTools } from "../team/tools";
 import { webTools } from "../web/tools";
 import type { ToolContext } from "./context";
 import { tool } from "./tool";
 import instructions from "../instructions.md" with { type: "text" };
+import browserInstructions from "../browser/instructions.md" with { type: "text" };
 import gmailInstructions from "../gmail/instructions.md" with { type: "text" };
+import peerInstructions from "../peers/instructions.md" with { type: "text" };
 import routineInstructions from "../routines/instructions.md" with { type: "text" };
-import teamInstructions from "../team/instructions.md" with { type: "text" };
-
-const APPROVAL_TOOLS = new Set([
-	"send_email",
-	"send_draft",
-	"delete_routine",
-	"disconnect_gmail",
-	"delete_bot",
-	"bash",
-	"write",
-	"edit",
-]);
-const SetModeInput = z.object({ mode: BotModeSchema.describe("Modo desejado.") });
-const SetToolsInput = z.object({
-	tools: z.array(ToolGroupSchema).describe("Os grupos que ficam ligados. A lista substitui a atual."),
-});
 
 const currentTime = tool({
 	name: "current_time",
@@ -40,79 +25,20 @@ const currentTime = tool({
 	},
 });
 
-function setMode(context: ToolContext): AgentTool {
-	return tool({
-		name: "set_mode",
-		description:
-			"Alterna o modo do bot nesta conversa. No normal, os envios pedem aprovação no terminal; no autônomo, enviam sem perguntar e ficam registrados. Use só a pedido explícito do usuário.",
-		input: SetModeInput,
-		async execute({ mode }) {
-			const previous = context.mode;
-			await context.setMode(mode);
-			return { previous, mode };
-		},
-	});
-}
-
-function setTools(context: ToolContext): AgentTool {
-	return tool({
-		name: "set_tools",
-		description:
-			"Liga e desliga grupos de tools deste bot. Desligar um grupo também tira as instruções dele do contexto. Use só a pedido explícito do usuário.",
-		input: SetToolsInput,
-		async execute({ tools }) {
-			const previous = context.tools;
-			await context.setTools(tools);
-			return { previous, tools };
-		},
-	});
-}
-
-function modeInstructions(mode: BotMode): string {
-	if (mode === "autonomous") {
-		return "Você está no modo autônomo: nenhuma ação pede aprovação no terminal. Nunca diga que vai esperar confirmação; faça o trabalho e diga o que fez.";
-	}
-	return "Você está no modo normal: as ações que mexem no computador ou enviam e-mail param para a pessoa aprovar no terminal antes de acontecer.";
-}
-
-export function botInstructions(context: ToolContext): string {
-	const groups = new Set(context.tools);
-
-	return [
-		instructions,
-		modeInstructions(context.mode),
-		...groups.has("gmail") ? [gmailInstructions] : [],
-		...groups.has("routines") ? [routineInstructions] : [],
-		...groups.has("computer") ? [computerInstructions(context.folder)] : [],
-		...groups.has("team") ? [teamInstructions] : [],
-	].join("\n\n");
+export function botInstructions(): string {
+	return [instructions, gmailInstructions, routineInstructions, peerInstructions, browserInstructions, computerInstructions()].join("\n\n");
 }
 
 export function botTools(context: ToolContext): AgentTool[] {
-	const groups = new Set(context.tools);
-
 	return [
 		currentTime,
 		...memoryTools(context),
 		...historyTools(context),
-		...actionTools(context),
-		...groups.has("gmail") ? gmailTools(context) : [],
-		...groups.has("routines") ? routineTools(context) : [],
-		...groups.has("web") ? webTools() : [],
-		...groups.has("computer") ? computerTools(context.folder) : [],
-		...groups.has("team") ? teamTools(context) : [],
-		...context.parentId === undefined ? [setMode(context), setTools(context)] : [],
+		...gmailTools(context),
+		...routineTools(context),
+		...webTools(),
+		...browserTools(context),
+		...computerTools(),
+		...peerTools(context),
 	];
-}
-
-export function needsApproval(context: ToolContext, toolName: string, args: unknown): boolean {
-	if (toolName === "set_mode") {
-		const input = SetModeInput.safeParse(args);
-		return input.success && input.data.mode === "autonomous" && context.mode === "normal";
-	}
-	if (toolName === "set_tools") {
-		const input = SetToolsInput.safeParse(args);
-		return input.success && context.mode === "normal" && input.data.tools.some((group) => !context.tools.includes(group));
-	}
-	return context.mode === "normal" && APPROVAL_TOOLS.has(toolName);
 }

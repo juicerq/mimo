@@ -3,66 +3,36 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+APP_DIR="$REPO_DIR/apps/desktop"
 VERIFY_DIR="$REPO_DIR/.verify"
 CURRENT_RUN_FILE="$VERIFY_DIR/current"
-SESSION="${MIMO_VERIFY_SESSION:-mimo-verify}"
-REAL_DATA_DIR="$REPO_DIR/.data"
-READY_PATTERN="/new <name>"
-LAUNCH_TIMEOUT_SECONDS="${MIMO_VERIFY_LAUNCH_TIMEOUT:-60}"
-WAIT_INTERVAL_SECONDS=2
+ELECTRON_VITE="$REPO_DIR/node_modules/.bin/electron-vite"
+LAUNCH_TIMEOUT_SECONDS="${MIMO_VERIFY_LAUNCH_TIMEOUT:-90}"
 WAIT_DEFAULT_SECONDS=180
-SEND_BUSY_GRACE_SECONDS=6
-SEND_ACCEPT_SECONDS=10
+SEND_BUSY_GRACE_SECONDS=8
 SEND_DEFAULT_SECONDS=300
-AUTH_PATHS=(".codex/auth.json" ".local/share/opencode/auth.json" ".mimo/providers.json")
+STOP_GRACE_SECONDS=10
+PORT_FIRST=9340
+PORT_LAST=9399
+AUTH_PATHS=(".codex/auth.json" ".local/share/opencode/auth.json")
+ENV_PATH=".mimo/.env"
+MAIN_SOURCES=("apps/desktop/src/main" "apps/desktop/src/preload" "apps/desktop/electron.vite.config.ts" "apps/agent/src")
 
 usage() {
 	cat <<'EOF'
 uso: control-mimo <comando> [argumentos]
 
 comandos:
-  launch [--data <dir>]  sobe a TUI em tmux; dados e HOME em sandbox por padrão
-  doctor                 checagem somente leitura da instância
-  data                   imprime o diretório de dados da execução atual
-  send <texto>           digita, envia e espera o turno terminar (recusa se ocupado)
-  wait <regex> [seg]     espera o padrão aparecer no pane (padrão 180 s)
-  capture <arquivo>      salva o pane atual no arquivo
-  stop [--keep-state]    encerra e restaura o estado (ou mantém com --keep-state)
-  home                   imprime o HOME de sandbox da execução atual
-  restore [run-dir]      restaura o snapshot de um run (padrão: o atual)
+  launch [--data <dir>]      sobe o app desktop com CDP; dados e HOME em sandbox por padrão
+  doctor                     checagem somente leitura da instância
+  data | home | port | log   imprime o diretório de dados, o HOME, a porta CDP ou o log do app
+  state                      imprime o estado do bot aberto: parado, trabalhando, esperando aprovação, falhou
+  send [--no-wait] <texto>   escreve no campo Mensagem, envia e espera o turno terminar
+  wait <regex> [seg]         espera o padrão aparecer na árvore de acessibilidade (padrão 180 s)
+  capture <nome>             salva <nome>.png e <nome>.aria.txt no run dir
+  browser <args...>          repassa para o agent-browser já ligado a esta instância
+  stop                       encerra o que o launch iniciou; a evidência fica
 EOF
-}
-
-session_up() {
-	tmux has-session -t "$SESSION" 2>/dev/null
-}
-
-pane_text() {
-	tmux capture-pane -p -J -t "$SESSION" 2>/dev/null
-}
-
-status_state() {
-	local pane picker approval
-	pane="$(pane_text)"
-	picker="$(printf '%s' "$pane" | grep -oE 'status:[─ ]*(loading|ready|saving)' | tail -n1 | sed -E 's/^status:[─ ]*//' || true)"
-	if [ -n "$picker" ]; then
-		printf '%s' "$picker"
-		return
-	fi
-	if printf '%s' "$pane" | grep -qE '(thinking|working|stopping|loading) · [0-9]+s'; then
-		printf 'thinking'
-		return
-	fi
-	approval="$(printf '%s' "$pane" | grep -oE '⏸ (approval|approved|denied)' | tail -n1 || true)"
-	if [ "$approval" = "⏸ approval" ]; then
-		printf 'waiting'
-		return
-	fi
-	printf 'ready'
-}
-
-composer_line() {
-	pane_text | grep "^│" | tail -n1 || true
 }
 
 current_run_dir() {
@@ -88,38 +58,56 @@ resolve_path() {
 	esac
 }
 
-data_dir_of() {
+run_value() {
 	local run_dir="$1"
-	if [ -n "$run_dir" ] && [ -f "$run_dir/data-dir.txt" ]; then
-		cat "$run_dir/data-dir.txt"
-		return
+	local name="$2"
+	if [ -n "$run_dir" ] && [ -f "$run_dir/$name.txt" ]; then
+		cat "$run_dir/$name.txt"
 	fi
-	printf '%s' "$REAL_DATA_DIR"
 }
 
-home_dir_of() {
+app_up() {
 	local run_dir="$1"
-	if [ -n "$run_dir" ] && [ -d "$run_dir/home" ]; then
-		printf '%s' "$run_dir/home"
-	fi
+	local pid data_dir
+	pid="$(run_value "$run_dir" pid)"
+	data_dir="$(run_value "$run_dir" data-dir)"
+	[ -n "$pid" ] || return 1
+	[ -r "/proc/$pid/environ" ] || return 1
+	tr '\0' '\n' <"/proc/$pid/environ" | grep -qxF "MIMO_DATA_DIR=$data_dir"
+}
+
+free_port() {
+	local port
+	for port in $(seq "$PORT_FIRST" "$PORT_LAST"); do
+		if ! (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
+			printf '%s' "$port"
+			return 0
+		fi
+	done
+	echo "nenhuma porta livre entre $PORT_FIRST e $PORT_LAST" >&2
+	return 1
 }
 
 prepare_home() {
-	local run_dir="$1"
-	local home_dir="$run_dir/home"
+	local home_dir="$1/home"
 	local relative
+	mkdir -p "$home_dir/.config"
 	for relative in "${AUTH_PATHS[@]}"; do
 		mkdir -p "$home_dir/$(dirname "$relative")"
 		if [ -f "$HOME/$relative" ] && [ ! -e "$home_dir/$relative" ]; then
 			ln -s "$HOME/$relative" "$home_dir/$relative"
 		fi
 	done
+	if [ -f "$HOME/$ENV_PATH" ]; then
+		mkdir -p "$home_dir/$(dirname "$ENV_PATH")"
+		ln -s "$HOME/$ENV_PATH" "$home_dir/$ENV_PATH"
+	fi
 	printf '%s' "$home_dir"
 }
 
 report_auth_writes() {
 	local home_dir="$1"
-	[ -n "$home_dir" ] || return 0
+	[ -n "$home_dir" ] && [ -d "$home_dir" ] || return 0
 	local relative wrote=0
 	for relative in "${AUTH_PATHS[@]}"; do
 		if [ -f "$home_dir/$relative" ] && [ ! -L "$home_dir/$relative" ]; then
@@ -132,116 +120,102 @@ report_auth_writes() {
 	fi
 }
 
-data_dir_or_die() {
+browser() {
 	local run_dir
 	run_dir="$(run_dir_or_die)"
-	data_dir_of "$run_dir"
+	agent-browser --session "$(run_value "$run_dir" session)" --cdp "$(run_value "$run_dir" port)" "$@"
+}
+
+tree() {
+	browser snapshot 2>/dev/null || true
+}
+
+bot_state() {
+	tree | grep -oE 'heading "[^"]*, (parado|trabalhando|esperando aprovação|falhou)"' | head -n1 | sed -E 's/^.*, ([^"]+)"$/\1/' || true
 }
 
 wait_for() {
-	local pattern="$1"
+	local pattern="${1:-}"
 	local timeout="${2:-$WAIT_DEFAULT_SECONDS}"
-	local deadline
+	if [ -z "$pattern" ]; then
+		echo "uso: $0 wait <regex> [seg]" >&2
+		exit 1
+	fi
+	local run_dir deadline
+	run_dir="$(run_dir_or_die)"
 	deadline=$((SECONDS + timeout))
 	while [ "$SECONDS" -le "$deadline" ]; do
-		if ! session_up; then
-			echo "sessão tmux $SESSION caiu durante a espera" >&2
+		if ! app_up "$run_dir"; then
+			echo "o app caiu durante a espera; veja: $run_dir/app.log" >&2
 			return 1
 		fi
-		if pane_text | grep -Eq -- "$pattern"; then
+		if tree | grep -Eq -- "$pattern"; then
 			return 0
 		fi
-		sleep "$WAIT_INTERVAL_SECONDS"
+		sleep 1
 	done
-	mkdir -p "$VERIFY_DIR"
-	pane_text >"$VERIFY_DIR/last-timeout.txt" || true
+	tree >"$run_dir/last-timeout.aria.txt"
 	echo "timeout (${timeout}s) esperando por: $pattern" >&2
-	echo "último pane salvo em $VERIFY_DIR/last-timeout.txt" >&2
+	echo "última árvore salva em $run_dir/last-timeout.aria.txt" >&2
 	return 1
 }
 
-copy_state() {
-	local data_dir="$1"
-	local target="$2"
-	mkdir -p "$target"
-	if [ -d "$data_dir/bots" ]; then
-		cp -a "$data_dir/bots" "$target/bots"
-	fi
-	if [ -f "$data_dir/routines.json" ]; then
-		cp -a "$data_dir/routines.json" "$target/routines.json"
-	fi
-	if [ -f "$data_dir/actions.jsonl" ]; then
-		cp -a "$data_dir/actions.jsonl" "$target/actions.jsonl"
-	fi
-}
-
-restore_state() {
-	local run_dir="$1"
-	local data_dir="$2"
-	[ -n "$run_dir" ] || return 0
-	copy_state "$data_dir" "$run_dir/state-after"
-	mkdir -p "$data_dir"
-	if [ -d "$run_dir/state-before/bots" ]; then
-		rm -rf "$data_dir/bots"
-		cp -a "$run_dir/state-before/bots" "$data_dir/bots"
-	elif [ -d "$data_dir/bots" ]; then
-		rm -rf "$data_dir/bots"
-	fi
-	if [ -f "$run_dir/state-before/routines.json" ]; then
-		cp -a "$run_dir/state-before/routines.json" "$data_dir/routines.json"
-	elif [ -f "$data_dir/routines.json" ]; then
-		rm -f "$data_dir/routines.json"
-	fi
-	if [ -f "$run_dir/state-before/actions.jsonl" ]; then
-		cp -a "$run_dir/state-before/actions.jsonl" "$data_dir/actions.jsonl"
-	elif [ -f "$data_dir/actions.jsonl" ]; then
-		rm -f "$data_dir/actions.jsonl"
-	fi
-}
-
 launch() {
-	if session_up; then
-		echo "sessão tmux $SESSION já existe; rode: $0 stop" >&2
+	local data_override="${1:-}"
+	local previous
+	previous="$(current_run_dir)"
+	if [ -n "$previous" ] && app_up "$previous"; then
+		echo "já existe uma instância desta verificação no ar; rode: $0 stop" >&2
 		exit 1
 	fi
-	local stamp="$1"
-	local data_override="${2:-}"
-	local run_dir="$VERIFY_DIR/runs/$stamp"
+	if [ ! -x "$ELECTRON_VITE" ]; then
+		echo "electron-vite ausente; rode: bun install" >&2
+		exit 1
+	fi
+	local stamp run_dir data_dir home_dir port
+	stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+	run_dir="$VERIFY_DIR/runs/$stamp"
 	mkdir -p "$run_dir"
-	local data_dir
+	data_dir="$run_dir/data"
 	if [ -n "$data_override" ]; then
 		data_dir="$(resolve_path "$data_override")"
-	elif [ -n "${MIMO_VERIFY_DATA_DIR:-}" ]; then
-		data_dir="$(resolve_path "$MIMO_VERIFY_DATA_DIR")"
-	else
-		data_dir="$run_dir/data"
+	fi
+	if [ "$data_dir" = "$HOME/.mimo" ]; then
+		echo "recusado: $data_dir são os dados reais" >&2
+		exit 1
 	fi
 	mkdir -p "$data_dir"
+	home_dir="$(prepare_home "$run_dir")"
+	port="$(free_port)"
 	printf '%s' "$data_dir" >"$run_dir/data-dir.txt"
-	copy_state "$data_dir" "$run_dir/state-before"
+	printf '%s' "$port" >"$run_dir/port.txt"
+	printf 'mimo-verify-%s' "$stamp" >"$run_dir/session.txt"
 	git -C "$REPO_DIR" rev-parse HEAD >"$run_dir/head.txt"
 	date -u +"%Y-%m-%dT%H:%M:%SZ" >"$run_dir/started.txt"
 	printf '%s' "$run_dir" >"$CURRENT_RUN_FILE"
-	local home_dir
-	home_dir="$(prepare_home "$run_dir")"
-	local -a runtime_env=("MIMO_DATA_DIR=$data_dir" "HOME=$home_dir" "BUN_RUNTIME_TRANSPILER_CACHE_PATH=$HOME/.bun/install/cache/@t@")
-	local setting
-	for setting in MIMO_MODEL MIMO_REASONING; do
-		if [ -n "${!setting:-}" ]; then
-			runtime_env+=("$setting=${!setting}")
+	(
+		cd "$APP_DIR"
+		exec setsid env "MIMO_DATA_DIR=$data_dir" "HOME=$home_dir" "XDG_CONFIG_HOME=$home_dir/.config" "REMOTE_DEBUGGING_PORT=$port" "$ELECTRON_VITE" dev
+	) >"$run_dir/app.log" 2>&1 &
+	printf '%s' "$!" >"$run_dir/pid.txt"
+	local deadline=$((SECONDS + LAUNCH_TIMEOUT_SECONDS))
+	while [ "$SECONDS" -le "$deadline" ]; do
+		if grep -q "DevTools listening" "$run_dir/app.log" && tree | grep -q 'complementary "Bots"'; then
+			echo "run dir: $run_dir"
+			echo "dados: $data_dir"
+			echo "home: $home_dir"
+			echo "cdp: $port"
+			echo "pronto."
+			return 0
 		fi
+		if ! app_up "$run_dir"; then
+			break
+		fi
+		sleep 1
 	done
-	tmux new-session -d -s "$SESSION" -x 140 -y 42 -c "$REPO_DIR" env -u MIMO_MODEL -u MIMO_REASONING "${runtime_env[@]}" bun apps/mimo/src/index.ts
-	if ! wait_for "$READY_PATTERN" "$LAUNCH_TIMEOUT_SECONDS"; then
-		pane_text >"$run_dir/00-launch.txt" || true
-		echo "a TUI não ficou pronta em ${LAUNCH_TIMEOUT_SECONDS}s" >&2
-		return 1
-	fi
-	pane_text >"$run_dir/00-launch.txt"
-	echo "run dir: $run_dir"
-	echo "dados: $data_dir"
-	echo "home: $home_dir"
-	echo "pronto."
+	echo "o app não ficou pronto em ${LAUNCH_TIMEOUT_SECONDS}s; fim do log:" >&2
+	tail -n 20 "$run_dir/app.log" >&2
+	return 1
 }
 
 doctor() {
@@ -249,186 +223,123 @@ doctor() {
 	run_dir="$(current_run_dir)"
 	echo "repo: $REPO_DIR"
 	echo "HEAD atual: $(git -C "$REPO_DIR" rev-parse --short HEAD)"
-	if [ -n "$run_dir" ] && [ -f "$run_dir/head.txt" ]; then
-		echo "HEAD do launch: $(cut -c1-12 "$run_dir/head.txt")"
-	fi
-	if [ -n "$run_dir" ]; then
-		echo "run dir: $run_dir"
-	else
+	if [ -z "$run_dir" ]; then
 		echo "run dir: nenhum (nada foi lançado)"
+		return 0
 	fi
-	local data_dir="$REAL_DATA_DIR"
-	if [ -n "$run_dir" ]; then
-		data_dir="$(data_dir_of "$run_dir")"
-		if [ "$data_dir" = "$REAL_DATA_DIR" ]; then
-			echo "dados: $data_dir (reais)"
+	echo "HEAD do launch: $(cut -c1-7 "$run_dir/head.txt")"
+	echo "run dir: $run_dir"
+	echo "dados: $(run_value "$run_dir" data-dir)"
+	echo "home: $run_dir/home (sandbox)"
+	if app_up "$run_dir"; then
+		echo "app: no ar (pid $(run_value "$run_dir" pid), iniciado por este launch)"
+	else
+		echo "app: ausente"
+	fi
+	local port
+	port="$(run_value "$run_dir" port)"
+	if curl -fsS --max-time 2 "http://127.0.0.1:$port/json/version" >/dev/null 2>&1; then
+		echo "cdp: $port responde"
+		echo "bot aberto: $(bot_state | grep . || echo "nenhum")"
+	else
+		echo "cdp: $port não responde"
+	fi
+	local stale
+	stale="$(cd "$REPO_DIR" && find "${MAIN_SOURCES[@]}" -type f -newer "$run_dir/started.txt" 2>/dev/null | head -n 5)"
+	if [ -n "$stale" ]; then
+		echo "main: DESATUALIZADO, o processo main não recarrega; rode stop e launch. Mudou depois do launch:"
+		printf '%s\n' "$stale" | sed 's/^/  /'
+	else
+		echo "main: igual ao do launch (o renderer recarrega sozinho)"
+	fi
+	local relative
+	for relative in "${AUTH_PATHS[@]}"; do
+		if [ -f "$HOME/$relative" ]; then
+			echo "credencial: ~/$relative presente"
 		else
-			echo "dados: $data_dir (sandbox)"
+			echo "credencial: ~/$relative ausente"
 		fi
-	fi
-	if session_up; then
-		echo "tmux: $SESSION no ar"
-		if [ "$(status_state)" = "ready" ]; then
-			echo "pane: ready"
-		else
-			echo "pane: fora de pronto (veja: $0 capture <arquivo>)"
-		fi
-	else
-		echo "tmux: $SESSION ausente"
-	fi
-	if [ -f "$HOME/.local/share/opencode/auth.json" ] && grep -q '"opencode-go"' "$HOME/.local/share/opencode/auth.json"; then
-		echo "opencode-go: credencial em ~/.local/share/opencode/auth.json"
-	else
-		echo "opencode-go: credencial ausente"
-	fi
-	if [ -f "$HOME/.codex/auth.json" ]; then
-		echo "openai-codex: credencial em ~/.codex/auth.json"
-	else
-		echo "openai-codex: credencial ausente"
-	fi
-	local home_dir
-	home_dir="$(home_dir_of "$run_dir")"
-	if [ -n "$home_dir" ]; then
-		echo "home: $home_dir (sandbox)"
-		report_auth_writes "$home_dir"
-	else
-		echo "home: $HOME (real)"
-	fi
-	local env_file="$REPO_DIR/.env.local"
-	if [ -f "$env_file" ] && grep -q '^GMAIL_CLIENT_ID=..' "$env_file"; then
-		echo "gmail: GMAIL_CLIENT_ID presente"
-	else
-		echo "gmail: GMAIL_CLIENT_ID ausente em $env_file"
-	fi
-	if [ -f "$data_dir/gmail/accounts.json" ]; then
-		echo "contas conectadas: $(grep -c '"email"' "$data_dir/gmail/accounts.json")"
-	else
-		echo "contas conectadas: 0"
-	fi
-	if [ -f "$data_dir/routines.json" ]; then
-		echo "rotinas: $(grep -c '"id"' "$data_dir/routines.json")"
-	else
-		echo "rotinas: 0"
-	fi
+	done
+	report_auth_writes "$run_dir/home"
+	local data_dir
+	data_dir="$(run_value "$run_dir" data-dir)"
+	echo "bots: $(find "$data_dir/bots" -maxdepth 1 -name '*.json' 2>/dev/null | wc -l)"
 }
 
 send_text() {
+	local no_wait=0
+	if [ "${1:-}" = "--no-wait" ]; then
+		no_wait=1
+		shift
+	fi
 	local text="${1:-}"
 	if [ -z "$text" ]; then
-		echo "uso: $0 send <texto>" >&2
+		echo "uso: $0 send [--no-wait] <texto>" >&2
 		exit 1
 	fi
-	if ! session_up; then
-		echo "sessão tmux $SESSION não existe; rode: $0 launch" >&2
-		exit 1
+	browser fill '[aria-label="Mensagem"]' "$text" >/dev/null
+	browser press Enter >/dev/null
+	if [ "$no_wait" -eq 1 ]; then
+		return 0
 	fi
-	local state
-	state="$(status_state)"
-	case "$state" in
-	thinking | loading | cancelling)
-		echo "bot ocupado (status: $state); espere e tente de novo" >&2
-		exit 1
-		;;
-	esac
-	tmux send-keys -t "$SESSION" -l -- "$text"
-	tmux send-keys -t "$SESSION" Enter
-	local tail_text="$text"
-	if [ "${#text}" -gt 16 ]; then
-		tail_text="${text: -16}"
-	fi
-	local deadline=$((SECONDS + SEND_ACCEPT_SECONDS))
-	local accepted=0
-	local composer
-	while [ "$SECONDS" -le "$deadline" ]; do
-		composer="$(composer_line)"
-		if ! printf '%s' "$composer" | grep -qF -- "$tail_text"; then
-			accepted=1
-			break
-		fi
-		sleep 1
-	done
-	if [ "$accepted" -eq 0 ]; then
-		mkdir -p "$VERIFY_DIR"
-		pane_text >"$VERIFY_DIR/last-send.txt" || true
-		echo "o texto ficou no composer; envio não foi aceito (bot ocupado?)" >&2
-		echo "pane salvo em $VERIFY_DIR/last-send.txt" >&2
-		exit 1
-	fi
-	local saw_busy=0
+	local state saw_busy=0
 	local busy_deadline=$((SECONDS + SEND_BUSY_GRACE_SECONDS))
-	deadline=$((SECONDS + SEND_DEFAULT_SECONDS))
+	local deadline=$((SECONDS + SEND_DEFAULT_SECONDS))
 	while [ "$SECONDS" -le "$deadline" ]; do
-		state="$(status_state)"
-		if [ "$saw_busy" -eq 1 ]; then
-			if [ "$state" != "thinking" ] && [ "$state" != "loading" ] && [ "$state" != "cancelling" ]; then
-				return 0
-			fi
-		elif [ "$state" = "thinking" ] || [ "$state" = "loading" ] || [ "$state" = "cancelling" ]; then
+		state="$(bot_state)"
+		if [ "$state" = "trabalhando" ]; then
 			saw_busy=1
+		elif [ "$saw_busy" -eq 1 ] && [ -n "$state" ]; then
+			echo "estado: $state"
+			return 0
 		elif [ "$SECONDS" -gt "$busy_deadline" ]; then
+			echo "estado: ${state:-desconhecido} (o turno não chegou a aparecer como trabalhando)"
 			return 0
 		fi
 		sleep 1
 	done
-	echo "timeout (${SEND_DEFAULT_SECONDS}s) esperando o turno terminar (status: $state)" >&2
+	echo "timeout (${SEND_DEFAULT_SECONDS}s) esperando o turno terminar (estado: $state)" >&2
 	exit 1
 }
 
-capture_pane() {
-	local file="${1:-}"
-	if [ -z "$file" ]; then
-		echo "uso: $0 capture <arquivo>" >&2
+capture() {
+	local name="${1:-}"
+	if [ -z "$name" ]; then
+		echo "uso: $0 capture <nome>" >&2
 		exit 1
 	fi
-	mkdir -p "$(dirname "$file")"
-	pane_text >"$file"
-	echo "$file"
+	local run_dir
+	run_dir="$(run_dir_or_die)"
+	browser screenshot "$run_dir/$name.png" >/dev/null
+	tree >"$run_dir/$name.aria.txt"
+	echo "$run_dir/$name.png"
+	echo "$run_dir/$name.aria.txt"
 }
 
 stop_instance() {
-	local keep_state=0
-	if [ "${1:-}" = "--keep-state" ]; then
-		keep_state=1
-	fi
 	local run_dir
 	run_dir="$(current_run_dir)"
-	local data_dir="$REAL_DATA_DIR"
-	if [ -n "$run_dir" ]; then
-		data_dir="$(data_dir_of "$run_dir")"
+	if [ -z "$run_dir" ]; then
+		echo "nada para parar."
+		return 0
 	fi
-	if session_up; then
-		tmux send-keys -t "$SESSION" C-c
-		local waited=0
-		while session_up && [ "$waited" -lt 10 ]; do
+	if app_up "$run_dir"; then
+		local pid waited=0
+		pid="$(run_value "$run_dir" pid)"
+		kill -TERM -- "-$pid" 2>/dev/null || true
+		while app_up "$run_dir" && [ "$waited" -lt "$STOP_GRACE_SECONDS" ]; do
 			sleep 1
 			waited=$((waited + 1))
 		done
-		if session_up; then
-			tmux kill-session -t "$SESSION"
+		if app_up "$run_dir"; then
+			kill -KILL -- "-$pid" 2>/dev/null || true
 		fi
 	fi
-	report_auth_writes "$(home_dir_of "$run_dir")"
-	if [ "$keep_state" -eq 0 ] && [ -n "$run_dir" ]; then
-		restore_state "$run_dir" "$data_dir"
-		echo "estado restaurado do snapshot: $run_dir/state-before"
-	elif [ -n "$run_dir" ]; then
-		copy_state "$data_dir" "$run_dir/state-after"
-		echo "estado mantido (--keep-state); snapshot em: $run_dir/state-before"
-	fi
+	agent-browser --session "$(run_value "$run_dir" session)" close >/dev/null 2>&1 || true
+	report_auth_writes "$run_dir/home"
+	rm -f "$CURRENT_RUN_FILE"
+	echo "evidência em: $run_dir"
 	echo "parado."
-}
-
-restore() {
-	local run_dir="${1:-}"
-	if [ -z "$run_dir" ]; then
-		run_dir="$(run_dir_or_die)"
-	fi
-	if [ ! -d "$run_dir/state-before" ]; then
-		echo "sem snapshot em $run_dir/state-before" >&2
-		exit 1
-	fi
-	restore_state "$run_dir" "$(data_dir_of "$run_dir")"
-	echo "estado restaurado de: $run_dir/state-before"
 }
 
 mkdir -p "$VERIFY_DIR"
@@ -437,35 +348,37 @@ case "${1:-}" in
 launch)
 	shift
 	launch_data=""
-	while [ "$#" -gt 0 ]; do
-		case "$1" in
-		--data)
-			launch_data="${2:-}"
-			if [ -z "$launch_data" ]; then
-				echo "--data precisa de um diretório" >&2
-				exit 1
-			fi
-			shift 2
-			;;
-		*)
-			echo "argumento desconhecido em launch: $1" >&2
+	if [ "${1:-}" = "--data" ]; then
+		launch_data="${2:-}"
+		if [ -z "$launch_data" ]; then
+			echo "--data precisa de um diretório" >&2
 			exit 1
-			;;
-		esac
-	done
-	stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-	launch "$stamp" "$launch_data"
+		fi
+	elif [ "$#" -gt 0 ]; then
+		echo "argumento desconhecido em launch: $1" >&2
+		exit 1
+	fi
+	launch "$launch_data"
 	;;
 doctor)
 	doctor
 	;;
 data)
-	data_dir_or_die
+	run_value "$(run_dir_or_die)" data-dir
 	echo
 	;;
 home)
-	home_dir_of "$(run_dir_or_die)"
+	echo "$(run_dir_or_die)/home"
+	;;
+port)
+	run_value "$(run_dir_or_die)" port
 	echo
+	;;
+log)
+	echo "$(run_dir_or_die)/app.log"
+	;;
+state)
+	bot_state
 	;;
 send)
 	shift
@@ -477,15 +390,14 @@ wait)
 	;;
 capture)
 	shift
-	capture_pane "$@"
+	capture "$@"
+	;;
+browser)
+	shift
+	browser "$@"
 	;;
 stop)
-	shift
-	stop_instance "${1:-}"
-	;;
-restore)
-	shift
-	restore "$@"
+	stop_instance
 	;;
 *)
 	usage

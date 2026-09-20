@@ -1,5 +1,5 @@
 {
-	"name": "mimo-tui",
+	"name": "mimo",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
@@ -8,10 +8,10 @@
 		"apps/*"
 	],
 	"scripts": {
-		"dev": "bun scripts/dev.ts",
-		"dev:sandbox": "MIMO_DATA_DIR=.data-dev bun scripts/dev.ts",
-		"build": "bun build apps/mimo/src/index.ts --target=bun --outdir=dist --external '@opentui/core-*'",
-		"start": "bun dist/index.js",
+		"postinstall": "bun node_modules/electron/install.js",
+		"dev": "bun run --filter @mimo/desktop dev",
+		"build": "bun run --filter @mimo/desktop build",
+		"start": "apps/desktop/bin/mimo",
 		"check": "juicerq-check",
 		"check:fix": "juicerq-check --fix",
 		"typecheck": "tsc --noEmit"

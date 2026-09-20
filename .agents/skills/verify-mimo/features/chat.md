@@ -1,45 +1,39 @@
-# Conversa com o agente
+# Conversa
 
-O usuário abre a TUI, digita no composer e vê a resposta chegar em streaming, com linhas `⚙ <tool>` quando o bot usa uma ferramenta e o estado do turno na linha de status.
+O usuário escreve no campo `Mensagem`, aperta Enter e vê a resposta chegar aos poucos numa bolha. Enquanto o bot trabalha, uma linha acima do campo mostra o que ele faz, o tempo e o botão de parar.
 
 ## Sub-features
 
-- `chat-send` envia uma mensagem e mostra a resposta completa.
-- `chat-tools` mostra `⚙ <tool>` quando uma ferramenta roda.
-- `chat-details` alterna com `Ctrl+O` entre `brief`, `full` e `off` para os detalhes da conversa: ferramentas, rotinas, ações de equipe e troca de grupos de tools.
+- `chat-send` envia com Enter ou com o botão `Enviar`; `Shift+Enter` quebra a linha.
+- `chat-reply` mostra a resposta em markdown numa bolha do bot.
+- `chat-status` mostra `Pensando`, `Trabalhando` ou `Respondendo`, com o relógio do turno.
+- `chat-stop` para o turno pelo botão `Parar o Turno e descartar a Fila`; a conversa ganha `Interrompido`.
+- `chat-tools` mostra a linha de cada tool com o nome em `code`, só com o Detalhe em `Completo`.
 - `chat-context` mantém o contexto entre turnos.
-- `chat-status` mostra a linha viva `⠙ thinking|working · <n>s · esc esc to stop` durante o turno.
-- `chat-error` mostra falha de turno sem derrubar a TUI.
+- `chat-error` mostra a falha do turno na conversa, sem derrubar o app; o bot fica `falhou`.
 
 ## How to get to it (user POV)
 
-- Rode `bun run dev` na raiz do repo e digite no composer.
-- Crie com `/new <nome>` ou escolha um bot pelo número. Cada bot retoma seu transcript.
+- Abra um bot na barra e escreva no campo `Mensagem para <nome>`.
 
 ## Driving it with control-mimo
 
 Preconditions:
 
-- `$CONTROL launch` concluiu com a lista de bots na tela.
-- `$CONTROL doctor` confirma HEAD, credenciais e pane em `ready`.
+- Um bot aberto e `$CONTROL state` em `parado`.
 
-- **Primeira mensagem.** Envie um eco determinístico: `$CONTROL send 'responda apenas com MIMO-CHAT-OK'`. O comando retorna quando o turno termina; `$CONTROL wait 'MIMO-CHAT-OK' 180` confirma a resposta. O transcript mostra `you: responda apenas com MIMO-CHAT-OK` e a resposta com o prefixo `<nome do bot>:`. Não há cabeçalho acima da conversa.
-- **Linha viva.** Logo depois de um `$CONTROL send`, capture o pane: sob a sua mensagem aparece `⠙ thinking · <n>s · esc esc to stop`; depois da primeira ferramenta o rótulo vira `working`; quando o texto começa, a linha some. O rodapé não mostra estado nenhum fora dos painéis.
-- **Detalhes.** Depois de um turno com ferramenta, envie a tecla literal `C-o` pelo tmux três vezes. A primeira mostra a entrada e o resultado recuados sob `⚙ <tool>`, cortados em 600 caracteres; a segunda esconde a linha da ferramenta; a terceira volta ao padrão. O rodapé mostra `detail: full|off|brief` por 2 segundos e o transcript inteiro é redesenhado, inclusive turnos antigos.
-- **Ferramenta local.** `$CONTROL send 'que horas são? responda em uma linha'`; `$CONTROL wait '⚙ current_time' 180` confirma a tool. A resposta contém hora ou data.
-- **Contexto.** `$CONTROL send 'nesta conversa, guarde o código 73'`; `$CONTROL send 'qual código eu pedi para guardar?'`. A última resposta antes do status contém `73`.
-- **Prova.** `$CONTROL capture .verify/runs/<id>/01-chat.txt`. O arquivo contém `you:`, `⚙ current_time` e a resposta com `73`.
+- **Enviar.** `$CONTROL send 'responda apenas com MIMO-CHAT-OK'`. O comando imprime `estado: parado` quando o turno termina. `$CONTROL wait 'MIMO-CHAT-OK' 30` confirma a resposta na árvore.
+- **No disco.** `grep -c MIMO-CHAT-OK "$($CONTROL data)"/bots/*/messages.json` é maior que zero.
+- **Rótulo do turno.** `$CONTROL send --no-wait 'escreva um texto de 800 palavras sobre rios'` e `$CONTROL wait 'Pensando|Trabalhando|Respondendo' 20`. A árvore também mostra `button "Parar o Turno e descartar a Fila"`.
+- **Parar.** `$CONTROL browser click '[aria-label="Parar o Turno e descartar a Fila"]'` e `$CONTROL wait 'Interrompido' 20`. Um segundo depois, `$CONTROL state` volta a `parado`.
+- **Tool na tela.** Ponha o Detalhe em `Completo` (veja [settings.md](./settings.md)). `$CONTROL send 'que horas são? use a tool e responda em uma linha'`; `$CONTROL wait 'current_time' 30` acha o nome da tool na árvore.
+- **Contexto.** `$CONTROL send 'nesta conversa, guarde o código 73'` e `$CONTROL send 'qual código eu pedi para guardar?'`. A última resposta contém `73`.
+- **Falha.** Escolha na barra Sobre um modelo de um provedor sem credencial ou sem saldo e envie qualquer mensagem. A conversa mostra a linha de erro e `$CONTROL state` imprime `falhou`. Troque para um modelo bom e envie `continue`: o estado volta ao normal. Reporte como não verificado quando não puder provocar a falha.
+- **Prova.** `$CONTROL capture 02-chat`.
 
 ## Gotchas
 
-- `send` recusa com `bot ocupado` se o status está `thinking`; espere o turno terminar (o próprio comando já bloqueia até lá).
-- `send` só retorna quando o turno sai de `thinking`; turnos longos bloqueiam o comando, e o timeout padrão é 300 s.
-- A TUI usa tela alternativa: o `capture` mostra o viewport atual. Capture a cada passo em vez de contar com scrollback.
-- A resposta chega em deltas; espere o conteúdo final, não o primeiro pedaço.
-- Sem credencial do provedor o turno falha com `✗ error:` no transcript; confira `$CONTROL doctor`.
-
-## Interrupção e nova tentativa
-
-Envie uma resposta longa pela TUI. Durante o streaming, use teclas literais pelo tmux: um Esc não deve interromper, dois separados por mais de 400 ms também não; dois com cerca de 200 ms de intervalo devem mostrar `Interrupted.`. O rodapé mantém o contexto da última chamada válida. O bot continua aceitando mensagens. Repita com uma aprovação pendente: a ação não deve ser aprovada e o turno termina em `cancelled`.
-
-No painel de modelos, Esc continua apenas fechando o painel. Depois de um erro ou interrupção, envie “continue” sem repetir o pedido original e confirme que o bot o retoma. Para erro de saldo, troque o modelo antes de continuar: escolher o modelo sozinho não deve enviar uma mensagem. Repita com uma orientação diferente e com uma pergunta nova, confirmando que a mensagem atual dirige a resposta. Verifique também após reiniciar a TUI.
+- Com o Detalhe em `Breve` (padrão), as linhas de tool não existem na árvore. `wait` num nome de tool falha por isso, não porque a tool não rodou.
+- `send` decide o fim do turno pelo estado do título, que atualiza a cada segundo. Um turno muito curto pode nem aparecer como `trabalhando`; o `send` avisa e retorna depois de 8 s.
+- A resposta chega em pedaços; espere o marcador final, não o primeiro trecho.
+- O campo guarda o rascunho por bot enquanto o app está aberto.

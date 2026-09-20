@@ -1,72 +1,93 @@
 import { recordAction } from "../actions/actions";
-import { removeWorktree, uncommittedWork } from "../computer/worktree";
 import { deleteBotRoutines } from "../routines/routines";
-import type { Bot } from "./bot";
-import { listChildren, readBot, removeBot } from "./store";
-import type { TeamMember } from "./types";
+import type { Chat } from "./chat";
+import type { LastMessage } from "./events";
+import { readBot, removeBot, writeBot } from "./store";
+import type { BotInfo, ChatKey } from "./types";
 
-export type DeleteOrigin = "panel" | "tool" | "cascade";
-
-const open = new Map<string, Bot>();
+const open = new Map<string, Chat>();
+const opening = new Map<string, Promise<Chat>>();
 
 export interface BotActivity {
 	id: string;
 	name: string;
 	busy: boolean;
-	team: TeamMember[];
 	waiting: string | null;
 	failed: string | null;
+	last: LastMessage | null;
 }
 
-export function runningBot(id: string): Bot | null {
-	return open.get(id) ?? null;
+export function chatId(chat: ChatKey): string {
+	if (chat.askedBy) {
+		return `${chat.botId}:${chat.askedBy}`;
+	}
+	return chat.botId;
 }
 
-export function trackBot(bot: Bot): void {
-	open.set(bot.botId, bot);
+export function mainChat(botId: string): Chat | null {
+	return open.get(botId) ?? null;
+}
+
+export async function openOnce(id: string, load: () => Promise<Chat>): Promise<Chat> {
+	const running = open.get(id);
+	if (running) {
+		return running;
+	}
+	const pending = opening.get(id) ?? load()
+		.then((chat) => {
+			open.set(id, chat);
+			return chat;
+		})
+		.finally(() => opening.delete(id));
+	opening.set(id, pending);
+	return await pending;
 }
 
 export function activity(): BotActivity[] {
-	const bots: BotActivity[] = [];
-	for (const bot of open.values()) {
-		if (bot.parentId !== undefined) {
-			continue;
+	const bots = new Map<string, BotActivity>();
+	for (const chat of open.values()) {
+		const entry = bots.get(chat.botId) ?? { id: chat.botId, name: chat.info.name, busy: false, waiting: null, failed: null, last: null };
+		entry.busy ||= chat.busy;
+		if (chat.withPerson) {
+			entry.waiting = chat.approval?.toolName ?? null;
+			entry.failed = chat.failed;
+			entry.last = chat.lastMessage;
 		}
-		bots.push({ id: bot.botId, name: bot.info.name, busy: bot.busy, team: bot.team, waiting: bot.approval?.toolName ?? null, failed: bot.failed });
+		bots.set(chat.botId, entry);
 	}
-	return bots;
+	return [...bots.values()];
 }
 
-async function guardWork(id: string, name: string, origin: DeleteOrigin, discard: boolean): Promise<void> {
-	if (origin !== "tool" || discard) {
-		return;
-	}
-	if (await uncommittedWork(id)) {
-		throw new Error(`A frente ${name} tem trabalho sem commit na cópia isolada. Commite antes de fechar, ou peça de novo com discard para jogar fora.`);
-	}
-}
-
-export async function deleteBot(id: string, origin: DeleteOrigin, discard = false): Promise<void> {
+export async function updateBot(id: string, patch: Partial<BotInfo>): Promise<BotInfo> {
 	const record = await readBot(id);
-	if (record) {
-		await guardWork(id, record.name, origin, discard);
+	if (!record) {
+		throw new Error("Este bot não existe mais.");
 	}
-	for (const child of await listChildren(id)) {
-		await deleteBot(child.id, "cascade");
+	const updated = { ...record, ...patch };
+	await writeBot(updated);
+	for (const chat of open.values()) {
+		if (chat.botId === id) {
+			chat.adopt(updated);
+		}
 	}
-	const running = open.get(id);
-	running?.cancel();
-	open.delete(id);
+	return updated;
+}
+
+export async function deleteBot(id: string): Promise<void> {
+	const record = await readBot(id);
+	forget(id);
 	await deleteBotRoutines(id);
-	await removeWorktree(id);
 	await removeBot(id);
 	if (record) {
-		await recordAction({
-			kind: "delete_bot",
-			mode: record.mode,
-			botId: record.parentId ?? id,
-			summary: record.name,
-			detail: { origin, bot: id },
-		});
+		await recordAction({ kind: "delete_bot", botId: id, summary: record.name });
+	}
+}
+
+function forget(botId: string): void {
+	for (const [id, chat] of open) {
+		if (chat.botId === botId) {
+			chat.cancel();
+			open.delete(id);
+		}
 	}
 }

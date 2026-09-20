@@ -41,10 +41,7 @@ export class Queue {
 	}
 
 	discard(failure: string | null): void {
-		const dropped = this.waiting.filter((item) => item.entry.kind !== "note");
-		const kept = this.waiting.filter((item) => item.entry.kind === "note");
-		this.waiting.splice(0, this.waiting.length, ...kept);
-		for (const item of dropped) {
+		for (const item of this.waiting.splice(0, this.waiting.length)) {
 			item.done(failure);
 		}
 		this.announce();

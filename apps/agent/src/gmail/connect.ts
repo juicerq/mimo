@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { createServer } from "node:http";
 import type { AuthInteraction } from "@earendil-works/pi-ai";
 import { saveAccount } from "./accounts";
 import { fetchAccountEmail } from "./api";
@@ -18,13 +19,17 @@ function escapeHtml(text: string): string {
 	return text.replace(/[&<>"]/g, (character) => `&#${character.charCodeAt(0)};`);
 }
 
-function page(heading: string, detail: string, status = 200): Response {
-	const body = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">`
+interface Page {
+	heading: string;
+	detail: string;
+	status: number;
+}
+
+function pageHtml(page: Page): string {
+	return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">`
 		+ `<meta name="viewport" content="width=device-width,initial-scale=1">`
 		+ `<title>mimo</title><style>${PAGE_STYLE}</style></head>`
-		+ `<body><main><h1>${escapeHtml(heading)}</h1><p>${escapeHtml(detail)}</p></main></body></html>`;
-
-	return new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8" } });
+		+ `<body><main><h1>${escapeHtml(page.heading)}</h1><p>${escapeHtml(page.detail)}</p></main></body></html>`;
 }
 
 function authorizationCode(answer: string): string {
@@ -39,40 +44,52 @@ function authorizationCode(answer: string): string {
 	return code;
 }
 
-function serveCallback(state: string): { code: Promise<string>; stop: () => void } {
+function callbackPage(url: URL, state: string, deliver: (code: string) => void): Page {
+	const redirect = new URL(GMAIL_REDIRECT_URI);
+	if (url.pathname !== redirect.pathname || url.searchParams.get("state") !== state) {
+		return { heading: "Link inválido", detail: "Volte ao Mimo e abra o link de autorização de novo.", status: 404 };
+	}
+	const error = url.searchParams.get("error");
+	if (error !== null) {
+		return { heading: "Autorização recusada", detail: error, status: 400 };
+	}
+	const received = url.searchParams.get("code");
+	if (received === null) {
+		return { heading: "Link inválido", detail: "O Google não devolveu o código de autorização.", status: 400 };
+	}
+	deliver(received);
+	return { heading: "Conta conectada", detail: "Pode fechar esta aba e voltar ao Mimo.", status: 200 };
+}
+
+async function serveCallback(state: string): Promise<{ code: Promise<string>; stop: () => void }> {
 	const redirect = new URL(GMAIL_REDIRECT_URI);
 	let deliver: (code: string) => void = () => {};
 	const code = new Promise<string>((resolve) => {
 		deliver = resolve;
 	});
-	const server = Bun.serve({
-		hostname: redirect.hostname,
-		port: Number(redirect.port),
-		fetch(request) {
-			const url = new URL(request.url);
-			if (url.pathname !== redirect.pathname || url.searchParams.get("state") !== state) {
-				return page("Link inválido", "Volte ao Mimo e abra o link de autorização de novo.", 404);
-			}
-			const error = url.searchParams.get("error");
-			if (error !== null) {
-				return page("Autorização recusada", error, 400);
-			}
-			const received = url.searchParams.get("code");
-			if (received === null) {
-				return page("Link inválido", "O Google não devolveu o código de autorização.", 400);
-			}
-			deliver(received);
-			return page("Conta conectada", "Pode fechar esta aba e voltar ao Mimo.");
-		},
+	const server = createServer((request, response) => {
+		const page = callbackPage(new URL(request.url ?? "/", redirect), state, deliver);
+		response.writeHead(page.status, { "content-type": "text/html; charset=utf-8" });
+		response.end(pageHtml(page));
+	});
+	await new Promise<void>((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(Number(redirect.port), redirect.hostname, resolve);
 	});
 
-	return { code, stop: () => void server.stop(true) };
+	return {
+		code,
+		stop: () => {
+			server.close();
+			server.closeAllConnections();
+		},
+	};
 }
 
-export async function connectGmail(interaction: AuthInteraction): Promise<void> {
+export async function connectGmail(interaction: AuthInteraction): Promise<string> {
 	const { verifier, challenge } = createPkce();
 	const state = randomUUID();
-	const callback = serveCallback(state);
+	const callback = await serveCallback(state);
 
 	try {
 		interaction.notify({
@@ -92,6 +109,7 @@ export async function connectGmail(interaction: AuthInteraction): Promise<void> 
 		const email = await fetchAccountEmail(tokens.accessToken);
 		await saveAccount({ email, refreshToken: tokens.refreshToken });
 		interaction.notify({ type: "info", message: `Conta ${email} conectada.` });
+		return email;
 	} finally {
 		callback.stop();
 	}

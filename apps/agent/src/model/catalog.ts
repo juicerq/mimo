@@ -15,7 +15,8 @@ import {
 
 const EXPLICIT_LEVELS = new Set<Reasoning>(["xhigh", "max"]);
 const PREFERRED_DEFAULTS: Reasoning[] = ["medium", "high", "low", "minimal", "xhigh", "max", "off"];
-const DEFAULT_MODEL = "opencode/muse-spark-1.3-contributor-free";
+const DEFAULT_MODEL = "openai-codex/gpt-5.6-luna";
+const DEFAULT_REASONING: Reasoning = "max";
 
 function reasoningOptions(model: Model<Api>): Reasoning[] {
 	if (!model.reasoning) {
@@ -45,7 +46,7 @@ async function providerOptions(provider: Provider): Promise<ModelOption[]> {
 	}
 	const available = await models().getAvailable(provider);
 	if (available.length === 0) {
-		throw new Error(`${PROVIDER_NAMES[provider]} is not connected. Log in and try /model again.`);
+		throw new Error(`${PROVIDER_NAMES[provider]} is not connected. Log in from Settings and try again.`);
 	}
 	return available.map((model) => toOption(provider, model));
 }
@@ -68,13 +69,13 @@ function describeCatalogError(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
 	}
-	return "Could not load models. Check the provider login and try /model again.";
+	return "Could not load models. Check the provider login and try again.";
 }
 
-export function modelOption(selection: Pick<ModelSelection, "provider" | "id">): ModelOption {
+function modelOption(selection: Pick<ModelSelection, "provider" | "id">): ModelOption {
 	const model = models().getModel(selection.provider, selection.id);
 	if (!model) {
-		throw new Error("This model is unavailable. Open /model again.");
+		throw new Error("This model is unavailable. Pick another one.");
 	}
 	return toOption(selection.provider, model);
 }
@@ -82,7 +83,7 @@ export function modelOption(selection: Pick<ModelSelection, "provider" | "id">):
 export function selectModel(selection: ModelSelection): ModelInfo {
 	const option = modelOption(selection);
 	if (!option.reasoningOptions.includes(selection.reasoning)) {
-		throw new Error("This model or effort is unavailable. Open /model again.");
+		throw new Error("This model or effort is unavailable. Pick another one.");
 	}
 	return { ...selection, name: option.name, contextWindowTokens: option.contextWindowTokens };
 }
@@ -92,7 +93,8 @@ export function initialModel(): ModelInfo {
 	const slash = spec.indexOf("/");
 	const provider = ProviderSchema.parse(spec.slice(0, slash));
 	const option = modelOption({ provider, id: spec.slice(slash + 1) });
-	const reasoning = ReasoningSchema.parse(process.env.MIMO_REASONING ?? option.defaultReasoning);
+	const preferred = spec === DEFAULT_MODEL ? DEFAULT_REASONING : option.defaultReasoning;
+	const reasoning = ReasoningSchema.parse(process.env.MIMO_REASONING ?? preferred);
 	if (!option.reasoningOptions.includes(reasoning)) {
 		throw new Error(`Unsupported effort ${reasoning} for ${spec}.`);
 	}
@@ -102,7 +104,7 @@ export function initialModel(): ModelInfo {
 export function resolveModel(info: Pick<ModelInfo, "provider" | "id">): Model<Api> {
 	const model = models().getModel(info.provider, info.id);
 	if (!model) {
-		throw new Error(`Unknown model ${info.provider}/${info.id}. Use /model to choose another.`);
+		throw new Error(`Unknown model ${info.provider}/${info.id}. Pick another one.`);
 	}
 	return model;
 }

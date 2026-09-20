@@ -42,6 +42,15 @@ export class Approvals {
 		return true;
 	}
 
+	resolve(id: string, approved: boolean): boolean {
+		const entry = this.pending[0];
+		if (entry?.approval.id !== id) {
+			return false;
+		}
+		this.settle(entry, approved);
+		return true;
+	}
+
 	denyAll(): void {
 		for (const entry of this.pending.slice()) {
 			this.settle(entry, false);

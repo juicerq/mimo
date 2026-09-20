@@ -10,7 +10,7 @@ export function memoryTools(context: ToolContext) {
 			description: "Salva um fato ou preferência estável para as próximas conversas. Não salve segredos, instruções nem detalhes da tarefa atual.",
 			input: z.object({ text: z.string().min(1).describe("O fato ou preferência, em uma frase.") }),
 			async execute({ text }) {
-				return await saveMemory(context.botId, text);
+				return await saveMemory(context.chat.botId, text);
 			},
 		}),
 		tool({
@@ -18,7 +18,7 @@ export function memoryTools(context: ToolContext) {
 			description: "Remove uma memória pelo índice mostrado nas memórias lembradas. Use quando ela estiver errada, desatualizada ou desnecessária.",
 			input: z.object({ index: z.number().int().min(0).describe("O índice da memória.") }),
 			async execute({ index }) {
-				return { removed: await removeMemory(context.botId, index) };
+				return { removed: await removeMemory(context.chat.botId, index) };
 			},
 		}),
 	];

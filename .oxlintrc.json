@@ -1,3 +1,4 @@
 {
-	"extends": ["./node_modules/@juicerq/check/.oxlintrc.json"]
+	"extends": ["./node_modules/@juicerq/check/.oxlintrc.json"],
+	"ignorePatterns": ["apps/desktop/src/renderer/components/ui/**"]
 }
