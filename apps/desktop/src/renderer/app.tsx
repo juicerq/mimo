@@ -8,7 +8,6 @@ import { useConversation } from "./conversation";
 import { Head } from "./head";
 import { Info, useInfoPanel } from "./info";
 import { Viewer } from "./preview";
-import { Status, turnLabel } from "./status";
 import { DETAIL_LEVELS, type Detail, Transcript } from "./transcript";
 
 const LAST_BOT = "mimo:bot";
@@ -44,12 +43,10 @@ interface ConversationProps {
 
 function Conversation({ bot, level, input, onPeer }: ConversationProps) {
 	const [conversation, apply] = useConversation(bot.id);
-	const label = turnLabel(conversation);
 	const fail = useCallback((message: string) => apply([{ type: "turn-failed", message }]), [apply]);
 
 	return (
-		<Transcript conversation={conversation} level={level} name={bot.name} botId={bot.id} onPeer={onPeer}>
-			{label && <Status botId={bot.id} label={label} />}
+		<Transcript conversation={conversation} level={level} name={bot.name} botId={bot.id} stoppable onPeer={onPeer}>
 			<Composer botId={bot.id} name={bot.name} working={conversation.turn !== "idle"} input={input} fail={fail} />
 		</Transcript>
 	);
@@ -57,11 +54,9 @@ function Conversation({ bot, level, input, onPeer }: ConversationProps) {
 
 function PeerConversation({ thread, level, onPeer }: { thread: Thread; level: Detail; onPeer: (peer: string) => void }) {
 	const [conversation] = useConversation(thread.botId, thread.askedBy);
-	const label = turnLabel(conversation);
 
 	return (
-		<Transcript conversation={conversation} level={level} name={thread.peer} botId={thread.botId} onPeer={onPeer}>
-			{label && <Status botId={null} label={label} />}
+		<Transcript conversation={conversation} level={level} name={thread.peer} botId={thread.botId} stoppable={false} onPeer={onPeer}>
 			<p className="column pt-2 pb-5 text-center text-xs text-muted-foreground short:pb-2.5">
 				{thread.asker} e {thread.peer} conversam aqui. Você só lê.
 			</p>

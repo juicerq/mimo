@@ -12,6 +12,7 @@ import type { Conversation, Line, ToolResult } from "./conversation";
 import { useLogins, type Login } from "./logins";
 import { Prose, StreamingProse } from "./prose";
 import { orpc } from "./rpc";
+import { turnLabel, Working } from "./status";
 
 export const DETAIL_LEVELS = ["brief", "full"] as const;
 
@@ -708,12 +709,14 @@ interface TranscriptProps {
 	level: Detail;
 	name: string;
 	botId: string;
+	stoppable: boolean;
 	onPeer: (peer: string) => void;
 	children: ReactNode;
 }
 
-export function Transcript({ conversation, level, name, botId, onPeer, children }: TranscriptProps) {
+export function Transcript({ conversation, level, name, botId, stoppable, onPeer, children }: TranscriptProps) {
 	const empty = conversation.lines.length === 0 && conversation.turn === "idle" && conversation.queue.length === 0;
+	const label = turnLabel(conversation);
 	const scroller = useRef<HTMLDivElement>(null);
 
 	return (
@@ -722,7 +725,7 @@ export function Transcript({ conversation, level, name, botId, onPeer, children 
 				<Empty className="grow">
 					<EmptyHeader>
 						<EmptyMedia>
-							<Avatar name={name} state="idle" size={80} />
+							<Avatar name={name} state="idle" size={80} look="pointer" />
 						</EmptyMedia>
 						<EmptyTitle role="heading" aria-level={3} className="text-lg font-semibold">
 							Comece a conversa com {name}
@@ -750,6 +753,7 @@ export function Transcript({ conversation, level, name, botId, onPeer, children 
 							}
 						/>
 					))}
+					{label && <Working botId={stoppable ? botId : null} name={name} label={label} />}
 				</div>
 			)}
 			<div className={DOCK}>{children}</div>

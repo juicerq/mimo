@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlusIcon, Trash2Icon } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { IconButton } from "@renderer/components/icon-button";
 import { Button } from "@renderer/components/ui/button";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@renderer/components/ui/context-menu";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@renderer/components/ui/item";
 import { Avatar, STATE_LABELS } from "./avatar";
 import type { BotRow } from "./bots";
+import { watchSidebar } from "./face";
 import { orpc } from "./rpc";
 import { Settings } from "./settings";
 import type { Detail } from "./transcript";
@@ -93,8 +94,10 @@ export function Bar({ bots, error, selected, onSelect, focusComposer, level, onL
 		create.reset();
 	}
 
+	const zone = useCallback((element: HTMLElement | null) => (element ? watchSidebar(element) : undefined), []);
+
 	return (
-		<aside className="flex w-66 shrink-0 flex-col border-r surface-sidebar" aria-label="Bots">
+		<aside ref={zone} className="flex w-66 shrink-0 flex-col border-r surface-sidebar" aria-label="Bots">
 			<header className="drag flex h-bar shrink-0 items-center justify-end px-3">
 				<IconButton label="Novo bot" onClick={() => setAdding(true)}>
 					<PlusIcon />
@@ -116,7 +119,7 @@ export function Bar({ bots, error, selected, onSelect, focusComposer, level, onL
 						}
 					>
 						{draft ? (
-							<Avatar name={draft} state="idle" size={AVATAR} />
+							<Avatar name={draft} state="idle" size={AVATAR} look="sidebar" />
 						) : (
 							<span className="size-12 shrink-0 rounded-full border-2 border-dashed border-muted-foreground/50" aria-hidden />
 						)}
@@ -161,7 +164,7 @@ export function Bar({ bots, error, selected, onSelect, focusComposer, level, onL
 								onMouseDown={(event) => event.preventDefault()}
 								onClick={() => onSelect(bot.id)}
 							>
-								<Avatar name={bot.name} state={bot.state} size={AVATAR} />
+								<Avatar name={bot.name} state={bot.state} size={AVATAR} look="sidebar" />
 								<ItemContent className="min-w-0 gap-0">
 									<ItemTitle className="block w-full truncate">{bot.name}</ItemTitle>
 									<ItemDescription className="block truncate text-xs">{preview(bot)}</ItemDescription>
