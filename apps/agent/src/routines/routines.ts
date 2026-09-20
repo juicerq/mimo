@@ -4,7 +4,6 @@ import { dataPath } from "../storage/home";
 import { readJsonFile, writeTextFile } from "../storage/files";
 
 const STORE_PATH = dataPath("routines.json");
-const LEASE_MINUTES = 5;
 
 export const RoutineNameSchema = z.string().trim().min(1).max(40).regex(/^[a-zA-Z0-9_-]+$/);
 
@@ -19,7 +18,6 @@ const storedSchema = z.object({
 	lastRunAt: z.string().optional(),
 	lastError: z.string().optional(),
 	enabled: z.boolean(),
-	leaseUntil: z.string().optional(),
 });
 
 const storeSchema = z.object({
@@ -191,10 +189,7 @@ export async function deleteBotRoutines(botId: string): Promise<number> {
 }
 
 function isDue(routine: Routine, now: Date): boolean {
-	if (!routine.enabled || new Date(routine.nextRunAt).getTime() > now.getTime()) {
-		return false;
-	}
-	return routine.leaseUntil === undefined || new Date(routine.leaseUntil).getTime() <= now.getTime();
+	return routine.enabled && new Date(routine.nextRunAt).getTime() <= now.getTime();
 }
 
 export async function claimDue(now: Date, limit: number) {
@@ -208,8 +203,9 @@ export async function claimDue(now: Date, limit: number) {
 			return [];
 		}
 		const claimed = new Set(due.map((routine) => routine.id));
-		const leaseUntil = minutesFrom(now, LEASE_MINUTES);
-		const updated = routines.map((routine) => (claimed.has(routine.id) ? { ...routine, leaseUntil } : routine));
+		const updated = routines.map((routine) => (
+			claimed.has(routine.id) ? { ...routine, nextRunAt: minutesFrom(now, routine.everyMinutes) } : routine
+		));
 		await writeStore(updated);
 		return updated.filter((routine) => claimed.has(routine.id));
 	});
@@ -219,13 +215,7 @@ export async function completeRoutine(id: string, now: Date): Promise<void> {
 	await serialize(async () => {
 		const routines = await readRoutines();
 		const current = requireRoutine(routines, id);
-		routines[routines.indexOf(current)] = {
-			...current,
-			lastRunAt: now.toISOString(),
-			nextRunAt: minutesFrom(now, current.everyMinutes),
-			leaseUntil: undefined,
-			lastError: undefined,
-		};
+		routines[routines.indexOf(current)] = { ...current, lastRunAt: now.toISOString(), lastError: undefined };
 		await writeStore(routines);
 	});
 }
@@ -235,7 +225,7 @@ export async function failRoutine(id: string, error: unknown): Promise<void> {
 	await serialize(async () => {
 		const routines = await readRoutines();
 		const current = requireRoutine(routines, id);
-		routines[routines.indexOf(current)] = { ...current, leaseUntil: undefined, lastError: message };
+		routines[routines.indexOf(current)] = { ...current, lastError: message };
 		await writeStore(routines);
 	});
 }
