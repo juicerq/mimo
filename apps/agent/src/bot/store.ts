@@ -20,8 +20,6 @@ const StoredBotSchema = z.object({
 	prompt: BotPromptSchema.optional(),
 });
 
-const ChildSchema = z.looseObject({ id: z.uuid(), parentId: z.uuid() });
-
 const TranscriptSchema = z.array(MessageSchema);
 
 function botPath(id: string) {
@@ -73,11 +71,6 @@ export async function listBots(): Promise<BotInfo[]> {
 	return bots
 		.filter((bot): bot is BotInfo => bot !== null)
 		.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-}
-
-export async function childBotIds(): Promise<string[]> {
-	const children = await Promise.all((await botIds()).map(async (id) => await readJsonFile(botPath(id), ChildSchema).catch(() => null)));
-	return children.filter((child) => child !== null).map((child) => child.id);
 }
 
 export type BotDraft = Pick<BotInfo, "name"> & Partial<Pick<BotInfo, "model" | "prompt">>;

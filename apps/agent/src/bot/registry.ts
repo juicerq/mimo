@@ -2,7 +2,7 @@ import { recordAction } from "../actions/actions";
 import { deleteBotRoutines } from "../routines/routines";
 import type { Chat } from "./chat";
 import type { LastMessage } from "./events";
-import { childBotIds, readBot, removeBot, writeBot } from "./store";
+import { readBot, removeBot, writeBot } from "./store";
 import type { BotInfo, ChatKey } from "./types";
 
 const open = new Map<string, Chat>();
@@ -80,14 +80,6 @@ export async function deleteBot(id: string): Promise<void> {
 	await removeBot(id);
 	if (record) {
 		await recordAction({ kind: "delete_bot", botId: id, summary: record.name });
-	}
-}
-
-export async function dropLegacyChildren(): Promise<void> {
-	for (const id of await childBotIds()) {
-		forget(id);
-		await deleteBotRoutines(id);
-		await removeBot(id);
 	}
 }
 

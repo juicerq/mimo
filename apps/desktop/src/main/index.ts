@@ -1,5 +1,4 @@
 import { join } from "node:path";
-import { dropLegacyChildren } from "@agent/bot/registry";
 import { installBrowser } from "@agent/browser/registry";
 import { startRoutines } from "@agent/routines/dispatcher";
 import { loadEnv } from "@agent/storage/home";
@@ -57,6 +56,6 @@ function openWindow(): void {
 app.on("window-all-closed", () => app.quit());
 
 app.on("ready", () => {
-	void dropLegacyChildren().then(startRoutines);
+	void startRoutines();
 	openWindow();
 });
