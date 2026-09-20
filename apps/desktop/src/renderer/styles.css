@@ -7,6 +7,19 @@
 
 @theme {
 	--spacing-bar: 3.5rem;
+	--animate-twinkle: twinkle 2.6s ease-in-out infinite;
+
+	@keyframes twinkle {
+		0%,
+		100% {
+			opacity: 0.2;
+			transform: scale(0.7);
+		}
+		50% {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
 }
 
 @theme inline {

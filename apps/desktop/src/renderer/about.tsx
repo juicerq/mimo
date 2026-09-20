@@ -1,5 +1,6 @@
 import type { BotInfo } from "@agent/bot/types";
 import type { ModelInfo, ModelOption, ModelSelection, Provider, Reasoning } from "@agent/model/types";
+import { Slider } from "@base-ui/react/slider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Field } from "@renderer/components/setting";
 import { Button } from "@renderer/components/ui/button";
@@ -15,7 +16,6 @@ import {
 	ComboboxList,
 	ComboboxTrigger,
 } from "@renderer/components/ui/combobox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@renderer/components/ui/select";
 import { Textarea } from "@renderer/components/ui/textarea";
 import { Preview } from "./preview";
 import { orpc, rpc } from "./rpc";
@@ -119,30 +119,93 @@ interface EffortProps {
 	onChange: (value: Reasoning) => void;
 }
 
+const THUMB = 21;
+
+const STARS = [
+	{ x: 0.3, y: 0.62, size: 1, delay: 0.9 },
+	{ x: 0.38, y: 0.24, size: 1.5, delay: 0 },
+	{ x: 0.45, y: 0.78, size: 1, delay: 1.7 },
+	{ x: 0.52, y: 0.32, size: 2, delay: 0.4 },
+	{ x: 0.57, y: 0.7, size: 1, delay: 2.1 },
+	{ x: 0.63, y: 0.18, size: 1.5, delay: 1.2 },
+	{ x: 0.68, y: 0.55, size: 1, delay: 0.2 },
+	{ x: 0.72, y: 0.82, size: 2, delay: 1.5 },
+	{ x: 0.77, y: 0.28, size: 1, delay: 0.7 },
+	{ x: 0.81, y: 0.66, size: 1.5, delay: 2.3 },
+	{ x: 0.85, y: 0.2, size: 1, delay: 0.5 },
+	{ x: 0.89, y: 0.75, size: 2, delay: 1.9 },
+	{ x: 0.93, y: 0.42, size: 1, delay: 1.1 },
+	{ x: 0.97, y: 0.6, size: 1.5, delay: 0.3 },
+];
+
 function Effort({ value, options, onChange }: EffortProps) {
+	const index = Math.max(options.indexOf(value), 0);
+	const last = Math.max(options.length - 1, 1);
+	const half = Math.floor(last / 2);
+	const spark = Math.max(index - half + 1, 0) / (last - half + 1);
+
+	function tick(step: number): string {
+		const ratio = step / last;
+		return `calc(${ratio * 100}% + ${THUMB / 2 - ratio * THUMB}px)`;
+	}
+
 	return (
-		<Select
-			items={options.map((option) => ({ label: REASONING_NAMES[option], value: option }))}
-			value={value}
+		<Slider.Root
+			className="mt-5"
+			value={index}
+			min={0}
+			max={last}
 			disabled={options.length < 2}
+			thumbAlignment="edge"
 			onValueChange={(next) => {
-				const picked = options.find((option) => option === next);
+				const picked = options.at(next);
 				if (picked) {
 					onChange(picked);
 				}
 			}}
 		>
-			<SelectTrigger size="sm" className="w-full" aria-label="Esforço">
-				<SelectValue />
-			</SelectTrigger>
-			<SelectContent alignItemWithTrigger={false} align="end">
-				{options.map((option) => (
-					<SelectItem key={option} value={option}>
-						{REASONING_NAMES[option]}
-					</SelectItem>
-				))}
-			</SelectContent>
-		</Select>
+			<div className="flex items-baseline justify-between">
+				<Slider.Label className="text-xs font-medium text-muted-foreground">Esforço</Slider.Label>
+				<span className="text-xs font-medium">{REASONING_NAMES[value]}</span>
+			</div>
+			<Slider.Control
+				className="mt-2 flex w-full touch-none items-center select-none data-disabled:opacity-50"
+				style={{ height: THUMB }}
+			>
+				<Slider.Track className="relative w-full rounded-full bg-muted" style={{ height: THUMB }}>
+					<Slider.Indicator className="rounded-full bg-muted-foreground/30" />
+					{options.map((option, step) => (
+						<span
+							key={option}
+							className="absolute top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/30"
+							style={{ left: tick(step) }}
+						/>
+					))}
+					<span
+						className="pointer-events-none absolute inset-0 overflow-hidden rounded-full transition-opacity duration-500"
+						style={{ opacity: spark }}
+					>
+						{STARS.map((star) => (
+							<span
+								key={`${star.x}`}
+								className="absolute animate-twinkle rounded-full bg-white"
+								style={{
+									left: `${star.x * 100}%`,
+									top: `${star.y * 100}%`,
+									width: star.size,
+									height: star.size,
+									animationDelay: `${star.delay}s`,
+								}}
+							/>
+						))}
+					</span>
+					<Slider.Thumb
+						className="rounded-full bg-foreground shadow-sm outline-offset-2 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring"
+						style={{ height: THUMB, width: THUMB }}
+					/>
+				</Slider.Track>
+			</Slider.Control>
+		</Slider.Root>
 	);
 }
 
@@ -178,13 +241,11 @@ function Brain({ model, catalog, loading, onChange }: BrainProps) {
 					onChange={pick}
 				/>
 			</Field>
-			<Field label="Esforço">
-				<Effort
-					value={model.reasoning}
-					options={chosen?.reasoningOptions ?? [model.reasoning]}
-					onChange={(reasoning) => onChange({ provider: model.provider, id: model.id, reasoning })}
-				/>
-			</Field>
+			<Effort
+				value={model.reasoning}
+				options={chosen?.reasoningOptions ?? [model.reasoning]}
+				onChange={(reasoning) => onChange({ provider: model.provider, id: model.id, reasoning })}
+			/>
 		</>
 	);
 }
