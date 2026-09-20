@@ -222,7 +222,7 @@ function Approval({ line, name, botId }: { line: Extract<Line, { kind: "approval
 				{outcome ? (
 					<span className="flex items-center gap-1.5 text-xs text-muted-foreground">
 						{outcome === "approved" ? <CheckIcon className="size-3.5 text-success" /> : <XIcon className="size-3.5 text-destructive" />}
-						{outcome === "approved" ? "Enviado" : "Cancelado"}
+						{outcome === "approved" ? "Você aprovou" : "Você recusou"}
 					</span>
 				) : (
 					<div className="flex gap-2">
