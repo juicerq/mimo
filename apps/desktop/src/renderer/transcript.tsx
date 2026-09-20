@@ -226,10 +226,10 @@ function Approval({ line, name, botId }: { line: Extract<Line, { kind: "approval
 					</span>
 				) : (
 					<div className="flex gap-2">
-						<Button variant="ghost" size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: false })}>
+						<Button variant="ghost" size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, id: approval.id, approved: false })}>
 							Não
 						</Button>
-						<Button size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: true })}>
+						<Button size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, id: approval.id, approved: true })}>
 							Enviar
 						</Button>
 					</div>

@@ -107,10 +107,10 @@ export const router = {
 				await bot.send(input.text);
 			}),
 		answer: agent
-			.input(BotInput.extend({ approved: z.boolean() }))
+			.input(BotInput.extend({ id: z.string().min(1), approved: z.boolean() }))
 			.handler(async ({ input }) => {
 				const bot = await Bot.open(input.botId);
-				bot.resolveApproval(input.approved);
+				bot.resolveApproval(input.id, input.approved);
 			}),
 		cancel: agent
 			.input(BotInput)

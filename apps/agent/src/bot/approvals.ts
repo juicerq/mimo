@@ -34,12 +34,17 @@ export class Approvals {
 		if (!approved && !DENY_WORDS.has(word)) {
 			return false;
 		}
-		return this.resolve(approved);
-	}
-
-	resolve(approved: boolean): boolean {
 		const entry = this.pending[0];
 		if (!entry) {
+			return false;
+		}
+		this.settle(entry, approved);
+		return true;
+	}
+
+	resolve(id: string, approved: boolean): boolean {
+		const entry = this.pending[0];
+		if (entry?.approval.id !== id) {
 			return false;
 		}
 		this.settle(entry, approved);

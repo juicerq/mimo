@@ -227,9 +227,9 @@ export class Bot {
 		await this.send(text);
 	}
 
-	resolveApproval(approved: boolean): void {
-		if (!this.approvals.resolve(approved)) {
-			throw new Error("Este bot não está esperando confirmação.");
+	resolveApproval(id: string, approved: boolean): void {
+		if (!this.approvals.resolve(id, approved)) {
+			throw new Error("Este pedido de confirmação já não está aberto.");
 		}
 	}
 
