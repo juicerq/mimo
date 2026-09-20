@@ -4,12 +4,14 @@ import type { State } from "./bots";
 const R = 50;
 const SEP = 22;
 const RISE = 10;
-const RANGE = 38;
+const YAW = 21;
+const UP = 16;
+const DOWN = 27;
+const REACH = 141;
 const FORE = 1.7;
 const BULGE = 1;
 const TILT = 0.7;
 const LEAN = 0.22;
-const PITCH_SHARE = 0.7;
 const STIFF = 160;
 const WORK_STIFF = 90;
 const DAMP = 16;
@@ -219,30 +221,35 @@ function still(): boolean {
 	return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+function tracking(look: Look): boolean {
+	if (look === "sidebar") {
+		return sidebarHot;
+	}
+
+	return look === "pointer";
+}
+
 function target(rig: Rig, clock: number): [number, number] {
 	if (rig.svg.dataset.state === "working") {
 		const t = clock + rig.seed * 23;
 		const sweep = Math.sin(t * 0.9) * 0.62 + Math.sin(t * 2.17 + 1.1) * 0.24;
 		const dip = Math.sin(t * 0.63 + 0.7) * 0.3 - 0.45;
-		return [sweep * RANGE, dip * RANGE * PITCH_SHARE];
+		return [sweep * YAW, dip * DOWN];
 	}
 
-	const look = lookOf(rig);
-	const tracking = look === "pointer" || (look === "sidebar" && sidebarHot);
-	if (!tracking || !pointer.seen || !rig.rect?.width) {
+	if (!tracking(lookOf(rig)) || !pointer.seen || !rig.rect?.width) {
 		const t = clock * 0.11 + rig.seed * 17;
 		const wander = Math.sin(t) * 0.5 + Math.sin(t * 0.37 + 1.7) * 0.3;
-		return [wander * RANGE * 0.45, Math.sin(t * 0.29 + 2.4) * RANGE * 0.2];
+		return [wander * YAW * 0.45, Math.sin(t * 0.29 + 2.4) * DOWN * 0.2];
 	}
 
-	const cx = rig.rect.left + rig.rect.width / 2;
-	const cy = rig.rect.top + rig.rect.height / 2;
-	const ax = pointer.x - cx;
-	const ay = pointer.y - cy;
-	const spanX = Math.max(1, ax < 0 ? cx : window.innerWidth - cx);
-	const spanY = Math.max(1, ay < 0 ? cy : window.innerHeight - cy);
+	const dx = pointer.x - (rig.rect.left + rig.rect.width / 2);
+	const dy = rig.rect.top + rig.rect.height / 2 - pointer.y;
+	const away = Math.max(Math.hypot(dx, dy), REACH);
 
-	return [clamp(ax / spanX, -1, 1) * RANGE, clamp(-ay / spanY, -1, 1) * RANGE * PITCH_SHARE];
+	const lift = dy > 0 ? UP : DOWN;
+
+	return [(dx / away) * YAW, (dy / away) * lift];
 }
 
 function draw(rig: Rig): void {
@@ -294,7 +301,7 @@ function tick(now: number): void {
 
 		rig.nextBlink -= dt * 1000;
 		if (rig.nextBlink <= 0) {
-			rig.nextBlink = mood.blinkMin + rig.seed * mood.blinkSpread;
+			rig.nextBlink = mood.blinkMin + Math.random() * mood.blinkSpread;
 			rig.lid = 0.08;
 		}
 		rig.lid += (1 - rig.lid) * Math.min(1, dt * LID_SPEED);
@@ -339,6 +346,13 @@ function listen(): void {
 			pointer.x = event.clientX;
 			pointer.y = event.clientY;
 			pointer.seen = true;
+		},
+		{ passive: true },
+	);
+	document.addEventListener(
+		"pointerleave",
+		() => {
+			pointer.seen = false;
 		},
 		{ passive: true },
 	);
@@ -387,7 +401,15 @@ export function mountFace(svg: SVGSVGElement, name: string): () => void {
 	listen();
 	run();
 
+	const watch = new MutationObserver(() => {
+		if (frame === null) {
+			draw(rig);
+		}
+	});
+	watch.observe(svg, { attributeFilter: ["data-state"] });
+
 	return () => {
+		watch.disconnect();
 		rigs.delete(rig);
 		halt();
 	};

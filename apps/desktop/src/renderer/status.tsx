@@ -45,7 +45,7 @@ export const Working = memo(function Working({ botId, name, label }: { botId: st
 
 	return (
 		<div className="group relative mt-5 flex w-fit items-center">
-			<Avatar name={name} state="working" size={FACE} look="pointer" />
+			<Avatar name={name} state="working" size={FACE} />
 			<span className="sr-only">
 				{name} {label}
 			</span>
