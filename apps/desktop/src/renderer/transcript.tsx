@@ -191,8 +191,8 @@ function Approval({ line, name, botId }: { line: Extract<Line, { kind: "approval
 	const [whole, setWhole] = useState(false);
 	const answer = useMutation(orpc.conversation.answer.mutationOptions());
 	const rows = fields(approval.input, whole);
-	const body = rows.find(([key]) => key === "body")?.[1];
-	const head = Object.fromEntries(rows.filter(([key]) => key !== "body"));
+	const head = Object.fromEntries(rows.filter(([key]) => key in EMAIL_LABELS));
+	const body = rows.filter(([key]) => !(key in EMAIL_LABELS));
 
 	return (
 		<Bubble from="bot" role="group" aria-label="Confirmar envio">
@@ -207,29 +207,33 @@ function Approval({ line, name, botId }: { line: Extract<Line, { kind: "approval
 			</p>
 			<div className="mt-3 border-l-2 border-foreground/20 pl-3">
 				<Fields input={head} whole={whole} labels={EMAIL_LABELS} className="font-sans" />
-				{body && <p className="mt-2 whitespace-pre-wrap">{body}</p>}
+				{body.map(([key, value]) => (
+					<p key={key} className="mt-2 whitespace-pre-wrap first:mt-0">
+						{value}
+					</p>
+				))}
 				{!whole && long(approval.input) && (
 					<Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setWhole(true)}>
 						ver tudo
 					</Button>
 				)}
-				<div className="mt-3 flex justify-end">
-					{outcome ? (
-						<span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-							{outcome === "approved" ? <CheckIcon className="size-3.5 text-success" /> : <XIcon className="size-3.5 text-destructive" />}
-							{outcome === "approved" ? "Enviado" : "Cancelado"}
-						</span>
-					) : (
-						<div className="flex gap-2">
-							<Button variant="ghost" size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: false })}>
-								Não
-							</Button>
-							<Button size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: true })}>
-								Enviar
-							</Button>
-						</div>
-					)}
-				</div>
+			</div>
+			<div className="mt-3 flex justify-end pl-3">
+				{outcome ? (
+					<span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+						{outcome === "approved" ? <CheckIcon className="size-3.5 text-success" /> : <XIcon className="size-3.5 text-destructive" />}
+						{outcome === "approved" ? "Enviado" : "Cancelado"}
+					</span>
+				) : (
+					<div className="flex gap-2">
+						<Button variant="ghost" size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: false })}>
+							Não
+						</Button>
+						<Button size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, approved: true })}>
+							Enviar
+						</Button>
+					</div>
+				)}
 			</div>
 		</Bubble>
 	);
