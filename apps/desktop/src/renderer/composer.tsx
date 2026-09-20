@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { ArrowUpIcon } from "lucide-react";
-import { type FormEvent, type KeyboardEvent, type RefObject, useEffect, useState } from "react";
+import { type FormEvent, type KeyboardEvent, memo, type RefObject, useEffect, useState } from "react";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@renderer/components/ui/input-group";
 import { orpc } from "./rpc";
 
@@ -14,7 +14,7 @@ interface ComposerProps {
 	fail: (message: string) => void;
 }
 
-export function Composer({ botId, name, working, input, fail }: ComposerProps) {
+export const Composer = memo(function Composer({ botId, name, working, input, fail }: ComposerProps) {
 	const [draft, setDraft] = useState(() => drafts.get(botId) ?? "");
 	const send = useMutation(orpc.conversation.send.mutationOptions({
 		onError: (error, { text }) => {
@@ -80,4 +80,4 @@ export function Composer({ botId, name, working, input, fail }: ComposerProps) {
 			</InputGroup>
 		</form>
 	);
-}
+});

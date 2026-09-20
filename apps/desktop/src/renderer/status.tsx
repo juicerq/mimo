@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { SquareIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { IconButton } from "@renderer/components/icon-button";
 import { Spinner } from "@renderer/components/ui/spinner";
 import type { Conversation, Turn } from "./conversation";
@@ -19,7 +19,7 @@ function clock(seconds: number): string {
 	return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-export function Status({ botId, label }: { botId: string; label: string }) {
+export const Status = memo(function Status({ botId, label }: { botId: string; label: string }) {
 	const [startedAt] = useState(() => Date.now());
 	const [now, setNow] = useState(startedAt);
 	const cancel = useMutation(orpc.conversation.cancel.mutationOptions());
@@ -39,4 +39,4 @@ export function Status({ botId, label }: { botId: string; label: string }) {
 			</IconButton>
 		</div>
 	);
-}
+});

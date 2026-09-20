@@ -25,6 +25,7 @@ interface ConversationProps {
 function Conversation({ bot, level, input }: ConversationProps) {
 	const [conversation, apply] = useConversation(bot.id);
 	const label = turnLabel(conversation);
+	const fail = useCallback((message: string) => apply([{ type: "turn-failed", message }]), [apply]);
 
 	return (
 		<>
@@ -35,7 +36,7 @@ function Conversation({ bot, level, input }: ConversationProps) {
 					name={bot.name}
 					working={conversation.turn !== "idle"}
 					input={input}
-					fail={(message) => apply([{ type: "turn-failed", message }])}
+					fail={fail}
 				/>
 			</Transcript>
 		</>

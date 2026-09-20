@@ -1,13 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
 import { CheckIcon, CircleXIcon, ClockIcon, type LucideIcon, SquareIcon, TriangleAlertIcon, UsersIcon, WrenchIcon, XIcon } from "lucide-react";
-import { type ComponentProps, Fragment, memo, type ReactNode, useState } from "react";
-import Markdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { type ComponentProps, Fragment, memo, type ReactNode, type RefObject, startTransition, useEffect, useRef, useState } from "react";
 import { Button } from "@renderer/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@renderer/components/ui/empty";
 import { cn } from "cn";
 import { Avatar } from "./avatar";
 import type { Conversation, Line, ToolResult } from "./conversation";
+import { Prose, StreamingProse } from "./prose";
 import { orpc } from "./rpc";
 
 export const DETAIL_LEVELS = ["brief", "full"] as const;
@@ -19,7 +18,9 @@ export const DETAIL_NAMES: Record<Detail, string> = { brief: "Breve", full: "Com
 const TEAM_VERBS = { created: "Criou", delegated: "Delegou para", stopped: "Parou", deleted: "Apagou" } as const;
 const EMAIL_LABELS: Record<string, string> = { account: "De", to: "Para", cc: "Cópia", subject: "Assunto", threadId: "Thread" };
 const DETAIL_CHARACTERS = 600;
-const PLUGINS = [remarkGfm];
+const PAGE_LINES = 40;
+const PAGE_CHARACTERS = 6000;
+const EARLIER_MARGIN = "1200px 0px 0px";
 const SCROLL = "flex min-h-0 flex-1 flex-col-reverse overflow-y-auto scrollbar-gutter-both";
 const DOCK =
 	"sticky bottom-0 order-first shrink-0 bg-background before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-10 before:bg-linear-to-t before:from-background";
@@ -31,13 +32,6 @@ const BUBBLES = {
 const TONES = {
 	warn: { line: undefined, icon: "text-warning" },
 	err: { line: "text-destructive", icon: undefined },
-};
-const COMPONENTS: Components = {
-	a: ({ href, children }) => (
-		<a href={href} target="_blank" rel="noreferrer">
-			{children}
-		</a>
-	),
 };
 
 function verbose(line: Line): boolean {
@@ -124,16 +118,6 @@ function EventLine({ tone, icon: Icon, head, children }: EventLineProps) {
 
 function EventBody({ children }: { children: ReactNode }) {
 	return <div className="mx-auto mt-2 max-w-xl text-left wrap-anywhere">{children}</div>;
-}
-
-function Reply({ text }: { text: string }) {
-	return (
-		<Bubble from="bot" className="markdown">
-			<Markdown remarkPlugins={PLUGINS} components={COMPONENTS}>
-				{text}
-			</Markdown>
-		</Bubble>
-	);
 }
 
 function Tool({ name, input, result }: { name: string; input: unknown; result?: ToolResult }) {
@@ -273,7 +257,11 @@ const LineView = memo(function LineView({ line, level, name, botId }: { line: Li
 		case "you":
 			return <Bubble from="you">{line.text}</Bubble>;
 		case "reply":
-			return <Reply text={line.text} />;
+			return (
+				<Bubble from="bot" className="markdown">
+					<Prose text={line.text} />
+				</Bubble>
+			);
 		case "summary":
 			return (
 				<details className="mt-2 text-xs">
@@ -292,8 +280,53 @@ const LineView = memo(function LineView({ line, level, name, botId }: { line: Li
 	}
 });
 
-const Lines = memo(function Lines({ lines, level, name, botId }: { lines: Line[]; level: Detail; name: string; botId: string }) {
-	return lines.map((line, index) => (level === "full" || !verbose(line)) && <LineView key={index} line={line} level={level} name={name} botId={botId} />);
+function pageStart(lines: Line[], end: number): number {
+	let start = end;
+	let characters = 0;
+	while (start > 0 && end - start < PAGE_LINES && characters < PAGE_CHARACTERS) {
+		start -= 1;
+		const line = lines[start];
+		characters += "text" in line ? line.text.length : 0;
+	}
+	return start;
+}
+
+interface LinesProps {
+	lines: Line[];
+	level: Detail;
+	name: string;
+	botId: string;
+	scroller: RefObject<HTMLDivElement | null>;
+}
+
+const Lines = memo(function Lines({ lines, level, name, botId, scroller }: LinesProps) {
+	const [from, setFrom] = useState<number | null>(null);
+	const earlier = useRef<HTMLDivElement>(null);
+	const start = from ?? pageStart(lines, lines.length);
+
+	useEffect(() => {
+		const mark = earlier.current;
+		if (!mark) {
+			return;
+		}
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (entry?.isIntersecting) {
+					startTransition(() => setFrom(pageStart(lines, start)));
+				}
+			},
+			{ root: scroller.current, rootMargin: EARLIER_MARGIN },
+		);
+		observer.observe(mark);
+		return () => observer.disconnect();
+	}, [scroller, lines, start]);
+
+	return (
+		<>
+			{start > 0 && <div ref={earlier} />}
+			{lines.slice(start).map((line, index) => (level === "full" || !verbose(line)) && <LineView key={start + index} line={line} level={level} name={name} botId={botId} />)}
+		</>
+	);
 });
 
 interface TranscriptProps {
@@ -306,9 +339,10 @@ interface TranscriptProps {
 
 export function Transcript({ conversation, level, name, botId, children }: TranscriptProps) {
 	const empty = conversation.lines.length === 0 && conversation.turn === "idle" && conversation.queue.length === 0;
+	const scroller = useRef<HTMLDivElement>(null);
 
 	return (
-		<div className={SCROLL}>
+		<div ref={scroller} className={SCROLL}>
 			{conversation.ready && empty && (
 				<Empty className="grow">
 					<EmptyHeader>
@@ -324,8 +358,12 @@ export function Transcript({ conversation, level, name, botId, children }: Trans
 			)}
 			{conversation.ready && !empty && (
 				<div className="shrink-0 grow px-6 pt-2 pb-11">
-					<Lines lines={conversation.lines} level={level} name={name} botId={botId} />
-					{conversation.streaming && <Reply text={conversation.streaming} />}
+					<Lines lines={conversation.lines} level={level} name={name} botId={botId} scroller={scroller} />
+					{conversation.streaming && (
+						<Bubble from="bot" className="markdown">
+							<StreamingProse text={conversation.streaming} />
+						</Bubble>
+					)}
 					{conversation.queue.map((item, index) => (
 						<EventLine key={index} head={<span>Na fila: {item}</span>} />
 					))}
