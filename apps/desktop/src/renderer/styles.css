@@ -146,6 +146,10 @@
 		@apply overflow-hidden text-sm text-foreground antialiased surface-background;
 	}
 
+	body:has(#root:empty) {
+		background-color: transparent;
+	}
+
 	:focus-visible {
 		@apply outline-2 outline-offset-2 outline-ring;
 	}
