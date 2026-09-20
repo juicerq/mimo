@@ -39,6 +39,11 @@ A escolha de provedor, modelo e esforço para as próximas respostas de um Bot. 
 _Evitar_: Modelo global, modelo da sessão
 _Dono_: `apps/agent/src/model/catalog.ts`; na tela, `apps/desktop/src/renderer/about.tsx`
 
+**Imagem colada**:
+Uma imagem que a pessoa cola no campo de mensagem e manda junto com o texto. Os bytes ficam em arquivo (`bots/<id>/images/<hash>.png`) e o Registro guarda só a marca `[imagem: <hash>.png]` na frente do texto, do mesmo jeito que `[resumo]` e `[rotina:]`; a imagem de verdade entra só na Janela, montada a cada chamada do modelo, e nunca é gravada em `messages.json`. Na conversa ela aparece acima do balão da pessoa, fora dele. Um Bot com Modelo que não lê imagem recusa antes de gravar qualquer coisa, e a pessoa recebe o texto e a imagem de volta no campo.
+_Evitar_: Anexo, upload, arquivo
+_Dono_: `apps/agent/src/images/images.ts`; a marca no Registro, `apps/agent/src/bot/events.ts`; na tela, `apps/desktop/src/renderer/composer.tsx` e `apps/desktop/src/renderer/transcript.tsx`; quem serve o arquivo, `apps/desktop/src/main/pictures.ts`
+
 **Conversa entre bots**:
 O Registro que dois Bots têm à parte, um por direção. Nasce quando um Bot chama `ask_bot`, e a pessoa abre pela linha no meio da conversa: ela lê e não escreve. Todo Bot é igual, então qualquer um pergunta a qualquer outro. Por padrão a pergunta não segura o Turno: quem perguntou continua com a pessoa e a resposta chega depois, num Turno novo. Um Bot que já está na corrente de perguntas não pode ser perguntado de volta, e a corrente para em três.
 _Evitar_: Bot filho, equipe, delegação, subagente
@@ -123,6 +128,6 @@ Tudo o que dura fica na Casa (`MIMO_DATA_DIR`, padrão `~/.mimo`): `bots/<id>.js
 
 Quem está aberto agora mora em `apps/agent/src/bot/registry.ts`: ele guarda o mapa das conversas vivas por `chatId`, garante que dois pedidos para abrir a mesma conversa recebem a mesma instância (`openOnce`), responde o que a Barra de bots mostra (`activity`) e apaga um Bot com as rotinas e as Conversas entre bots dele (`deleteBot`).
 
-Algumas armadilhas do app. O build é electron-vite 5 com Vite 7: o electron-vite 5 não suporta o Vite 8 e, com ele, embute o próprio `electron` no bundle. A janela não tem moldura e, no Wayland, o app desliga a composição pela GPU, porque com NVIDIA a janela sem moldura para de desenhar depois de maximizar. O app nunca abre `--remote-debugging-port`: com essa porta, qualquer processo local lê a janela do mimo, e o CDP do Navegador já é interno ao processo. `apps/desktop/src/renderer/components/ui` é do shadcn e entra pela CLI (`bunx shadcn add`), por isso fica fora do lint e do knip.
+Algumas armadilhas do app. O build é electron-vite 5 com Vite 7: o electron-vite 5 não suporta o Vite 8 e, com ele, embute o próprio `electron` no bundle. A janela não tem moldura e, no Wayland, o app desliga a composição pela GPU, porque com NVIDIA a janela sem moldura para de desenhar depois de maximizar. O app nunca abre `--remote-debugging-port`: com essa porta, qualquer processo local lê a janela do mimo, e o CDP do Navegador já é interno ao processo. A tela roda com uma política de segurança declarada em `apps/desktop/src/renderer/index.html`: um esquema novo, como o `mimo-image://` das imagens coladas, só carrega depois de entrar nela. `apps/desktop/src/renderer/components/ui` é do shadcn e entra pela CLI (`bunx shadcn add`), por isso fica fora do lint e do knip.
 
 A verificação não tem suíte: ela é dirigir o app de verdade. A receita por feature está em `.agents/skills/verify-mimo/features/`.

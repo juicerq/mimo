@@ -48,7 +48,7 @@ export interface Ask {
 export type AskResult = { bot: string; reply: string } | { bot: string; status: string };
 
 export type BotEvent =
-	| { type: "user"; text: string }
+	| { type: "user"; text: string; images: readonly string[] }
 	| { type: "queue"; items: readonly string[] }
 	| { type: "summary"; text: string }
 	| { type: "warning"; text: string }

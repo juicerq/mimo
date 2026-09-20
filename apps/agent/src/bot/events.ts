@@ -1,12 +1,13 @@
 import { calculateContextTokens, type AgentMessage } from "@earendil-works/pi-agent-core";
 import type { Usage } from "@earendil-works/pi-ai";
+import { markImages, splitImages } from "../images/images";
 import { contentText, isLlmMessage } from "../messages";
 import { answeredEvent, askedEvent, isAsk } from "../peers/tools";
 import { toolWarning } from "../tools/tool";
 import type { BotEvent } from "./types";
 
 export type Entry =
-	| { kind: "user"; text: string }
+	| { kind: "user"; text: string; images: readonly string[] }
 	| { kind: "ask"; peer: string; text: string }
 	| { kind: "answer"; peer: string; text: string; failed: boolean }
 	| { kind: "routine"; name: string; text: string }
@@ -50,7 +51,7 @@ function entryContent(entry: Entry): string {
 	if (entry.kind === "summary") {
 		return `${SUMMARY_MARK}\n${entry.text}`;
 	}
-	return entry.text;
+	return markImages(entry.images, entry.text);
 }
 
 export function entryEvent(entry: Entry): BotEvent {
@@ -58,7 +59,7 @@ export function entryEvent(entry: Entry): BotEvent {
 		return { type: "routine", name: entry.name, prompt: entry.text };
 	}
 	if (entry.kind === "ask") {
-		return { type: "user", text: entry.text };
+		return { type: "user", text: entry.text, images: [] };
 	}
 	if (entry.kind === "answer") {
 		return { type: "answered", peer: entry.peer, text: entry.text, failed: entry.failed };
@@ -66,7 +67,7 @@ export function entryEvent(entry: Entry): BotEvent {
 	if (entry.kind === "summary") {
 		return { type: "summary", text: entry.text };
 	}
-	return { type: "user", text: entry.text };
+	return { type: "user", text: entry.text, images: entry.images };
 }
 
 function peerEntry(text: string): Entry | null {
@@ -93,7 +94,8 @@ function entryOf(text: string): Entry {
 	if (text.startsWith(`${SUMMARY_MARK}\n`)) {
 		return { kind: "summary", text: text.slice(SUMMARY_MARK.length + 1) };
 	}
-	return { kind: "user", text };
+	const pasted = splitImages(text);
+	return { kind: "user", text: pasted.text, images: pasted.names };
 }
 
 export function summaryStart(messages: AgentMessage[]): number {
@@ -110,11 +112,12 @@ function spoken(message: AgentMessage): LastMessage | null {
 	if (!isLlmMessage(message) || message.role === "toolResult") {
 		return null;
 	}
-	const text = contentText(message.content);
-	if (message.role === "user" && entryOf(text).kind !== "user") {
+	const spokenText = contentText(message.content);
+	const entry = message.role === "user" ? entryOf(spokenText) : null;
+	if (entry && entry.kind !== "user") {
 		return null;
 	}
-	const preview = text.trim().slice(0, PREVIEW_CHARACTERS);
+	const preview = (entry?.text ?? spokenText).trim().slice(0, PREVIEW_CHARACTERS);
 	if (!preview) {
 		return null;
 	}

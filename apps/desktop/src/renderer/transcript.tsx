@@ -46,6 +46,7 @@ const TOOL_LABELS: Record<string, string> = {
 };
 const EMAIL_LABELS: Record<string, string> = { account: "De", to: "Para", cc: "Cópia", subject: "Assunto", threadId: "Thread" };
 const CONNECT_GMAIL = "connect_gmail";
+const PICTURES = "mimo-image";
 const BROWSE = "browse";
 const GMAIL_SCOPE = "ler, rascunhar e enviar e-mail em seu nome";
 const DETAIL_CHARACTERS = 600;
@@ -149,6 +150,25 @@ function Fields({ input, className, whole, labels }: { input: unknown; className
 
 function Bubble({ from, className, ...props }: ComponentProps<"div"> & { from: keyof typeof BUBBLES }) {
 	return <div className={cn("mt-5 w-fit max-w-[min(85%,65ch)] rounded-2xl px-4 py-2.5 wrap-anywhere", BUBBLES[from], className)} {...props} />;
+}
+
+function Pasted({ botId, names, text }: { botId: string; names: readonly string[]; text: string }) {
+	if (names.length === 0) {
+		return <Bubble from="you">{text}</Bubble>;
+	}
+	return (
+		<div className="mt-5 flex flex-col items-end gap-1.5">
+			{names.map((name) => (
+				<img
+					key={name}
+					src={`${PICTURES}://${botId}/${name}`}
+					alt="Imagem que você colou"
+					className="max-h-72 max-w-[min(85%,65ch)] rounded-2xl border border-border object-contain"
+				/>
+			))}
+			{text && <Bubble from="you" className="mt-0">{text}</Bubble>}
+		</div>
+	);
 }
 
 interface EventLineProps {
@@ -600,7 +620,7 @@ interface LineViewProps {
 const LineView = memo(function LineView({ line, level, name, botId, onPeer }: LineViewProps) {
 	switch (line.kind) {
 		case "you":
-			return <Bubble from="you">{line.text}</Bubble>;
+			return <Pasted botId={botId} names={line.images} text={line.text} />;
 		case "reply":
 			return (
 				<Bubble from="bot" className="markdown">

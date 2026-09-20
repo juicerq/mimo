@@ -45,6 +45,13 @@ export async function writeTextFile(path: string, content: string, mode = 0o644)
 	await rename(temporary, path);
 }
 
+export async function writeBinaryFile(path: string, bytes: Uint8Array, mode = 0o600): Promise<void> {
+	await mkdir(dirname(path), { recursive: true });
+	const temporary = `${path}.${randomUUID()}.tmp`;
+	await writeFile(temporary, bytes, { mode });
+	await rename(temporary, path);
+}
+
 export async function appendJsonLine(path: string, value: unknown): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });
 	await appendFile(path, `${JSON.stringify(value)}\n`, { mode: 0o600 });

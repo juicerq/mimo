@@ -5,6 +5,7 @@ import { loadEnv } from "@agent/storage/home";
 import { RPCHandler } from "@orpc/server/message-port";
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
 import { PageView } from "./browser/view";
+import { claimPictures, servePictures } from "./pictures";
 import { router } from "./router";
 
 loadEnv();
@@ -12,6 +13,8 @@ loadEnv();
 if (process.env.XDG_SESSION_TYPE === "wayland") {
 	app.commandLine.appendSwitch("disable-gpu-compositing");
 }
+
+claimPictures();
 
 const handler = new RPCHandler(router);
 
@@ -56,6 +59,7 @@ function openWindow(): void {
 app.on("window-all-closed", () => app.quit());
 
 app.on("ready", () => {
+	servePictures();
 	void startRoutines();
 	openWindow();
 });

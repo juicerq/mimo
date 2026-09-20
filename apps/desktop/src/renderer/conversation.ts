@@ -11,7 +11,7 @@ export interface ToolResult {
 }
 
 export type Line =
-	| { kind: "you"; text: string }
+	| { kind: "you"; text: string; images: readonly string[] }
 	| { kind: "reply"; text: string }
 	| { kind: "summary"; text: string }
 	| { kind: "routine"; name: string; prompt: string }
@@ -74,7 +74,7 @@ function resolveApproval(lines: Line[], outcome: EventMap["approval-resolved"]["
 }
 
 const EDITS: Edits = {
-	user: adds((event) => ({ kind: "you", text: event.text })),
+	user: adds((event) => ({ kind: "you", text: event.text, images: event.images })),
 	queue: unchanged,
 	summary: adds((event) => ({ kind: "summary", text: event.text })),
 	warning: adds((event) => ({ kind: "warning", text: event.text })),

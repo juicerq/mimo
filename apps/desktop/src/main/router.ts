@@ -149,10 +149,13 @@ export const router = {
 			.input(ChatInput)
 			.handler(async ({ input, signal }) => watch(await Chat.open(input), signal)),
 		send: agent
-			.input(BotInput.extend({ text: z.string().trim().min(1) }))
+			.input(BotInput.extend({
+				text: z.string().trim(),
+				images: z.array(z.object({ mimeType: z.string().min(1), data: z.string().min(1) })).default([]),
+			}).refine((input) => input.text.length > 0 || input.images.length > 0, "Escreva alguma coisa ou cole uma imagem."))
 			.handler(async ({ input }) => {
 				const chat = await Chat.open(input);
-				await chat.send(input.text);
+				await chat.send(input.text, input.images);
 			}),
 		answer: agent
 			.input(BotInput.extend({ id: z.string().min(1), approved: z.boolean() }))

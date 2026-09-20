@@ -5,9 +5,6 @@ interface Pending {
 	resolve: (approved: boolean) => void;
 }
 
-const APPROVE_WORDS = new Set(["1", "approve", "aprovar", "sim", "s"]);
-const DENY_WORDS = new Set(["2", "cancel", "cancelar", "não", "nao", "n"]);
-
 export class Approvals {
 	private readonly pending: Pending[] = [];
 
@@ -26,20 +23,6 @@ export class Approvals {
 				this.emit({ type: "approval", approval });
 			}
 		});
-	}
-
-	answer(text: string): boolean {
-		const word = text.trim().toLowerCase();
-		const approved = APPROVE_WORDS.has(word);
-		if (!approved && !DENY_WORDS.has(word)) {
-			return false;
-		}
-		const entry = this.pending[0];
-		if (!entry) {
-			return false;
-		}
-		this.settle(entry, approved);
-		return true;
 	}
 
 	resolve(id: string, approved: boolean): boolean {

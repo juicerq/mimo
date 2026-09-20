@@ -1,6 +1,7 @@
 import { Agent, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
 import type { BrowserSession } from "../browser/browser";
 import { browserFor, closeBrowser } from "../browser/registry";
+import { saveImage, withImages, type Pasted } from "../images/images";
 import type { LoginSession, LoginTarget } from "../login/login";
 import { requestLogin } from "../login/registry";
 import { contentText } from "../messages";
@@ -53,7 +54,7 @@ export class Chat {
 		this.archive = log.slice(0, start);
 		this.agent = new Agent({
 			streamFn: (model, context, options) => models().streamSimple(model, context, { ...options, sessionId: chatId(chat) }),
-			transformContext: async (context) => withoutBorrowedReasoning(context),
+			transformContext: async (context) => await withImages(chat.botId, withoutBorrowedReasoning(context)),
 			initialState: {
 				systemPrompt: this.basePrompt(),
 				model: resolveModel(record.model),
@@ -164,21 +165,25 @@ export class Chat {
 		this.agent.state.thinkingLevel = record.model.reasoning;
 	}
 
-	async deliver(text: string): Promise<void> {
-		if (this.approvals.answer(text)) {
-			return;
-		}
-		await this.send(text);
-	}
-
 	resolveApproval(id: string, approved: boolean): void {
 		if (!this.approvals.resolve(id, approved)) {
 			throw new Error("Este pedido de confirmação já não está aberto.");
 		}
 	}
 
-	async send(text: string): Promise<void> {
-		await this.push({ text, kind: "user" });
+	async send(text: string, pasted: readonly Pasted[] = []): Promise<void> {
+		const images = await this.keep(pasted);
+		await this.push({ text, kind: "user", images });
+	}
+
+	private async keep(pasted: readonly Pasted[]): Promise<string[]> {
+		if (pasted.length === 0) {
+			return [];
+		}
+		if (!this.agent.state.model.input.includes("image")) {
+			throw new Error(`${this.record.model.name} não lê imagem. Escolha outro modelo em Sobre o bot.`);
+		}
+		return await Promise.all(pasted.map(async (image) => await saveImage(this.record.id, image)));
 	}
 
 	async runRoutine(routine: { name: string; prompt: string }): Promise<void> {
