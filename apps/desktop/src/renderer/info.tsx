@@ -39,17 +39,11 @@ export function useInfoPanel() {
 		function onKey(event: KeyboardEvent): void {
 			if (event.key === "Escape") {
 				close();
-				return;
 			}
-			if (!event.ctrlKey || event.shiftKey || event.altKey || event.metaKey || event.key.toLowerCase() !== "i") {
-				return;
-			}
-			event.preventDefault();
-			toggle();
 		}
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [toggle, close]);
+	}, [close]);
 
 	return { open: overlay ? overlaid : docked, overlay, toggle, close };
 }

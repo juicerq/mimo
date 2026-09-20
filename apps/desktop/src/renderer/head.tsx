@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { CopyIcon, InfoIcon, MinusIcon, SquareIcon, XIcon } from "lucide-react";
 import { IconButton } from "@renderer/components/icon-button";
-import { Kbd, KbdGroup } from "@renderer/components/ui/kbd";
 import { Avatar, STATE_LABELS } from "./avatar";
 import type { BotRow } from "./bots";
 import { orpc, rpc } from "./rpc";
@@ -50,21 +49,7 @@ export function Head({ bot, info, onInfo }: HeadProps) {
 				{bot && <span className="sr-only">, {STATE_LABELS[bot.state]}</span>}
 			</h2>
 			{bot && (
-				<IconButton
-					label={`Sobre ${bot.name}`}
-					tip={
-						<>
-							Sobre o bot{" "}
-							<KbdGroup>
-								<Kbd>Ctrl</Kbd>
-								<Kbd>I</Kbd>
-							</KbdGroup>
-						</>
-					}
-					aria-pressed={info}
-					aria-keyshortcuts="Control+I"
-					onClick={onInfo}
-				>
+				<IconButton label="Sobre o bot" aria-pressed={info} onClick={onInfo}>
 					<InfoIcon />
 				</IconButton>
 			)}

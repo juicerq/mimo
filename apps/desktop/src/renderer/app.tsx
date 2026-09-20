@@ -49,7 +49,7 @@ export function App() {
 	const { open: infoOpen, overlay, toggle: toggleInfo, close: closeInfo } = useInfoPanel();
 	const input = useRef<HTMLTextAreaElement>(null);
 	const bot = bots?.find((entry) => entry.id === chosen) ?? bots?.[0];
-	const leave = useCallback(() => input.current?.focus(), []);
+	const focusComposer = useCallback(() => input.current?.focus(), []);
 
 	useEffect(() => {
 		localStorage.setItem(DETAIL, level);
@@ -62,7 +62,7 @@ export function App() {
 
 	return (
 		<div className="flex h-screen">
-			<Bar bots={bots} error={error} selected={bot?.id} onSelect={select} onLeave={leave} />
+			<Bar bots={bots} error={error} selected={bot?.id} onSelect={select} focusComposer={focusComposer} />
 			<div className="flex min-w-0 flex-1 flex-col">
 				<Head bot={bot} info={infoOpen} onInfo={toggleInfo} />
 				<div className="flex min-h-0 flex-1">

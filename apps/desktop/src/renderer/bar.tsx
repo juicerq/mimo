@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { IconButton } from "@renderer/components/icon-button";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@renderer/components/ui/item";
 import { Avatar, STATE_LABELS } from "./avatar";
@@ -8,8 +8,6 @@ import type { BotRow } from "./bots";
 import { orpc } from "./rpc";
 import { Settings } from "./settings";
 
-const STEPS: Partial<Record<string, number>> = { ArrowUp: -1, ArrowDown: 1 };
-const ROW = "[aria-current]";
 const AVATAR = 48;
 
 function plain(text: string): string {
@@ -34,14 +32,13 @@ interface BarProps {
 	error: Error | null;
 	selected: string | undefined;
 	onSelect: (id: string) => void;
-	onLeave: () => void;
+	focusComposer: () => void;
 }
 
-export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
+export function Bar({ bots, error, selected, onSelect, focusComposer }: BarProps) {
 	const queryClient = useQueryClient();
 	const [adding, setAdding] = useState(false);
 	const [name, setName] = useState("");
-	const list = useRef<HTMLDivElement>(null);
 	const create = useMutation(orpc.bots.create.mutationOptions({
 		onSuccess: async (bot) => {
 			await queryClient.invalidateQueries({ queryKey: orpc.bots.list.key() });
@@ -52,49 +49,6 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 	}));
 	const empty = bots?.length === 0;
 	const draft = name.trim();
-
-	useEffect(() => {
-		function onKey(event: globalThis.KeyboardEvent): void {
-			if (!event.ctrlKey || event.key.toLowerCase() !== "e") {
-				return;
-			}
-			event.preventDefault();
-			if (list.current?.contains(document.activeElement)) {
-				onLeave();
-				return;
-			}
-			const rows = list.current?.querySelectorAll<HTMLButtonElement>(ROW);
-			const current = rows && [...rows].find((row) => row.getAttribute("aria-current") === "true");
-			(current ?? rows?.[0])?.focus();
-		}
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [onLeave]);
-
-	function onListKey(event: KeyboardEvent<HTMLDivElement>): void {
-		const all = bots ?? [];
-		const rows = [...event.currentTarget.querySelectorAll<HTMLButtonElement>(ROW)];
-		const at = rows.findIndex((row) => row === event.target);
-		if (event.key === "Escape") {
-			event.preventDefault();
-			onLeave();
-			return;
-		}
-		if (event.key === "Enter" && all[at]) {
-			event.preventDefault();
-			onSelect(all[at].id);
-			onLeave();
-			return;
-		}
-		const step = STEPS[event.key];
-		if (step === undefined || !all[at]) {
-			return;
-		}
-		event.preventDefault();
-		const next = Math.min(all.length - 1, Math.max(0, at + step));
-		onSelect(all[next].id);
-		rows[next]?.focus();
-	}
 
 	function stopAdding(): void {
 		setName("");
@@ -109,7 +63,7 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 					<PlusIcon />
 				</IconButton>
 			</header>
-			<div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-3" ref={list} onKeyDown={onListKey}>
+			<div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
 				{(adding || empty) && (
 					<Item
 						className="gap-3 p-2 surface-sidebar-active"
@@ -147,7 +101,7 @@ export function Bar({ bots, error, selected, onSelect, onLeave }: BarProps) {
 									if (event.key === "Escape" && !empty) {
 										event.stopPropagation();
 										stopAdding();
-										onLeave();
+										focusComposer();
 									}
 								}}
 								onBlur={() => {
