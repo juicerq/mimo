@@ -1,13 +1,13 @@
 ---
 name: verify-mimo
-description: Drive mimo-tui like a user to prove behavior end to end — launch the TUI, converse through tmux, exercise tools (Gmail, web search, routines, memory, approvals), and keep transcript evidence. Use for changes under apps/mimo, apps/agent, or scripts.
+description: Drive the mimo desktop app (Electron, apps/desktop) like a user to prove behavior end to end — launch it in a sandbox, click and type through CDP with agent-browser, and keep screenshots, accessibility trees and on-disk state as evidence. Use for changes under apps/desktop or apps/agent.
 ---
 
-# Verificar o mimo-tui
+# Verificar o mimo
 
-O mimo-tui é uma TUI (`apps/mimo`) que roda o agente (`apps/agent`) no mesmo processo, sobre a harness Pi. Não há servidor nem porta. O usuário digita na TUI; toda prova atravessa esse caminho e termina em estado observável (transcript, arquivo no diretório de dados). Não há suíte de testes: verificação é rodar de verdade.
+O mimo é um app desktop Electron (`apps/desktop`). O processo main roda o agente (`apps/agent`) e fala com o renderer React por oRPC. O usuário clica e digita na janela; toda prova atravessa esse caminho e termina em estado observável: a tela e os arquivos do diretório de dados. Não há suíte de testes: verificação é rodar de verdade.
 
-Rode os comandos a partir da raiz do repositório:
+Carregue a skill **agent-browser** antes de dirigir. Rode os comandos a partir da raiz do repositório:
 
 ```sh
 CONTROL=.agents/skills/verify-mimo/scripts/control-mimo
@@ -15,73 +15,65 @@ CONTROL=.agents/skills/verify-mimo/scripts/control-mimo
 
 ## Launch
 
-Uma instância por sessão tmux: o helper recusa `launch` se a sessão tmux `mimo-verify` já existe — nunca dirija uma instância que você não iniciou.
-
 ```sh
 $CONTROL launch
 $CONTROL doctor
 ```
 
-- Por padrão o `launch` cria um sandbox em `.verify/runs/<UTC>/data` e sobe a TUI com `MIMO_DATA_DIR` apontando para lá: bots, memória, contas e rotinas da execução não tocam `.data`. `$CONTROL data` imprime o diretório em uso.
-- O `launch` também cria um HOME de sandbox em `.verify/runs/<UTC>/home` e o passa para a TUI. Os arquivos de credencial (`.codex/auth.json` e `.local/share/opencode/auth.json`) entram como symlink para os reais: a execução lê a chave real, e qualquer escrita — um `/login`, uma renovação de token — troca o symlink por um arquivo dentro do run dir. Os arquivos reais não são tocados. `$CONTROL home` imprime o diretório.
-- Por isso `/login` pode ser exercitado numa verificação. Nunca digite uma chave real: o que você digitar fica em texto claro no run dir. Use um valor sentinela.
-- O cache do transpilador do Bun fica fora do sandbox, no cache real (`BUN_RUNTIME_TRANSPILER_CACHE_PATH`). É cache de conteúdo, compartilhado por natureza; dentro do sandbox cada execução copiaria uns 3 MB.
-- `doctor` e `stop` avisam quando a execução escreveu credencial, e confirmam "credenciais reais intactas" quando não escreveu.
-- Para reusar um diretório (por exemplo, entre duas sessões de memória) use `--data <dir>`, relativo à raiz do repo ou absoluto; `MIMO_VERIFY_DATA_DIR` faz o mesmo por ambiente. Só aponte para `.data` quando a receita exigir os dados reais: o snapshot/restore protege bots e rotinas, mas Gmail continua real.
-- O modelo inicial de um bot novo vem de `MIMO_MODEL`/`MIMO_REASONING`, repassados ao `launch`. O padrão é `openai-codex/gpt-5.6-luna` com esforço `max`.
-- `launch` sobe a TUI numa sessão tmux 140x42 na raiz do repo e espera até 60 s pela lista de bots (`/new <name>`). A lista de bots é a primeira tela.
-- Antes de subir, salva `bots/`, `routines.json` e `actions.jsonl` do diretório de dados em `.verify/runs/<UTC>/state-before/` e grava o HEAD em `head.txt`.
+- O `launch` roda `electron-vite dev` em `apps/desktop`, o mesmo comando de `bun run dev`, com `REMOTE_DEBUGGING_PORT` numa porta livre entre 9340 e 9399. É essa variável que faz o electron-vite abrir o CDP.
+- Os dados ficam num sandbox em `.verify/runs/<UTC>/data` (`MIMO_DATA_DIR`). O `.data-desktop` do dev e o `~/.mimo` real não são tocados. O helper recusa `--data` apontado para `~/.mimo`.
+- O HOME também é sandbox (`.verify/runs/<UTC>/home`), com `XDG_CONFIG_HOME` dentro dele: o perfil do Electron e o `localStorage` nascem vazios a cada execução. As credenciais (`.codex/auth.json` e `.local/share/opencode/auth.json`) entram como symlink para as reais: o app lê a chave real, e qualquer escrita troca o symlink por um arquivo dentro do run dir. O `~/.mimo/.env` (chaves do Gmail) entra do mesmo jeito, quando existe. Nunca digite uma chave real numa verificação.
+- Por isso duas instâncias convivem: o app de dev do usuário (`bun run dev`) e a instância da verificação têm porta, dados e perfil próprios. O helper mantém uma instância de verificação por checkout e recusa um segundo `launch`.
+- Pronto significa: o log tem `DevTools listening` e a árvore de acessibilidade tem `complementary "Bots"`. O `launch` espera até 90 s por isso.
+- Um sandbox novo não tem bots: a primeira tela pede o nome do primeiro bot. Para reusar dados entre duas execuções (persistência), use `$CONTROL launch --data <dir>` com o `data` de um run anterior.
+- A janela abre de verdade no desktop do usuário. Não mexa nela à mão durante a execução.
 
-Teardown:
-
-```sh
-$CONTROL stop
-$CONTROL stop --keep-state
-```
-
-`stop` envia `Ctrl+C` e mata a sessão tmux; depois restaura o estado. `--keep-state` mantém o estado para provar memória entre execuções.
-
-Se o app não subir, leia o final do pane (`$CONTROL capture /tmp/pane.txt`) e conserte a precondição antes de gerar prova.
+Se o app não subir, o `launch` imprime o fim de `app.log`. Conserte a precondição antes de gerar prova.
 
 ## Doctor
 
 `$CONTROL doctor` é somente leitura e responde "vale dirigir esta instância?":
 
-- sessão `mimo-verify` viva e pane em `ready`;
-- diretório de dados em uso (sandbox ou reais) e HEAD atual igual ao registrado no launch (se mudou, reinicie: a instância serve o checkout antigo);
-- credenciais dos provedores (`~/.local/share/opencode/auth.json` e `~/.codex/auth.json`) e `GMAIL_CLIENT_ID` no `.env.local` da raiz;
-- HOME em uso e se a execução escreveu alguma credencial;
-- quantas contas Gmail estão conectadas e quantas rotinas existem.
+- o processo é o que este `launch` iniciou (confere o pid e o `MIMO_DATA_DIR` dele), e a porta CDP responde;
+- HEAD atual igual ao do launch;
+- **main desatualizado**: o processo main não recarrega. Se algum arquivo de `apps/desktop/src/main`, `apps/desktop/src/preload`, `apps/agent/src` ou o `electron.vite.config.ts` mudou depois do launch, o doctor lista os arquivos e manda reiniciar. O renderer recarrega sozinho;
+- credenciais dos provedores presentes, e se a execução escreveu alguma;
+- estado do bot aberto e quantos bots existem no diretório de dados.
 
 Rode o doctor antes de qualquer receita e de novo quando algo parecer errado.
 
 ## Drive
 
-Harness: tmux e teclas literais. A TUI é um terminal; não existe automação de clique.
+Harness: `agent-browser` ligado ao CDP da instância. `$CONTROL browser <args>` já passa a sessão e a porta certas.
 
 ```sh
-$CONTROL send 'que horas são?'
-$CONTROL wait '⚙ current_time' 180
-$CONTROL capture .verify/runs/<id>/01-chat.txt
+$CONTROL browser snapshot
+$CONTROL browser fill '[aria-label="Nome do novo bot"]' 'Ana'
+$CONTROL browser press Enter
+$CONTROL send 'responda apenas com MIMO-CHAT-OK'
+$CONTROL wait 'MIMO-CHAT-OK' 30
+$CONTROL capture 02-chat
 ```
 
-- `send` digita literalmente e pressiona Enter. Ele recusa quando o bot está ocupado e só retorna quando a linha viva some (termina em `ready` ou para em `waiting`). Se o texto ficar preso no composer, ele falha com aviso em vez de deixar o próximo envio se misturar.
-- Depois do `send`, o turno já terminou; use `wait` para conferir conteúdo. Para turnos disparados fora do `send` (rotina), espere o marcador com `wait`.
-- O estado vem da conversa, não do rodapé: a linha viva `⠙ thinking|working|stopping|loading · <n>s` significa ocupado; `▌ ⏸ approval:` sem `⏸ approved|denied` depois significa `waiting`; sem nenhum dos dois, `ready`. Dentro de um painel, o rodapé mostra `status: loading|saving|ready` e o helper usa esse valor.
-- HITL aparece como `▌ ⏸ approval: <tool>` com `1. Approve   2. Cancel`. Responda pelo composer com `1` ou `2`; o `send` retorna quando o turno retomado termina.
-- A TUI abre a lista de bots. Crie com `/new <nome>` ou escolha pelo número. `/bots` volta à lista; reabrir um bot retoma o transcript. Verifique memória reiniciando e abrindo o mesmo bot, e isolamento criando outro.
+- Use seletor CSS pelo `aria-label`: `[aria-label="Mensagem"]`, `[aria-label="Modelo"]`, `[aria-label="Sobre o bot"]`. Os interruptores de Ferramentas respondem pelo rótulo: `label[for="tool-gmail"]`.
+- O que não tem `aria-label` (opções de lista, botões de texto como `Não` e `Completo`) sai do `snapshot`: clique na referência, `$CONTROL browser click @e30`. A referência muda a cada snapshot; tire um novo antes de clicar.
+- `agent-browser find role|label ...` **não acha nada** nesta instância. Não use.
+- `send` preenche o campo `Mensagem`, aperta Enter e só retorna quando o turno termina, imprimindo o estado final. `send --no-wait` retorna na hora; é o caminho para a Fila.
+- `state` lê o estado do bot aberto no título da conversa: `parado`, `trabalhando`, `esperando aprovação` ou `falhou`. O título sai na árvore como `heading "<nome> , <estado>"`, com espaço antes da vírgula.
+- `wait <regex> [seg]` procura na árvore de acessibilidade. Linhas de tool só aparecem na árvore com o Detalhe em `Completo` (veja `features/chat.md`).
+- Depois que o Vite otimiza uma dependência nova, a janela pode ficar em branco com `Invalid hook call` no console. É artefato do dev server: `$CONTROL browser reload`.
 
 ## Evidence
 
-Os artefatos ficam em `.verify/runs/<UTC>/` (fora do git) e sobrevivem ao `stop`. Capture um arquivo por passo, nomeado (`00-launch.txt`, `01-chat.txt`, …).
+Tudo fica em `.verify/runs/<UTC>/` (fora do git) e sobrevive ao `stop`. `$CONTROL capture <nome>` grava `<nome>.png` e `<nome>.aria.txt`. Numere os passos: `00-launch`, `01-bot-criado`, …
 
 Padrões de prova:
 
-- exercite o caminho real do usuário pela TUI, não módulos internos nem atalhos;
+- exercite o caminho real do usuário pela janela, não o router oRPC nem módulos internos;
 - capture a ação e o estado resultante, não só a tela final;
-- confirme efeitos colaterais onde eles vivem: `routines.json`, `bots/<id>/memory.md` e `actions.jsonl` no diretório de `$CONTROL data`; mensagem de sucesso sozinha não conta;
+- confirme efeitos colaterais onde eles vivem, no diretório de `$CONTROL data`: `bots/<id>.json` (modelo, tools, pasta), `bots/<id>/messages.json`, `bots/<id>/memory.md`, `routines.json`, `actions.jsonl`. Mensagem de sucesso sozinha não conta;
 - o modelo é remoto e a redação varia: asserte tokens únicos, ids, nomes de tool e caminhos, não frases;
-- Gmail, rascunhos e envios são reais. A prova padrão de aprovação é **recusar**; envio aprovado só para endereço próprio, com assunto identificável (`VERIFICACAO ...`), e limpeza manual depois.
+- Gmail, rascunhos e envios são reais. A prova padrão de aprovação é **recusar** (`Não`); envio aprovado só para endereço próprio, com assunto `VERIFICACAO ...`, e limpeza manual depois.
 
 ## Cleanup
 
@@ -89,30 +81,27 @@ Padrões de prova:
 $CONTROL stop
 ```
 
-- `stop` mata somente a sessão tmux do `launch` e restaura `bots/`, `routines.json` e `actions.jsonl` do snapshot.
-- Com o sandbox padrão, os dados reais em `.data` não são tocados; o restore age no diretório da execução. Se o `launch` apontou para os dados reais, o restore devolve o snapshot — mas rascunhos e envios de Gmail continuam reais.
-- Antes de restaurar, o estado atual é copiado para `.verify/runs/<id>/state-after/`: o efeito colateral vira prova.
-- `stop --keep-state` não restaura; `$CONTROL restore [run-dir]` restaura um snapshot específico (padrão: o da execução atual).
-- Rascunhos e e-mails enviados não são restaurados; registre os ids e apague no Gmail.
-- Rode o `stop` também depois de uma tentativa que falhou, para não deixar sessão tmux pendurada.
-- Nunca mate por nome de processo; encerre o que o `launch` iniciou.
+- `stop` encerra só o grupo de processos que o `launch` iniciou e fecha a sessão do agent-browser. Nunca mate por nome de processo: o app de dev do usuário também se chama `electron`.
+- O run dir inteiro fica: capturas, `app.log`, `data/` e `home/`. O estado em disco do sandbox é parte da prova.
+- Rode o `stop` também depois de uma tentativa que falhou, para não deixar janela nem porta presas.
+- Rascunhos e e-mails enviados não são desfeitos; registre os ids e apague no Gmail.
 
 ## Helpers
 
-`scripts/control-mimo` é executável e imprime a saída em stdout:
+`scripts/control-mimo` é executável:
 
 | Comando | Efeito |
 | --- | --- |
-| `launch [--data <dir>]` | sobe a TUI em tmux com sandbox de dados e de HOME, registra o run dir e o HEAD |
-| `doctor` | checagem somente leitura (sessão, pane, dados, HEAD, credenciais, contas, rotinas) |
-| `data` | imprime o diretório de dados da execução atual |
-| `home` | imprime o HOME de sandbox da execução atual |
-| `send <texto>` | digita, envia e espera o turno terminar (recusa se ocupado) |
-| `wait <regex> [s]` | espera o padrão no pane (padrão 180 s) |
-| `capture <arquivo>` | salva o pane atual |
-| `stop [--keep-state]` | encerra e restaura (ou mantém) o estado |
-| `restore [run-dir]` | restaura o snapshot de um run |
+| `launch [--data <dir>]` | sobe o app com CDP, dados e HOME em sandbox, e registra run dir, porta, pid e HEAD |
+| `doctor` | checagem somente leitura (processo, CDP, HEAD, main desatualizado, credenciais, bots) |
+| `data` / `home` / `port` / `log` | imprime o diretório de dados, o HOME, a porta CDP ou o caminho do log |
+| `state` | estado do bot aberto |
+| `send [--no-wait] <texto>` | escreve, envia e espera o turno terminar |
+| `wait <regex> [seg]` | espera o padrão na árvore de acessibilidade (padrão 180 s) |
+| `capture <nome>` | grava `<nome>.png` e `<nome>.aria.txt` no run dir |
+| `browser <args...>` | repassa ao `agent-browser` ligado a esta instância |
+| `stop` | encerra o que o `launch` iniciou e mantém a evidência |
 
 ## Mapa de features
 
-`features/README.md` é a fonte de verificação por feature: conversa, modelos, busca na web, Gmail, rotinas e memória. Leia o índice antes de dirigir e use o arquivo da feature como receita.
+`features/README.md` é a fonte de verificação por feature. Leia o índice antes de dirigir e use o arquivo da feature como receita.

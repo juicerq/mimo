@@ -1,13 +1,33 @@
 # Fila
 
-A pessoa escreve enquanto o Bot trabalha. A entrega espera acima do composer como `queue: <texto>` e entra na Sessão quando o Bot termina o passo atual. Várias entregas esperam em ordem. Interromper o Turno descarta a Fila.
+O usuário escreve enquanto o bot trabalha. A mensagem espera no fim da conversa como `Na fila: <texto>` e entra quando o bot termina o passo atual. Várias mensagens esperam em ordem. Parar o turno descarta a Fila.
 
-## Verificação
+## Sub-features
 
-1. Suba um sandbox, crie um bot e peça um texto longo. Enquanto a linha viva aparece, envie duas mensagens com `tmux send-keys` (o `send` do helper recusa bot ocupado). Confira duas linhas `queue:` acima do composer, na ordem enviada.
-2. Espere o turno seguir. As duas linhas `queue:` somem juntas, viram `you:` na conversa na mesma ordem, e o bot responde às duas **numa resposta só**. Duas respostas seguidas significam um turno por mensagem, que é o defeito.
-3. Peça outro texto longo, enfileire uma mensagem e pare com dois `Esc`. A conversa mostra `Interrupted.` e a linha `queue:` some sem virar `you:`.
-4. Peça uma ação que exige aprovação, por exemplo `bash`. Com `▌ ⏸ approval:` na tela, envie uma mensagem. A linha `queue:` aparece, a aprovação continua visível e **nenhuma** linha viva `working` surge.
-5. Aprove com `1`. A mensagem da fila vira `you:` e o bot a responde no mesmo turno.
+- `queue-add` uma mensagem enviada durante o turno vira `Na fila: <texto>`.
+- `queue-order` várias mensagens esperam na ordem enviada.
+- `queue-deliver` a Fila entra na conversa junta, e o bot responde numa resposta só.
+- `queue-drop` parar o turno apaga a Fila sem entregar.
+- `queue-approval` com uma confirmação de envio na tela, a mensagem espera e a confirmação continua respondível.
 
-Capture o pane em cada passo.
+## How to get to it (user POV)
+
+- Com o bot trabalhando, o campo mostra `Mensagem para <nome>, entra na fila`. Escreva e aperte Enter.
+
+## Driving it with control-mimo
+
+Preconditions:
+
+- Um bot aberto e `$CONTROL state` em `parado`.
+
+- **Turno longo.** `$CONTROL send --no-wait 'escreva um texto de 800 palavras sobre rios'` e `$CONTROL wait ', trabalhando"' 20`.
+- **Enfileirar.** `$CONTROL send --no-wait 'MIMO-FILA-1'` e `$CONTROL send --no-wait 'MIMO-FILA-2'`. No `snapshot`, `Na fila: ` aparece duas vezes, seguido de `MIMO-FILA-1` e depois `MIMO-FILA-2`.
+- **Descartar.** `$CONTROL browser click '[aria-label="Parar o Turno e descartar a Fila"]'` e `$CONTROL wait 'Interrompido' 20`. `$CONTROL browser snapshot | grep -c 'Na fila'` dá `0`, e `grep MIMO-FILA "$($CONTROL data)"/bots/*/messages.json` não acha nada.
+- **Entregar.** Repita o turno longo e as duas mensagens, e deixe o turno seguir: `$CONTROL wait ', parado"' 300`. As linhas `Na fila` somem, as duas mensagens viram bolhas do usuário na mesma ordem, e o bot responde às duas **numa resposta só**. Duas respostas seguidas significam um turno por mensagem, que é o defeito.
+- **Prova.** `$CONTROL capture 04-fila` com a Fila na tela, e outro `capture` depois de parar ou de entregar.
+
+## Gotchas
+
+- Use sempre `send --no-wait` aqui; o `send` comum ficaria esperando o turno longo terminar.
+- Enfileire logo: um modelo rápido termina o texto em poucos segundos.
+- O texto da Fila sai na árvore em dois nós: `Na fila: ` e o texto. Não procure a frase inteira numa linha.
