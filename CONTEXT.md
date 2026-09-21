@@ -75,7 +75,7 @@ _Evitar_: sidebar, lista de bots, rail
 _Dono_: `apps/desktop/src/renderer/bar.tsx`, a lista e a ordem em `apps/desktop/src/renderer/bots.ts` e o rosto em `apps/desktop/src/renderer/avatar.tsx`; o estado de cada Bot, `apps/agent/src/bot/registry.ts` (`activity`); a última mensagem, `apps/agent/src/bot/events.ts` (`lastMessage`)
 
 **Regras**:
-O `~/.agents/AGENTS.md`, que entra no prompt de todo Turno de um Bot. É o único arquivo tratado como instrução da pessoa, e não como dado. Lido a cada Turno, então editar vale no Turno seguinte, sem reiniciar.
+O `~/.mimo/MIMO.md`, que entra no prompt de todo Turno de um Bot. É só do mimo: as regras que a pessoa escreve para agentes de código não chegam aos Bots. É o único arquivo tratado como instrução da pessoa, e não como dado. Lido a cada Turno, então editar vale no Turno seguinte, sem reiniciar.
 _Evitar_: Configuração, perfil, memória
 _Dono_: `apps/agent/src/rules/rules.ts` (`botRules`); no prompt, `apps/agent/src/bot/chat.ts` (`systemPrompt`)
 

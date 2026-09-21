@@ -22,7 +22,7 @@ O bot trabalha sem perguntar: `bash`, `write` e `edit` rodam direto, e cada aç�
 
 O contexto é compactado automaticamente em 80% da janela do modelo: as mensagens antigas viram um resumo, que aparece na conversa como um bloco fechado, e a conversa anterior é arquivada. `search_history` busca em todas as conversas arquivadas do próprio bot e `read_history` lê as mensagens originais em volta dos trechos encontrados.
 
-Um bot lê um `AGENTS.md`: o geral, em `~/.agents/AGENTS.md`, que vale para todo bot. É lido a cada turno, então editar vale já no turno seguinte, sem reiniciar. É o único arquivo que o bot trata como instrução sua; o resto continua sendo dado. Só `AGENTS.md`, sem `CLAUDE.md` nem `README.md` — um symlink resolve, e o mimo segue symlink. Não há teto no tamanho: quem regula é a compactação, que desconta o prompt de sistema antes de decidir quanto da conversa guardar, e avisa na conversa quando as instruções permanentes passam de metade da janela.
+Um bot lê um `MIMO.md`: o geral, em `~/.mimo/MIMO.md`, que vale para todo bot. É lido a cada turno, então editar vale já no turno seguinte, sem reiniciar. É o único arquivo que o bot trata como instrução sua; o resto continua sendo dado. Só `MIMO.md`, sem `AGENTS.md`, `CLAUDE.md` nem `README.md` — as regras dos seus agentes de código não chegam aos bots. Um symlink resolve, e o mimo segue symlink. Não há teto no tamanho: quem regula é a compactação, que desconta o prompt de sistema antes de decidir quanto da conversa guardar, e avisa na conversa quando as instruções permanentes passam de metade da janela.
 
 ## Instalação
 
