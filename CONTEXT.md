@@ -59,8 +59,13 @@ Um trabalho de um Bot, executado numa frequência escolhida enquanto o app está
 _Evitar_: Agendamento, cron job, automação
 _Dono_: `apps/agent/src/routines/routines.ts`; o disparo, `apps/agent/src/routines/dispatcher.ts`; a marca `[rotina: <nome>]`, `apps/agent/src/bot/events.ts`
 
+**Fala**:
+O que o Bot manda para a pessoa com `send_message`, e o único jeito de ele falar com ela. Cada Fala vira um balão na conversa; o texto que o modelo escreve fora dessa tool é rascunho e não aparece em lugar nenhum, nem ao vivo, nem no Registro reaberto, nem na Barra de bots. O Bot fala durante o Turno para contar o que vai fazer e o que achou, e a Fala com `done: true` encerra o Turno. A última Fala do Turno é o que outro Bot recebe de volta numa Conversa entre bots.
+_Evitar_: Resposta livre, texto do modelo, streaming
+_Dono_: `apps/agent/src/speech/tools.ts`; na tela e no Registro, `apps/agent/src/bot/events.ts` (`callEvent`, `lastMessage`); como falar, `apps/agent/src/instructions.md`
+
 **Detalhe**:
-Tudo que aparece na conversa e não é a entrega da pessoa nem a resposta do Bot: a tool e o disparo de uma Rotina. A pessoa escolhe quanto ver em Configurações: Breve mostra uma linha por item e Completo acrescenta a chamada da tool e o conteúdo. O card do Gmail e o card do Navegador aparecem nos dois níveis, porque pedem uma resposta dela.
+Tudo que aparece na conversa e não é a entrega da pessoa nem a Fala do Bot: a tool e o disparo de uma Rotina. A pessoa escolhe quanto ver em Configurações: Breve mostra uma linha por item e Completo acrescenta a chamada da tool e o conteúdo. O card do Gmail e o card do Navegador aparecem nos dois níveis, porque pedem uma resposta dela.
 _Evitar_: Tool view, log, verbosidade
 _Dono_: `apps/desktop/src/renderer/transcript.tsx` (`DETAIL_LEVELS`, `verbose`)
 

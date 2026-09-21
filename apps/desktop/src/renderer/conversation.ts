@@ -28,7 +28,6 @@ export type Turn = "idle" | "thinking" | "working" | "waiting";
 export interface Conversation {
 	ready: boolean;
 	lines: Line[];
-	streaming: string;
 	turn: Turn;
 	queue: readonly string[];
 }
@@ -79,7 +78,6 @@ const EDITS: Edits = {
 	summary: adds((event) => ({ kind: "summary", text: event.text })),
 	warning: adds((event) => ({ kind: "warning", text: event.text })),
 	routine: adds((event) => ({ kind: "routine", name: event.name, prompt: event.prompt })),
-	"reply-delta": unchanged,
 	reply: adds((event) => (event.text ? { kind: "reply", text: event.text } : null)),
 	tool: adds((event) => ({ kind: "tool", id: event.id, name: event.toolName, input: event.input })),
 	asked: adds((event) => ({ kind: "asked", peer: event.peer, prompt: event.prompt })),
@@ -105,21 +103,11 @@ const TURN_AFTER: Partial<Record<ScreenEvent["type"], Turn>> = {
 	"turn-cancelled": "idle",
 };
 
-const EMPTY: Conversation = { ready: false, lines: [], streaming: "", turn: "idle", queue: [] };
+const EMPTY: Conversation = { ready: false, lines: [], turn: "idle", queue: [] };
 
 function edit<Type extends keyof EventMap>(lines: Line[], type: Type, event: EventMap[Type]): boolean {
 	const apply: Edit<EventMap[Type]> = EDITS[type];
 	return apply(lines, event);
-}
-
-function streamingAfter(streaming: string, event: ScreenEvent): string {
-	if (event.type === "reply-delta") {
-		return streaming + event.delta;
-	}
-	if (event.type === "reply") {
-		return "";
-	}
-	return streaming;
 }
 
 function turnAfter(turn: Turn, event: ScreenEvent): Turn {
@@ -135,7 +123,6 @@ function applyEvents(conversation: Conversation, events: ScreenEvent[]): Convers
 	const next = { ...conversation, ready: true };
 	for (const event of events) {
 		changed = edit(lines, event.type, event) || changed;
-		next.streaming = streamingAfter(next.streaming, event);
 		next.turn = turnAfter(next.turn, event);
 		if (event.type === "queue") {
 			next.queue = event.items;

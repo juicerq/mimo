@@ -7,6 +7,7 @@ import { historyTools } from "../history/tools";
 import { memoryTools } from "../memory/tools";
 import { peerTools } from "../peers/tools";
 import { routineTools } from "../routines/tools";
+import { speechTool } from "../speech/tools";
 import { webTools } from "../web/tools";
 import type { ToolContext } from "./context";
 import { tool } from "./tool";
@@ -31,6 +32,7 @@ export function botInstructions(): string {
 
 export function botTools(context: ToolContext): AgentTool[] {
 	return [
+		speechTool,
 		currentTime,
 		...memoryTools(context),
 		...historyTools(context),

@@ -1,8 +1,9 @@
 import { calculateContextTokens, type AgentMessage } from "@earendil-works/pi-agent-core";
-import type { Usage } from "@earendil-works/pi-ai";
+import type { Message, Usage } from "@earendil-works/pi-ai";
 import { markImages, splitImages } from "../images/images";
 import { contentText, isLlmMessage } from "../messages";
 import { answeredEvent, askedEvent, isAsk } from "../peers/tools";
+import { isSpeech, spokenText } from "../speech/tools";
 import { toolWarning } from "../tools/tool";
 import type { BotEvent } from "./types";
 
@@ -108,20 +109,34 @@ export function summaryStart(messages: AgentMessage[]): number {
 	return 0;
 }
 
+function saidText(message: Exclude<Message, { role: "toolResult" }>): string | null {
+	if (message.role === "assistant") {
+		return message.content.flatMap((part) => (part.type === "toolCall" ? [spokenText(part.name, part.arguments)] : [])).findLast((text) => text !== null) ?? null;
+	}
+	const entry = entryOf(contentText(message.content));
+	if (entry.kind !== "user") {
+		return null;
+	}
+	return entry.text;
+}
+
 function spoken(message: AgentMessage): LastMessage | null {
 	if (!isLlmMessage(message) || message.role === "toolResult") {
 		return null;
 	}
-	const spokenText = contentText(message.content);
-	const entry = message.role === "user" ? entryOf(spokenText) : null;
-	if (entry && entry.kind !== "user") {
-		return null;
-	}
-	const preview = (entry?.text ?? spokenText).trim().slice(0, PREVIEW_CHARACTERS);
+	const preview = saidText(message)?.trim().slice(0, PREVIEW_CHARACTERS);
 	if (!preview) {
 		return null;
 	}
 	return { from: message.role === "user" ? "you" : "bot", text: preview, at: message.timestamp };
+}
+
+export function callEvent(toolName: string, id: string, input: unknown): BotEvent {
+	const said = spokenText(toolName, input);
+	if (said !== null) {
+		return { type: "reply", text: said };
+	}
+	return askedEvent(toolName, id, input) ?? { type: "tool", id, toolName, input };
 }
 
 export function lastMessage(messages: AgentMessage[]): LastMessage | null {
@@ -134,7 +149,13 @@ export function lastMessage(messages: AgentMessage[]): LastMessage | null {
 	return null;
 }
 
-export function resultEvent(tool: ToolCall, output: string): BotEvent[] {
+export function resultEvent(tool: ToolCall, output: string, failed: boolean): BotEvent[] {
+	if (isSpeech(tool.toolName)) {
+		return [];
+	}
+	if (failed) {
+		return [{ type: "tool-failed", ...tool, message: output }];
+	}
 	if (isAsk(tool.toolName)) {
 		const answered = answeredEvent(output);
 		if (!answered) {
@@ -150,7 +171,7 @@ export function resultEvent(tool: ToolCall, output: string): BotEvent[] {
 	];
 }
 
-export function toolErrorText(result: unknown): string {
+function toolErrorText(result: unknown): string {
 	if (result && typeof result === "object" && "content" in result && Array.isArray(result.content)) {
 		return result.content.filter((part) => part.type === "text").map((part) => part.text).join("");
 	}
@@ -186,16 +207,10 @@ export function replayMessage(message: AgentMessage): BotEvent[] {
 	}
 	if (message.role === "toolResult") {
 		const tool = { id: message.toolCallId, toolName: message.toolName };
-		if (message.isError) {
-			return [{ type: "tool-failed", ...tool, message: toolErrorText(message) }];
-		}
-		return resultEvent(tool, contentText(message.content));
+		return resultEvent(tool, contentText(message.content), message.isError);
 	}
-	const text = contentText(message.content);
 	return [
-		...(text ? [{ type: "reply" as const, text }] : []),
-		...message.content.filter((part) => part.type === "toolCall")
-			.map((part) => askedEvent(part.name, part.id, part.arguments) ?? { type: "tool" as const, id: part.id, toolName: part.name, input: part.arguments }),
+		...message.content.filter((part) => part.type === "toolCall").map((part) => callEvent(part.name, part.id, part.arguments)),
 		...usageEvent(message.usage),
 	];
 }

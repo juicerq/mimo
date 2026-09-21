@@ -11,10 +11,7 @@ const FACE = 28;
 const REVEAL =
 	"pointer-events-none absolute top-1/2 left-full flex -translate-y-1/2 items-center gap-2.5 pl-2.5 whitespace-nowrap opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100";
 
-export function turnLabel(conversation: Pick<Conversation, "turn" | "streaming">): string | null {
-	if (conversation.turn !== "idle" && conversation.streaming) {
-		return "Respondendo";
-	}
+export function turnLabel(conversation: Pick<Conversation, "turn">): string | null {
 	return TURN_LABELS[conversation.turn];
 }
 

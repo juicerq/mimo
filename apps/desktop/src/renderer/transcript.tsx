@@ -10,7 +10,7 @@ import { Avatar } from "./avatar";
 import { useBrowsing } from "./browsing";
 import type { Conversation, Line, ToolResult } from "./conversation";
 import { useLogins, type Login } from "./logins";
-import { Prose, StreamingProse } from "./prose";
+import { Prose } from "./prose";
 import { orpc } from "./rpc";
 import { turnLabel, Working } from "./status";
 
@@ -737,11 +737,6 @@ export function Transcript({ conversation, level, name, botId, stoppable, onPeer
 			{conversation.ready && !empty && (
 				<div className="shrink-0 grow px-6 pt-2 pb-11">
 					<Lines lines={conversation.lines} level={level} name={name} botId={botId} onPeer={onPeer} scroller={scroller} />
-					{conversation.streaming && (
-						<Bubble from="bot" className="markdown">
-							<StreamingProse text={conversation.streaming} />
-						</Bubble>
-					)}
 					{conversation.queue.map((item, index) => (
 						<EventLine
 							key={index}

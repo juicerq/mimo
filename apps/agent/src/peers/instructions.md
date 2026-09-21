@@ -11,3 +11,5 @@ Por padrão a resposta chega depois, sozinha, e você continua a conversa enquan
 Quando a resposta chegar, conte à pessoa o que o outro bot trouxe, com as palavras dele.
 
 Um bot que está esperando resposta sua não pode ser perguntado de volta. Responda o que você sabe em vez de devolver a pergunta.
+
+Quando outro bot pergunta a você, sua última mensagem com `send_message` é a resposta que ele recebe. Mande a resposta inteira nela, com `done: true`, e não só um aviso de que vai olhar.

@@ -4,21 +4,19 @@ import { browserFor, closeBrowser } from "../browser/registry";
 import { saveImage, withImages, type Pasted } from "../images/images";
 import type { LoginSession, LoginTarget } from "../login/login";
 import { requestLogin } from "../login/registry";
-import { contentText } from "../messages";
 import { resolveModel } from "../model/catalog";
 import { modelFailure } from "../model/failure";
 import { models } from "../model/models";
 import { recallMemory } from "../memory/memory";
 import { botRules } from "../rules/rules";
 import { approvalInput } from "../gmail/tools";
-import { askedEvent } from "../peers/tools";
 import { botInstructions, botTools } from "../tools";
 import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
 import { sealTranscript } from "./seal";
 import { Queue } from "./queue";
 import { withoutBorrowedReasoning } from "./reasoning";
-import { entryEvent, entryMessage, lastMessage, replayMessage, resultEvent, summaryStart, toolErrorText, toolResultText, usageEvent, type Entry, type LastMessage } from "./events";
+import { callEvent, entryEvent, entryMessage, lastMessage, replayMessage, resultEvent, summaryStart, toolResultText, usageEvent, type Entry, type LastMessage } from "./events";
 import { chatId, openOnce } from "./registry";
 import { listBots, readBot, readTranscript, writeTranscript } from "./store";
 import type { Approval, Ask, AskResult, BotEvent, BotInfo, ChatKey } from "./types";
@@ -216,6 +214,9 @@ export class Chat {
 	private async answer(from: string, prompt: string, signal?: AbortSignal): Promise<string> {
 		const ran = this.push({ kind: "ask", peer: from, text: prompt });
 		raise(await (signal ? Promise.race([ran, aborted(signal)]) : ran));
+		if (!this.reply) {
+			throw new Error(`${this.record.name} terminou sem responder.`);
+		}
 		return this.reply;
 	}
 
@@ -266,6 +267,7 @@ export class Chat {
 		try {
 			this.cancelled = false;
 			this.failure = null;
+			this.reply = "";
 			for (const entry of batch) {
 				this.announce(entry);
 			}
@@ -302,7 +304,7 @@ export class Chat {
 	}
 
 	private basePrompt(): string {
-		const parts = [botInstructions()];
+		const parts = [botInstructions(), `Seu nome é ${this.record.name}.`];
 		if (this.record.prompt) {
 			parts.push(this.record.prompt);
 		}
@@ -331,10 +333,6 @@ export class Chat {
 	}
 
 	private translate(event: AgentEvent): void {
-		if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
-			this.emit({ type: "reply-delta", delta: event.assistantMessageEvent.delta });
-			return;
-		}
 		if (event.type === "message_end") {
 			this.finishMessage(event.message);
 			this.keepLog();
@@ -342,7 +340,14 @@ export class Chat {
 		}
 		if (event.type === "tool_execution_start") {
 			this.running.set(event.toolCallId, event.toolName);
-			this.emit(askedEvent(event.toolName, event.toolCallId, event.args) ?? { type: "tool", id: event.toolCallId, toolName: event.toolName, input: event.args });
+			if (this.cancelled) {
+				return;
+			}
+			const call = callEvent(event.toolName, event.toolCallId, event.args);
+			if (call.type === "reply") {
+				this.reply = call.text;
+			}
+			this.emit(call);
 			return;
 		}
 		if (event.type === "tool_execution_end") {
@@ -352,11 +357,7 @@ export class Chat {
 				return;
 			}
 			const tool = { id: event.toolCallId, toolName: event.toolName };
-			if (event.isError) {
-				this.emit({ type: "tool-failed", ...tool, message: toolErrorText(event.result) });
-				return;
-			}
-			for (const result of resultEvent(tool, toolResultText(event.result))) {
+			for (const result of resultEvent(tool, toolResultText(event.result), event.isError)) {
 				this.emit(result);
 			}
 			return;
@@ -378,8 +379,6 @@ export class Chat {
 		if (message.role !== "assistant") {
 			return;
 		}
-		this.reply = contentText(message.content);
-		this.emit({ type: "reply", text: this.reply });
 		for (const event of usageEvent(message.usage)) {
 			this.emit(event);
 		}
