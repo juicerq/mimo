@@ -103,7 +103,7 @@ export function Bar({ bots, error, selected, onSelect, focusComposer, level, onL
 					<PlusIcon />
 				</IconButton>
 			</header>
-			<div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-3">
+			<div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-3">
 				{(adding || empty) && (
 					<Item
 						className="gap-3 p-2 surface-sidebar-active"
