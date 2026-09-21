@@ -24,13 +24,14 @@ export interface BrowserView {
 	scroll(direction: Direction): Promise<void>;
 	read(): Promise<Page>;
 	shot(): Promise<Shot>;
-	present(open: boolean): void;
+	present(open: boolean, asking: boolean): void;
 	close(): void;
 }
 
 export type BrowserEvent =
 	| { type: "page"; url: string; title: string; photo: string | null }
 	| { type: "showing"; open: boolean }
+	| { type: "asking"; reason: string | null }
 	| { type: "closed" };
 
 const SAME_PAGE = "A página continua igual ao último look.";
@@ -43,6 +44,7 @@ export class BrowserSession {
 	private waiting: ((helped: boolean) => void) | null = null;
 	private last = "";
 	private shown = false;
+	private asking: string | null = null;
 
 	constructor(
 		private readonly make: () => BrowserView,
@@ -93,10 +95,13 @@ export class BrowserSession {
 		return await this.look();
 	}
 
-	async handoff(signal?: AbortSignal): Promise<{ helped: boolean } & Partial<Page>> {
+	async handoff(reason: string, signal?: AbortSignal): Promise<{ helped: boolean } & Partial<Page>> {
 		this.started();
+		this.ask(reason);
+		this.present(true);
 		const helped = await this.wait(signal);
 		this.present(false);
+		this.ask(null);
 		if (!helped) {
 			return { helped: false };
 		}
@@ -108,14 +113,13 @@ export class BrowserSession {
 			return;
 		}
 		this.shown = open;
-		this.opened.present(open);
+		this.opened.present(open, this.asking !== null);
 		this.emit({ type: "showing", open });
 	}
 
 	answer(helped: boolean): void {
 		const waiting = this.waiting;
 		if (!waiting) {
-			this.present(false);
 			return;
 		}
 		this.waiting = null;
@@ -127,9 +131,18 @@ export class BrowserSession {
 		this.opened?.close();
 		this.opened = null;
 		this.shown = false;
+		this.asking = null;
 		this.last = "";
 		this.emit({ type: "closed" });
 		this.forget();
+	}
+
+	private ask(reason: string | null): void {
+		this.asking = reason;
+		if (this.shown) {
+			this.opened?.present(true, reason !== null);
+		}
+		this.emit({ type: "asking", reason });
 	}
 
 	private view(): BrowserView {

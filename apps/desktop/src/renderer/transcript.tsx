@@ -507,7 +507,7 @@ function HandoffDone({ reason, result }: { reason: string; result: ToolResult })
 				<CardActions>
 					<span className="flex items-center gap-1.5 text-xs text-muted-foreground">
 						{helped ? <CheckIcon className="size-3.5 text-success" /> : <XIcon className="size-3.5 text-destructive" />}
-						{helped ? "Você fez" : "Você deixou pra lá"}
+						{helped ? "Você fez" : "Você cancelou"}
 					</span>
 				</CardActions>
 			)}
@@ -528,7 +528,7 @@ function Handoff({ botId, reason, result }: { botId: string; reason: string; res
 		<HandoffCard reason={reason}>
 			<CardActions>
 				<Button variant="ghost" size="sm" disabled={answer.isPending} onClick={() => answer.mutate({ botId, helped: false })}>
-					Agora não
+					Cancelar
 				</Button>
 				<Button size="sm" disabled={present.isPending || browsing?.showing} onClick={() => present.mutate({ botId, open: true })}>
 					Abrir o navegador

@@ -48,8 +48,7 @@ async function run(session: BrowserSession, input: Browse, signal?: AbortSignal)
 		return await session.scroll(need(input.direction, "direction"));
 	}
 	if (input.action === "handoff") {
-		need(input.reason, "reason");
-		return await session.handoff(signal);
+		return await session.handoff(need(input.reason, "reason"), signal);
 	}
 	if (input.action === "close") {
 		session.close();

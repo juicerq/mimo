@@ -6,7 +6,7 @@ import { STATE_LABELS } from "./avatar";
 import type { BotRow } from "./bots";
 import { orpc, rpc } from "./rpc";
 
-function WindowControls() {
+export function WindowControls() {
 	const maximized = useQuery(orpc.window.maximized.experimental_liveOptions());
 
 	return (

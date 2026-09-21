@@ -8,13 +8,14 @@ export interface Browsing {
 	title: string;
 	photo: string | null;
 	showing: boolean;
+	asking: string | null;
 }
 
 type Browsers = Record<string, Browsing>;
 
 const EMPTY: Browsers = {};
 
-const START: Browsing = { url: "", title: "", photo: null, showing: false };
+const START: Browsing = { url: "", title: "", photo: null, showing: false, asking: null };
 
 const Watching = createContext<Browsers>(EMPTY);
 
@@ -24,6 +25,9 @@ function step(browsing: Browsing, event: BrowserEvent): Browsing {
 	}
 	if (event.type === "showing") {
 		return { ...browsing, showing: event.open };
+	}
+	if (event.type === "asking") {
+		return { ...browsing, asking: event.reason };
 	}
 	return START;
 }
@@ -57,4 +61,8 @@ export function Browsers({ children }: { children: ReactNode }) {
 
 export function useBrowsing(botId: string): Browsing | undefined {
 	return use(Watching)[botId];
+}
+
+export function useShowing(): string | undefined {
+	return Object.entries(use(Watching)).find(([, browsing]) => browsing.showing)?.[0];
 }

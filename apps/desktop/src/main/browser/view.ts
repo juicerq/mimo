@@ -1,12 +1,11 @@
 import type { BrowserKey, BrowserView, Direction, Page, Shot } from "@agent/browser/browser";
-import { WebContentsView, shell, type BrowserWindow, type NativeImage, type WebContents } from "electron";
+import { WebContentsView, shell, type BrowserWindow, type BrowserWindowConstructorOptions, type NativeImage, type WebContents } from "electron";
 import { z } from "zod";
 import { readSnapshot } from "./snapshot";
 
 const WIDTH = 1280;
 const HEIGHT = 800;
 const PARKED = { x: 1 - WIDTH, y: 1 - HEIGHT, width: WIDTH, height: HEIGHT };
-const POPUP = { width: 520, height: 640 };
 const TOP_BAR = 56;
 const FOOT_BAR = 52;
 const PHOTO_WIDTH = 480;
@@ -16,8 +15,10 @@ const SELECT_ALL = process.platform === "darwin" ? "meta" : "control";
 const AFTER_LOAD = 800;
 const AFTER_ACT = 400;
 const SHOT_WAIT = 1500;
+const WEB = /^https?:\/\//u;
 
-const SAFE = {
+const PAGE = {
+	partition: "persist:browser",
 	sandbox: true,
 	contextIsolation: true,
 	nodeIntegration: false,
@@ -44,15 +45,17 @@ function nodeId(ref: string): number {
 
 export class PageView implements BrowserView {
 	private readonly view: WebContentsView;
-	private readonly popups: BrowserWindow[] = [];
 	private readonly wired = new WeakSet<WebContents>();
+	private popup: WebContentsView | null = null;
 	private shown = false;
+	private asking = false;
 
 	constructor(private readonly window: BrowserWindow) {
-		this.view = new WebContentsView({ webPreferences: { partition: "persist:browser", ...SAFE } });
+		this.view = new WebContentsView({ webPreferences: PAGE });
 		this.view.setBounds(PARKED);
 		this.window.contentView.addChildView(this.view);
 		this.guard(this.view.webContents);
+		this.window.on("resize", this.place);
 	}
 
 	async open(url: string): Promise<void> {
@@ -110,76 +113,88 @@ export class PageView implements BrowserView {
 		return { ...head, photo: `data:image/jpeg;base64,${jpeg.toString("base64")}` };
 	}
 
-	present(open: boolean): void {
+	present(open: boolean, asking: boolean): void {
 		this.shown = open;
-		this.view.setBounds(open ? this.stage() : PARKED);
-
-		for (const popup of this.popups) {
-			if (open) {
-				popup.show();
-			} else {
-				popup.hide();
-			}
-		}
-
+		this.asking = asking;
+		this.place();
 		if (open) {
 			this.contents.focus();
 		}
 	}
 
 	close(): void {
-		for (const popup of this.popups.splice(0)) {
-			popup.destroy();
-		}
+		this.window.off("resize", this.place);
+		this.drop();
 		this.window.contentView.removeChildView(this.view);
 		this.view.webContents.close();
 	}
 
 	private async snap(): Promise<NativeImage | null> {
-		const top = this.popups.at(-1);
-		const source = top?.isVisible() ? top.webContents : this.view.webContents;
-		const shot = source.capturePage(undefined, { stayHidden: true });
+		const shot = this.contents.capturePage(undefined, { stayHidden: true });
 		return await Promise.race([shot, wait(SHOT_WAIT).then(() => null)]).catch(() => null);
 	}
 
 	private get contents(): WebContents {
-		return this.popups.at(-1)?.webContents ?? this.view.webContents;
+		return this.popup?.webContents ?? this.view.webContents;
 	}
+
+	private readonly place = (): void => {
+		const bounds = this.shown ? this.stage() : PARKED;
+		this.view.setBounds(bounds);
+		this.popup?.setBounds(bounds);
+	};
 
 	private stage(): { x: number; y: number; width: number; height: number } {
 		const { width, height } = this.window.getContentBounds();
-		return { x: 0, y: TOP_BAR, width, height: Math.max(0, height - TOP_BAR - FOOT_BAR) };
+		const foot = this.asking ? FOOT_BAR : 0;
+		return { x: 0, y: TOP_BAR, width, height: Math.max(0, height - TOP_BAR - foot) };
 	}
 
 	private guard(contents: WebContents): void {
-		contents.setWindowOpenHandler(() => ({
-			action: "allow",
-			outlivesOpener: false,
-			overrideBrowserWindowOptions: { ...POPUP, show: false, parent: this.window, webPreferences: SAFE },
-		}));
-		contents.on("did-create-window", (popup) => this.adopt(popup));
+		contents.setWindowOpenHandler(({ url }) => {
+			if (!WEB.test(url) || this.popup) {
+				return { action: "deny" };
+			}
+			return {
+				action: "allow",
+				overrideBrowserWindowOptions: { webPreferences: PAGE },
+				createWindow: (options: BrowserWindowConstructorOptions) => this.adopt(options),
+			};
+		});
 		contents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
 		contents.on("will-navigate", (event, url) => {
-			if (!/^https?:\/\//u.test(url)) {
+			if (!WEB.test(url)) {
 				event.preventDefault();
 				void shell.openExternal(url);
 			}
 		});
 	}
 
-	private adopt(popup: BrowserWindow): void {
-		this.popups.push(popup);
+	private adopt(options: BrowserWindowConstructorOptions): WebContents {
+		const popup = new WebContentsView({ ...options, webPreferences: PAGE });
+		this.popup = popup;
+		popup.setBounds(this.view.getBounds());
+		this.window.contentView.addChildView(popup);
 		this.guard(popup.webContents);
-		popup.on("closed", () => this.forget(popup));
-		if (this.shown) {
-			popup.show();
-		}
+		popup.webContents.once("destroyed", () => {
+			if (this.popup === popup) {
+				this.popup = null;
+			}
+			if (!this.window.isDestroyed()) {
+				this.window.contentView.removeChildView(popup);
+			}
+		});
+		return popup.webContents;
 	}
 
-	private forget(popup: BrowserWindow): void {
-		const at = this.popups.indexOf(popup);
-		if (at >= 0) {
-			this.popups.splice(at, 1);
+	private drop(): void {
+		const popup = this.popup;
+		if (!popup) {
+			return;
+		}
+		this.popup = null;
+		if (!popup.webContents.isDestroyed()) {
+			popup.webContents.close();
 		}
 	}
 

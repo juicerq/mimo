@@ -121,7 +121,7 @@ export function App() {
 					{bot && !thread && <Info botId={bot.id} name={bot.name} open={infoOpen} overlay={overlay} onClose={closeInfo} />}
 				</div>
 			</div>
-			{bot && <Viewer botId={bot.id} />}
+			<Viewer bots={bots} />
 		</div>
 		</Browsers>
 	);
