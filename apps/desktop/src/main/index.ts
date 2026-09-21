@@ -9,6 +9,7 @@ import { claimPictures, servePictures } from "./pictures";
 import { router } from "./router";
 
 loadEnv();
+app.setDesktopName("mimo.desktop");
 
 if (process.env.XDG_SESSION_TYPE === "wayland") {
 	app.commandLine.appendSwitch("disable-gpu-compositing");
