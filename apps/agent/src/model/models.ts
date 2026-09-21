@@ -1,4 +1,4 @@
-import { createModels, type Credential, type CredentialStore, type Models } from "@earendil-works/pi-ai";
+import { createModels, type Api, type Credential, type CredentialStore, type Model, type Models } from "@earendil-works/pi-ai";
 import { openaiCodexProvider } from "@earendil-works/pi-ai/providers/openai-codex";
 import { opencodeProvider } from "@earendil-works/pi-ai/providers/opencode";
 import { opencodeGoProvider } from "@earendil-works/pi-ai/providers/opencode-go";
@@ -11,6 +11,7 @@ import { withFreeTier } from "./zen";
 import { ProviderSchema, type Provider } from "./types";
 
 const CODEX_TOKEN_LIFETIME_MS = 3_600_000;
+const SESSION_HEADERS: Partial<Record<string, string>> = { "opencode-go": "x-opencode-session" };
 
 const CodexAuthSchema = z.looseObject({
 	tokens: z.looseObject({
@@ -166,4 +167,12 @@ export function models(): Models {
 	created.setProvider(openaiCodexProvider());
 	registry = created;
 	return created;
+}
+
+export function sessionOptions(model: Pick<Model<Api>, "provider">, sessionId: string) {
+	const header = SESSION_HEADERS[model.provider];
+	if (!header) {
+		return { sessionId };
+	}
+	return { sessionId, headers: { [header]: sessionId } };
 }

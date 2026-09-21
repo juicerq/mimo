@@ -1,7 +1,7 @@
 import { estimateContextTokens, estimateTokens, type AgentMessage } from "@earendil-works/pi-agent-core";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { isLlmMessage } from "../messages";
-import { models } from "../model/models";
+import { models, sessionOptions } from "../model/models";
 import { entryMessage } from "./events";
 import { withoutBorrowedReasoning } from "./reasoning";
 
@@ -65,7 +65,7 @@ export async function compactTranscript(input: { messages: AgentMessage[]; model
 	const summary = await models().completeSimple(input.model, {
 		systemPrompt: SUMMARY_PROMPT,
 		messages: withoutBorrowedReasoning(earlier).filter(isLlmMessage),
-	}, { sessionId: input.sessionId });
+	}, sessionOptions(input.model, input.sessionId));
 	if (summary.stopReason !== "stop") {
 		throw new Error("O resumo da conversa não terminou.");
 	}

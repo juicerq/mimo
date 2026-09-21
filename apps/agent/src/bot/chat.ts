@@ -7,7 +7,7 @@ import type { LoginSession, LoginTarget } from "../login/login";
 import { requestLogin } from "../login/registry";
 import { resolveModel } from "../model/catalog";
 import { modelFailure } from "../model/failure";
-import { models } from "../model/models";
+import { models, sessionOptions } from "../model/models";
 import { recallMemory } from "../memory/memory";
 import { botRules } from "../rules/rules";
 import { approvalInput } from "../gmail/tools";
@@ -61,7 +61,7 @@ export class Chat {
 		this.record = record;
 		this.archive = log.slice(0, start);
 		this.agent = new Agent({
-			streamFn: (model, context, options) => models().streamSimple(model, context, { ...options, sessionId: chatId(chat) }),
+			streamFn: (model, context, options) => models().streamSimple(model, context, { ...options, ...sessionOptions(model, chatId(chat)) }),
 			transformContext: async (context) => await withImages(chat.botId, withoutBorrowedReasoning(context)),
 			initialState: {
 				systemPrompt: this.basePrompt(),
