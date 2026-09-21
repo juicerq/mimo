@@ -709,12 +709,11 @@ interface TranscriptProps {
 	level: Detail;
 	name: string;
 	botId: string;
-	stoppable: boolean;
 	onPeer: (peer: string) => void;
 	children: ReactNode;
 }
 
-export function Transcript({ conversation, level, name, botId, stoppable, onPeer, children }: TranscriptProps) {
+export function Transcript({ conversation, level, name, botId, onPeer, children }: TranscriptProps) {
 	const empty = conversation.lines.length === 0 && conversation.turn === "idle" && conversation.queue.length === 0;
 	const label = turnLabel(conversation);
 	const scroller = useRef<HTMLDivElement>(null);
@@ -748,7 +747,7 @@ export function Transcript({ conversation, level, name, botId, stoppable, onPeer
 							}
 						/>
 					))}
-					{label && <Working botId={stoppable ? botId : null} name={name} label={label} />}
+					{label && <Working name={name} label={label} />}
 				</div>
 			)}
 			<div className={DOCK}>{children}</div>

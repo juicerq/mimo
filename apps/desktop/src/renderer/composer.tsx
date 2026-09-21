@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { ArrowUpIcon, XIcon } from "lucide-react";
+import { ArrowUpIcon, SquareIcon, XIcon } from "lucide-react";
 import { type ClipboardEvent, type FormEvent, type KeyboardEvent, memo, type RefObject, useEffect, useState } from "react";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@renderer/components/ui/input-group";
 import { orpc } from "./rpc";
@@ -43,6 +43,8 @@ export const Composer = memo(function Composer({ botId, name, working, input, fa
 			fail(error.message);
 		},
 	}));
+	const cancel = useMutation(orpc.conversation.cancel.mutationOptions());
+	const empty = !draft.trim() && pictures.length === 0;
 
 	useEffect(() => {
 		drafts.set(botId, draft);
@@ -62,13 +64,12 @@ export const Composer = memo(function Composer({ botId, name, working, input, fa
 
 	function submit(event: FormEvent): void {
 		event.preventDefault();
-		const text = draft.trim();
-		if (!text && pictures.length === 0) {
+		if (empty) {
 			return;
 		}
 		setDraft("");
 		setPictures([]);
-		send.mutate({ botId, text, images: pictures.map(({ mimeType, data }) => ({ mimeType, data })) });
+		send.mutate({ botId, text: draft.trim(), images: pictures.map(({ mimeType, data }) => ({ mimeType, data })) });
 	}
 
 	function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
@@ -125,16 +126,29 @@ export const Composer = memo(function Composer({ botId, name, working, input, fa
 					onPaste={onPaste}
 				/>
 				<InputGroupAddon align="inline-end" className="pr-1.5 has-[>button]:mr-0">
-					<InputGroupButton
-						type="submit"
-						variant="default"
-						size="icon-sm"
-						className="rounded-full aria-disabled:pointer-events-none aria-disabled:opacity-50"
-						aria-label="Enviar"
-						aria-disabled={!draft.trim() && pictures.length === 0}
-					>
-						<ArrowUpIcon />
-					</InputGroupButton>
+					{working && empty ? (
+						<InputGroupButton
+							type="button"
+							variant="default"
+							size="icon-sm"
+							className="rounded-full"
+							aria-label="Parar o Turno e descartar a Fila"
+							onClick={() => cancel.mutate({ botId })}
+						>
+							<SquareIcon className="size-3 fill-current" />
+						</InputGroupButton>
+					) : (
+						<InputGroupButton
+							type="submit"
+							variant="default"
+							size="icon-sm"
+							className="rounded-full aria-disabled:pointer-events-none aria-disabled:opacity-50"
+							aria-label="Enviar"
+							aria-disabled={empty}
+						>
+							<ArrowUpIcon />
+						</InputGroupButton>
+					)}
 				</InputGroupAddon>
 			</InputGroup>
 		</form>

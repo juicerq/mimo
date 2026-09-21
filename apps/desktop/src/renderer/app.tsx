@@ -46,7 +46,7 @@ function Conversation({ bot, level, input, onPeer }: ConversationProps) {
 	const fail = useCallback((message: string) => apply([{ type: "turn-failed", message }]), [apply]);
 
 	return (
-		<Transcript conversation={conversation} level={level} name={bot.name} botId={bot.id} stoppable onPeer={onPeer}>
+		<Transcript conversation={conversation} level={level} name={bot.name} botId={bot.id} onPeer={onPeer}>
 			<Composer botId={bot.id} name={bot.name} working={conversation.turn !== "idle"} input={input} fail={fail} />
 		</Transcript>
 	);
@@ -56,7 +56,7 @@ function PeerConversation({ thread, level, onPeer }: { thread: Thread; level: De
 	const [conversation] = useConversation(thread.botId, thread.askedBy);
 
 	return (
-		<Transcript conversation={conversation} level={level} name={thread.peer} botId={thread.botId} stoppable={false} onPeer={onPeer}>
+		<Transcript conversation={conversation} level={level} name={thread.peer} botId={thread.botId} onPeer={onPeer}>
 			<p className="column pt-2 pb-5 text-center text-xs text-muted-foreground short:pb-2.5">
 				{thread.asker} e {thread.peer} conversam aqui. Você só lê.
 			</p>

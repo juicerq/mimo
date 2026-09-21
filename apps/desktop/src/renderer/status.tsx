@@ -1,10 +1,6 @@
-import { useMutation } from "@tanstack/react-query";
-import { SquareIcon } from "lucide-react";
 import { memo, useCallback } from "react";
-import { IconButton } from "@renderer/components/icon-button";
 import { Avatar } from "./avatar";
 import type { Conversation, Turn } from "./conversation";
-import { orpc } from "./rpc";
 
 const TURN_LABELS: Record<Turn, string | null> = { idle: null, thinking: "Pensando", working: "Trabalhando", waiting: null };
 const FACE = 28;
@@ -37,9 +33,7 @@ function Elapsed() {
 	return <span ref={count} className="text-xs text-muted-foreground tabular-nums" />;
 }
 
-export const Working = memo(function Working({ botId, name, label }: { botId: string | null; name: string; label: string }) {
-	const cancel = useMutation(orpc.conversation.cancel.mutationOptions());
-
+export const Working = memo(function Working({ name, label }: { name: string; label: string }) {
 	return (
 		<div className="group relative mt-5 flex w-fit items-center">
 			<Avatar name={name} state="working" size={FACE} />
@@ -49,11 +43,6 @@ export const Working = memo(function Working({ botId, name, label }: { botId: st
 			<div className={REVEAL}>
 				<span className="text-xs text-foreground">{label}</span>
 				<Elapsed />
-				{botId && (
-					<IconButton label="Parar o Turno e descartar a Fila" side="top" onClick={() => cancel.mutate({ botId })}>
-						<SquareIcon className="fill-current" />
-					</IconButton>
-				)}
 			</div>
 		</div>
 	);
