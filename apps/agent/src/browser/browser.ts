@@ -115,6 +115,7 @@ export class BrowserSession {
 	answer(helped: boolean): void {
 		const waiting = this.waiting;
 		if (!waiting) {
+			this.present(false);
 			return;
 		}
 		this.waiting = null;

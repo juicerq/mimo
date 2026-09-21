@@ -1,11 +1,12 @@
 import type { BrowserKey, BrowserView, Direction, Page, Shot } from "@agent/browser/browser";
-import { WebContentsView, shell, type BrowserWindow } from "electron";
+import { WebContentsView, shell, type BrowserWindow, type NativeImage, type WebContents } from "electron";
 import { z } from "zod";
 import { readSnapshot } from "./snapshot";
 
 const WIDTH = 1280;
 const HEIGHT = 800;
 const PARKED = { x: 1 - WIDTH, y: 1 - HEIGHT, width: WIDTH, height: HEIGHT };
+const POPUP = { width: 520, height: 640 };
 const TOP_BAR = 56;
 const FOOT_BAR = 52;
 const PHOTO_WIDTH = 480;
@@ -14,6 +15,14 @@ const SCROLL_STEP = 700;
 const SELECT_ALL = process.platform === "darwin" ? "meta" : "control";
 const AFTER_LOAD = 800;
 const AFTER_ACT = 400;
+const SHOT_WAIT = 1500;
+
+const SAFE = {
+	sandbox: true,
+	contextIsolation: true,
+	nodeIntegration: false,
+	backgroundThrottling: false,
+} as const;
 
 const Box = z.object({ model: z.object({ content: z.array(z.number()).min(8) }) });
 
@@ -35,21 +44,15 @@ function nodeId(ref: string): number {
 
 export class PageView implements BrowserView {
 	private readonly view: WebContentsView;
-	private wired = false;
+	private readonly popups: BrowserWindow[] = [];
+	private readonly wired = new WeakSet<WebContents>();
+	private shown = false;
 
 	constructor(private readonly window: BrowserWindow) {
-		this.view = new WebContentsView({
-			webPreferences: {
-				partition: "persist:browser",
-				sandbox: true,
-				contextIsolation: true,
-				nodeIntegration: false,
-				backgroundThrottling: false,
-			},
-		});
+		this.view = new WebContentsView({ webPreferences: { partition: "persist:browser", ...SAFE } });
 		this.view.setBounds(PARKED);
 		this.window.contentView.addChildView(this.view);
-		this.guard();
+		this.guard(this.view.webContents);
 	}
 
 	async open(url: string): Promise<void> {
@@ -99,7 +102,7 @@ export class PageView implements BrowserView {
 
 	async shot(): Promise<Shot> {
 		const head = { url: this.contents.getURL(), title: this.contents.getTitle() };
-		const image = await this.contents.capturePage(undefined, { stayHidden: true }).catch(() => null);
+		const image = await this.snap();
 		if (!image || image.isEmpty()) {
 			return { ...head, photo: null };
 		}
@@ -108,44 +111,85 @@ export class PageView implements BrowserView {
 	}
 
 	present(open: boolean): void {
-		if (!open) {
-			this.view.setBounds(PARKED);
-			return;
+		this.shown = open;
+		this.view.setBounds(open ? this.stage() : PARKED);
+
+		for (const popup of this.popups) {
+			if (open) {
+				popup.show();
+			} else {
+				popup.hide();
+			}
 		}
-		const { width, height } = this.window.getContentBounds();
-		this.view.setBounds({ x: 0, y: TOP_BAR, width, height: Math.max(0, height - TOP_BAR - FOOT_BAR) });
-		this.contents.focus();
+
+		if (open) {
+			this.contents.focus();
+		}
 	}
 
 	close(): void {
+		for (const popup of this.popups.splice(0)) {
+			popup.destroy();
+		}
 		this.window.contentView.removeChildView(this.view);
-		this.contents.close();
+		this.view.webContents.close();
 	}
 
-	private get contents() {
-		return this.view.webContents;
+	private async snap(): Promise<NativeImage | null> {
+		const top = this.popups.at(-1);
+		const source = top?.isVisible() ? top.webContents : this.view.webContents;
+		const shot = source.capturePage(undefined, { stayHidden: true });
+		return await Promise.race([shot, wait(SHOT_WAIT).then(() => null)]).catch(() => null);
 	}
 
-	private guard(): void {
-		this.contents.setWindowOpenHandler(({ url }) => {
-			void this.contents.loadURL(url);
-			return { action: "deny" };
-		});
-		this.contents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-		this.contents.on("will-navigate", (_event, url) => {
+	private get contents(): WebContents {
+		return this.popups.at(-1)?.webContents ?? this.view.webContents;
+	}
+
+	private stage(): { x: number; y: number; width: number; height: number } {
+		const { width, height } = this.window.getContentBounds();
+		return { x: 0, y: TOP_BAR, width, height: Math.max(0, height - TOP_BAR - FOOT_BAR) };
+	}
+
+	private guard(contents: WebContents): void {
+		contents.setWindowOpenHandler(() => ({
+			action: "allow",
+			outlivesOpener: false,
+			overrideBrowserWindowOptions: { ...POPUP, show: false, parent: this.window, webPreferences: SAFE },
+		}));
+		contents.on("did-create-window", (popup) => this.adopt(popup));
+		contents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+		contents.on("will-navigate", (event, url) => {
 			if (!/^https?:\/\//u.test(url)) {
-				_event.preventDefault();
+				event.preventDefault();
 				void shell.openExternal(url);
 			}
 		});
 	}
 
-	private async send(method: string, params?: object): Promise<unknown> {
-		if (!this.wired) {
-			this.contents.debugger.attach("1.3");
-			this.wired = true;
+	private adopt(popup: BrowserWindow): void {
+		this.popups.push(popup);
+		this.guard(popup.webContents);
+		popup.on("closed", () => this.forget(popup));
+		if (this.shown) {
+			popup.show();
 		}
-		return await this.contents.debugger.sendCommand(method, params);
+	}
+
+	private forget(popup: BrowserWindow): void {
+		const at = this.popups.indexOf(popup);
+		if (at >= 0) {
+			this.popups.splice(at, 1);
+		}
+	}
+
+	private async send(method: string, params?: object): Promise<unknown> {
+		const contents = this.contents;
+		if (!this.wired.has(contents)) {
+			contents.debugger.attach("1.3");
+			this.wired.add(contents);
+		}
+		return await contents.debugger.sendCommand(method, params);
 	}
 
 	private async spot(ref: string): Promise<{ x: number; y: number }> {

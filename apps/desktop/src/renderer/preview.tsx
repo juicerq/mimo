@@ -13,6 +13,7 @@ function siteName(url: string): string {
 
 export function Preview({ botId }: { botId: string }) {
 	const browsing = useBrowsing(botId);
+	const present = useMutation(orpc.browser.present.mutationOptions());
 
 	if (!browsing) {
 		return null;
@@ -20,13 +21,18 @@ export function Preview({ botId }: { botId: string }) {
 
 	return (
 		<figure className="mb-5" aria-label="O que o bot está vendo">
-			<div className="overflow-hidden rounded-lg border bg-subtle">
+			<button
+				type="button"
+				aria-label="Abrir o navegador"
+				onClick={() => present.mutate({ botId, open: true })}
+				className="block w-full cursor-pointer overflow-hidden rounded-lg border bg-subtle hover:border-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+			>
 				{browsing.photo ? (
 					<img src={browsing.photo} alt="" className="block w-full" />
 				) : (
 					<div className="aspect-16/10 animate-pulse bg-muted" />
 				)}
-			</div>
+			</button>
 			<figcaption className="mt-1.5 truncate text-xs text-muted-foreground">{browsing.title || siteName(browsing.url)}</figcaption>
 		</figure>
 	);
