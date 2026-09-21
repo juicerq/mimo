@@ -25,7 +25,6 @@ export interface ToolDefinition<T extends z.ZodObject> {
 	description: string;
 	input: T;
 	execute: (input: z.output<T>, signal?: AbortSignal) => Promise<unknown>;
-	ends?: (input: z.output<T>) => boolean;
 }
 
 export function tool<T extends z.ZodObject>(definition: ToolDefinition<T>): AgentTool {
@@ -37,7 +36,7 @@ export function tool<T extends z.ZodObject>(definition: ToolDefinition<T>): Agen
 		async execute(_toolCallId, params, signal) {
 			const input = definition.input.parse(params);
 			const details = await definition.execute(input, signal);
-			return { content: [{ type: "text", text: JSON.stringify(details) }], details, terminate: definition.ends?.(input) ?? false };
+			return { content: [{ type: "text", text: JSON.stringify(details) }], details };
 		},
 	};
 }

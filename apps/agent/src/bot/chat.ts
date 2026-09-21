@@ -1,4 +1,5 @@
 import { Agent, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import type { BrowserSession } from "../browser/browser";
 import { browserFor, closeBrowser } from "../browser/registry";
 import { saveImage, withImages, type Pasted } from "../images/images";
@@ -10,6 +11,7 @@ import { models } from "../model/models";
 import { recallMemory } from "../memory/memory";
 import { botRules } from "../rules/rules";
 import { approvalInput } from "../gmail/tools";
+import { endsTurn } from "../speech/tools";
 import { botInstructions, botTools } from "../tools";
 import { Approvals } from "./approvals";
 import { compactTranscript } from "./compaction";
@@ -23,6 +25,14 @@ import type { Approval, Ask, AskResult, BotEvent, BotInfo, ChatKey } from "./typ
 
 const STOPPED = "O trabalho foi parado.";
 const CHAIN_LIMIT = 3;
+const FORCED_TOOL_APIS = new Set<Api>(["openai-codex-responses"]);
+
+function forceToolCall(payload: unknown, model: Model<Api>): unknown {
+	if (!FORCED_TOOL_APIS.has(model.api) || !payload || typeof payload !== "object") {
+		return undefined;
+	}
+	return { ...payload, tool_choice: "required" };
+}
 
 export class Chat {
 	private readonly agent: Agent;
@@ -61,6 +71,8 @@ export class Chat {
 				tools: botTools(this),
 			},
 			steeringMode: "all",
+			onPayload: forceToolCall,
+			shouldStopAfterTurn: ({ message }) => endsTurn(message) && !this.agent.hasQueuedMessages(),
 			beforeToolCall: async ({ toolCall, args }, signal) => await this.approve(toolCall.id, toolCall.name, args, signal),
 		});
 		this.agent.subscribe((event) => this.translate(event));
