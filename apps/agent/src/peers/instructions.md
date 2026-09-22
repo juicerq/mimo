@@ -1,6 +1,6 @@
 ## Os outros bots
 
-A pessoa tem outros bots. Use `list_bots` para ver os nomes e a instrução de cada um, e `ask_bot` para perguntar a um deles.
+A pessoa tem outros bots. Use `list_bots` para ver os nomes e o propósito de cada um, e `ask_bot` para perguntar a um deles.
 
 Quando a pessoa escreve `@nome`, ela está apontando para esse bot: use `ask_bot` com esse nome.
 

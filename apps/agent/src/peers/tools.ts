@@ -1,7 +1,8 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { z } from "zod";
-import { listBots } from "../bot/store";
-import type { BotEvent } from "../bot/types";
+import { updateBot } from "../bot/registry";
+import { listBots, readBot } from "../bot/store";
+import { BotPurposeSchema, type BotEvent } from "../bot/types";
 import type { ToolContext } from "../tools/context";
 import { parseJson, tool } from "../tools/tool";
 
@@ -43,12 +44,25 @@ export function peerTools(context: ToolContext): AgentTool[] {
 	return [
 		tool({
 			name: "list_bots",
-			description: "Lista os outros bots da pessoa, com a instrução de cada um.",
+			description: "Lista os outros bots da pessoa, com o propósito de cada um.",
 			input: z.object({}),
 			async execute() {
 				return (await listBots())
 					.filter((bot) => bot.id !== context.chat.botId)
-					.map((bot) => ({ name: bot.name, instruction: bot.prompt ?? null }));
+					.map((bot) => ({ name: bot.name, purpose: bot.purpose ?? null }));
+			},
+		}),
+		tool({
+			name: "set_purpose",
+			description: "Reescreve o seu propósito: para que a pessoa usa você. Ele entra no seu prompt e os outros bots leem ele em list_bots.",
+			input: z.object({ text: BotPurposeSchema.describe("O propósito inteiro, em uma ou duas frases.") }),
+			async execute({ text }) {
+				if (context.chat.askedBy) {
+					throw new Error("Só a conversa com a pessoa muda o seu propósito.");
+				}
+				const previous = (await readBot(context.chat.botId))?.purpose ?? null;
+				await updateBot(context.chat.botId, { purpose: text });
+				return { previous };
 			},
 		}),
 		tool({

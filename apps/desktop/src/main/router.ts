@@ -3,7 +3,7 @@ import { ConversationRecord } from "@agent/conversation/record";
 import { Preferences, readPreferences, savePreferences } from "@agent/storage/preferences";
 import { activity, deleteBot, mainChat, updateBot } from "@agent/bot/registry";
 import { createBot, listBots, readBot } from "@agent/bot/store";
-import { BotNameSchema, BotPromptSchema, type BotEvent } from "@agent/bot/types";
+import { BotNameSchema, BotPurposeSchema, type BotEvent } from "@agent/bot/types";
 import { browserSession, watchBrowsers, type BrowserActivity } from "@agent/browser/registry";
 import { disconnectAccount, listAccounts } from "@agent/gmail/accounts";
 import { LOGIN_TARGETS, LoginTargetSchema } from "@agent/login/login";
@@ -109,9 +109,9 @@ export const router = {
 		selectModel: agent
 			.input(BotInput.extend({ model: ModelSelectionSchema }))
 			.handler(async ({ input }) => await updateBot(input.botId, { model: selectModel(input.model) })),
-		instruct: agent
-			.input(BotInput.extend({ prompt: BotPromptSchema.or(z.literal("")) }))
-			.handler(async ({ input }) => await updateBot(input.botId, { prompt: input.prompt || undefined })),
+		setPurpose: agent
+			.input(BotInput.extend({ purpose: BotPurposeSchema.or(z.literal("")) }))
+			.handler(async ({ input }) => await updateBot(input.botId, { purpose: input.purpose || undefined })),
 	},
 	conversation: {
 		watch: agent

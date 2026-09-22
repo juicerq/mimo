@@ -21,11 +21,11 @@ function repairModel(stored: { provider: string; id: string; reasoning: string }
 }
 
 function botInfo(row: typeof bots.$inferSelect): BotInfo {
-	return { id: row.id, name: row.name, createdAt: row.createdAt, model: repairModel({ provider: row.provider, id: row.modelId, reasoning: row.reasoning }), ...row.prompt && { prompt: row.prompt } };
+	return { id: row.id, name: row.name, createdAt: row.createdAt, model: repairModel({ provider: row.provider, id: row.modelId, reasoning: row.reasoning }), ...row.purpose && { purpose: row.purpose } };
 }
 
 function botRow(bot: BotInfo): typeof bots.$inferInsert {
-	return { id: bot.id, name: bot.name, createdAt: bot.createdAt, provider: bot.model.provider, modelId: bot.model.id, reasoning: bot.model.reasoning, prompt: bot.prompt ?? null };
+	return { id: bot.id, name: bot.name, createdAt: bot.createdAt, provider: bot.model.provider, modelId: bot.model.id, reasoning: bot.model.reasoning, purpose: bot.purpose ?? null };
 }
 
 export async function readBot(id: string): Promise<BotInfo | null> {
@@ -44,7 +44,7 @@ export async function listBots(): Promise<BotInfo[]> {
 	return database().select().from(bots).orderBy(bots.createdAt).all().map(botInfo);
 }
 
-export type BotDraft = Pick<BotInfo, "name"> & Partial<Pick<BotInfo, "model" | "prompt">>;
+export type BotDraft = Pick<BotInfo, "name"> & Partial<Pick<BotInfo, "model" | "purpose">>;
 
 export async function createBot(draft: BotDraft): Promise<BotInfo> {
 	const bot: BotInfo = { ...draft, id: randomUUID(), createdAt: new Date().toISOString(), model: draft.model ?? initialModel() };

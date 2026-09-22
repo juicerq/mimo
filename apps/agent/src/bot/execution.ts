@@ -72,7 +72,7 @@ export class BotExecution {
 
 	async run(): Promise<string | null> {
 		const { bot, record } = this.input;
-		this.agent.state.systemPrompt = [botInstructions(), `Seu nome é ${bot.name}.`, bot.prompt, await botRules(), await recallMemory(bot.id)].filter(Boolean).join("\n\n");
+		this.agent.state.systemPrompt = [botInstructions(), `Seu nome é ${bot.name}.`, `# Seu propósito\n\n${bot.purpose ?? "Ainda vazio."}`, await botRules(), await recallMemory(bot.id)].filter(Boolean).join("\n\n");
 		await this.compact();
 		if (record.active?.status !== "running") {
 			return null;
