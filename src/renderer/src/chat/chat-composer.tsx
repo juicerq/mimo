@@ -21,7 +21,7 @@ import { applyChatMention, type ChatMentionSuggestion, mentionCandidates, sugges
 import { ChatMobileOptions } from "./chat-mobile-options"
 import { ChatModelEffort } from "./chat-model-effort"
 import { ChatPermission } from "./chat-permission"
-import { selectedChatSkill, suggestChatSkills } from "./chat-skills"
+import { applyChatSkill, suggestChatSkills } from "./chat-skills"
 import { addChatDraftImages, addChatDraftMention, type ChatDraft, type ChatRun, chatStore, clearChatDraftCommand, emptyChatDraft, removeChatDraftImage, setChatDraftCommand, setChatDraftContent } from "./chat-store"
 
 export const promptWidthClassName = "mx-auto w-[min(848px,calc(100%-48px))] max-md:w-[calc(100%-24px)]"
@@ -194,11 +194,10 @@ export function ChatComposer({ bot, client, onAbort, onSend }: ChatComposerProps
     const skill = skills[index - commands.length]
 
     if (skill) {
-      const content = slash ? withoutChatSlash(draft.content, slash) : draft.content
-      const previousSkill = selectedChatSkill(content)
+      const selection = applyChatSkill(draft.content, skill.name, position)
 
-      setChatDraftContent(bot.id, `/skill:${skill.name} ${(previousSkill?.rest ?? content).trimStart()}`)
-      setCaret(null)
+      setChatDraftContent(bot.id, selection.content)
+      setCaret(selection.caret)
       setDismissedContent(null)
 
       return
@@ -322,6 +321,7 @@ export function ChatComposer({ bot, client, onAbort, onSend }: ChatComposerProps
         <ChatEditor
           id={`prompt-${bot.id}`}
           content={draft.content}
+          caret={position}
           mentions={draft.mentions}
           placeholder={editor.placeholder}
           label={editor.label}

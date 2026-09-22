@@ -26,6 +26,22 @@ function fileIcon(name: string) {
   return DocumentIcon
 }
 
+function entryStateClass(entry: BotArchiveEntry, selected: boolean, open: boolean) {
+  if (selected) {
+    return "bg-surface-active text-primary"
+  }
+
+  if (open) {
+    return "bg-surface-raised font-semibold text-primary"
+  }
+
+  if (entry.kind === "directory") {
+    return "font-medium text-secondary"
+  }
+
+  return "text-secondary"
+}
+
 export function BotArchiveTree(props: ArchiveTreeProps) {
   const [focused, setFocused] = useState<string>()
   const ancestors = focused?.split("/").slice(0, -1) ?? []
@@ -75,38 +91,50 @@ interface ArchiveEntriesProps extends ArchiveTreeProps {
 }
 
 function ArchiveEntries(props: ArchiveEntriesProps) {
+  const directories = props.entries.filter((entry) => entry.kind === "directory")
+  const files = props.entries.filter((entry) => entry.kind !== "directory")
+
+  return <>
+    <ArchiveEntryGroup {...props} entries={directories} />
+    {directories.length > 0 && files.length > 0 && <li role="none" aria-hidden="true" className="h-2" />}
+    <ArchiveEntryGroup {...props} entries={files} />
+  </>
+}
+
+function ArchiveEntryGroup(props: ArchiveEntriesProps) {
   const { entries, expanded, selected, level, focused, onFocus, onToggle, onSelect, fileMenu } = props
 
-  return entries.map((entry) => {
-    const directory = entry.kind === "directory"
-    const open = directory && expanded.has(entry.path)
-    const Icon = directory ? FolderIcon : fileIcon(entry.name)
-    const button = <button
-      type="button"
-      role="treeitem"
-      aria-label={entry.name}
-      aria-level={level}
-      aria-selected={selected === entry.path}
-      aria-expanded={directory ? open : undefined}
-      disabled={entry.kind === "unavailable"}
-      tabIndex={focused === entry.path ? 0 : -1}
-      title={entry.path}
-      style={{ paddingLeft: (level - 1) * 16 + 8 }}
-      className={`flex min-h-10 w-full items-center gap-2 rounded-sm py-2 pr-3 text-left text-control transition-colors hover:bg-surface-hover active:bg-surface-active focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60 max-md:min-h-11 ${selected === entry.path ? "bg-surface-active text-primary" : "text-secondary"}`}
-      onFocus={() => onFocus(entry.path)}
-      onClick={() => directory ? onToggle(entry.path) : onSelect(entry)}
-    >
-      <ChevronRightIcon aria-hidden="true" className={`size-3 shrink-0 text-muted transition-transform motion-reduce:transition-none ${open ? "rotate-90" : ""} ${directory ? "" : "invisible"}`} />
-      {open ? <FolderOpenIcon aria-hidden="true" className="size-4 shrink-0" /> : <Icon aria-hidden="true" className="size-4 shrink-0" />}
-      <span className="min-w-0 flex-1 truncate">{entry.name}</span>
-      {entry.kind === "unavailable" && <span className="shrink-0 text-metadata text-muted">Sem acesso</span>}
-    </button>
+  return <>
+    {entries.map((entry) => {
+      const directory = entry.kind === "directory"
+      const open = directory && expanded.has(entry.path)
+      const Icon = directory ? FolderIcon : fileIcon(entry.name)
+      const button = <button
+        type="button"
+        role="treeitem"
+        aria-label={entry.name}
+        aria-level={level}
+        aria-selected={selected === entry.path}
+        aria-expanded={directory ? open : undefined}
+        disabled={entry.kind === "unavailable"}
+        tabIndex={focused === entry.path ? 0 : -1}
+        title={entry.path}
+        className={`flex min-h-10 w-full items-center gap-2 rounded-sm py-2 pr-3 pl-2 text-left text-control transition-colors hover:bg-surface-hover active:bg-surface-active focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60 max-md:min-h-11 ${entryStateClass(entry, selected === entry.path, open)}`}
+        onFocus={() => onFocus(entry.path)}
+        onClick={() => directory ? onToggle(entry.path) : onSelect(entry)}
+      >
+        <ChevronRightIcon aria-hidden="true" className={`size-3 shrink-0 text-muted transition-transform motion-reduce:transition-none ${open ? "rotate-90" : ""} ${directory ? "" : "invisible"}`} />
+        {open ? <FolderOpenIcon aria-hidden="true" className="size-4 shrink-0" /> : <Icon aria-hidden="true" className="size-4 shrink-0" />}
+        <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+        {entry.kind === "unavailable" && <span className="shrink-0 text-metadata text-muted">Sem acesso</span>}
+      </button>
 
-    return <li key={entry.path} role="none">
-      {directory || entry.kind === "unavailable" ? button : fileMenu(entry, button)}
-      {open && <ul role="group" className="m-0 list-none p-0"><ArchiveBranch {...props} path={entry.path} level={level + 1} /></ul>}
-    </li>
-  })
+      return <li key={entry.path} role="none">
+        {directory || entry.kind === "unavailable" ? button : fileMenu(entry, button)}
+        {open && <ul role="group" className="m-0 ml-4 list-none border-l border-outline py-1 pl-1"><ArchiveBranch {...props} path={entry.path} level={level + 1} /></ul>}
+      </li>
+    })}
+  </>
 }
 
 function ArchiveBranch(props: ArchiveEntriesProps & { path: string }) {

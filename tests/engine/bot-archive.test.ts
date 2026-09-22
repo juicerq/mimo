@@ -30,14 +30,25 @@ async function archiveApp() {
   return { archive: createBotArchive(bots), botId: bot.id, root, directory }
 }
 
-test("Acervo lista a pasta privada, inclui ocultos e navega por subpastas com nomes literais", async () => {
+test("Acervo separa pastas de arquivos, ordena cada grupo pelo nome e navega por subpastas", async () => {
   const { archive, botId, root } = await archiveApp()
   await mkdir(join(root, "Entregas #1"))
+  await mkdir(join(root, "Entrega 10"))
+  await mkdir(join(root, "Entrega 2"))
   await writeFile(join(root, ".instruções"), "oculto")
+  await writeFile(join(root, "arquivo 10.md"), "dez")
+  await writeFile(join(root, "arquivo 2.md"), "dois")
   await writeFile(join(root, "Entregas #1", "olá mundo.txt"), "Conteúdo do Bot")
   const list = await archive.list({ botId, path: "" })
   expect(list.directory).toBe(root)
-  expect(list.entries.map(({ name, kind }) => ({ name, kind }))).toEqual([{ name: "Entregas #1", kind: "directory" }, { name: ".instruções", kind: "file" }])
+  expect(list.entries.map(({ name, kind }) => ({ name, kind }))).toEqual([
+    { name: "Entrega 2", kind: "directory" },
+    { name: "Entrega 10", kind: "directory" },
+    { name: "Entregas #1", kind: "directory" },
+    { name: ".instruções", kind: "file" },
+    { name: "arquivo 2.md", kind: "file" },
+    { name: "arquivo 10.md", kind: "file" },
+  ])
   const nested = await archive.list({ botId, path: "Entregas #1" })
   expect(nested.entries[0]?.path).toBe("Entregas #1/olá mundo.txt")
   expect(await archive.preview({ botId, path: "Entregas #1/olá mundo.txt" })).toEqual({ kind: "text", content: "Conteúdo do Bot" })

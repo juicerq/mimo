@@ -26,7 +26,7 @@ export function BotsWorkspace({ client }: { client: EngineClient }) {
   const mobile = useIsMobile()
   const sidebarMode = useSelector(appSettingsStore, (state) => state.sidebarMode)
   const menuOpen = useSelector(botsStore, (state) => state.mobileMenuOpen)
-  const columns = { traditional: "md:grid-cols-[286px_minmax(0,1fr)]", compact: "md:grid-cols-[128px_minmax(0,1fr)]", hidden: "md:grid-cols-1 md:pl-3" }
+  const columns = { traditional: "md:grid-cols-[286px_minmax(0,1fr)]", compact: "md:grid-cols-[80px_minmax(0,1fr)] md:gap-2", hidden: "md:grid-cols-1 md:pl-3" }
 
   function workspaceContent() {
     if (screen === "plugins") {
