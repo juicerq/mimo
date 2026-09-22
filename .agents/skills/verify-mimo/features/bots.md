@@ -21,13 +21,13 @@ A barra da esquerda lista os bots. Cada linha mostra o nome, a prévia da últim
 
 Preconditions:
 
-- `$CONTROL launch` num sandbox novo; `$CONTROL doctor` mostra `bots: 0`.
+- `$CONTROL launch` num sandbox novo; `$CONTROL doctor` mostra a contagem de bots em zero.
 
 - **Primeira tela.** `$CONTROL browser snapshot`. A árvore tem `textbox "Nome do novo bot"` e o texto `Dê um nome ao seu primeiro bot na barra ao lado.`
 - **Criar.** `$CONTROL browser fill '[aria-label="Nome do novo bot"]' 'Ana'` e `$CONTROL browser press Enter`. `$CONTROL wait 'heading "Ana , parado"' 20` confirma o bot aberto, e a árvore mostra `heading "Comece a conversa com Ana"`.
-- **No disco.** `ls "$($CONTROL data)/bots"` mostra um `<id>.json`; o arquivo traz `"name": "Ana"` e `model`.
+- **No disco.** `$CONTROL db 'select * from bots'` mostra Ana com seu modelo.
 - **Segundo bot.** `$CONTROL browser click '[aria-label="Novo bot"]'`, preencha `Bia` e Enter. `$CONTROL wait 'heading "Bia , parado"' 20`.
-- **Desistir.** `$CONTROL browser click '[aria-label="Novo bot"]'` e `$CONTROL browser press Escape`. O `textbox "Nome do novo bot"` some e nenhum arquivo novo aparece em `bots/`.
+- **Desistir.** `$CONTROL browser click '[aria-label="Novo bot"]'` e `$CONTROL browser press Escape`. O `textbox "Nome do novo bot"` some e nenhuma linha nova aparece em `bots`.
 - **Trocar.** Envie `MIMO-ANA-<run>` para a Ana (veja [chat.md](./chat.md)). Tire um `snapshot` e clique na referência de `button "Bia ..."`. A conversa da Bia não contém `MIMO-ANA-<run>`. Volte para a Ana: o marcador está lá.
 - **Prévia.** Na árvore, a linha da Ana é `button "Ana <última mensagem> parado"`.
 - **Persistência.** `$CONTROL stop`, depois `$CONTROL launch --data <data do run anterior>`. A barra lista os mesmos bots e a conversa da Ana reaparece.
@@ -36,6 +36,6 @@ Preconditions:
 ## Gotchas
 
 - O título sai como `heading "Ana , parado"`, com espaço antes da vírgula.
-- O bot aberto por último fica no `localStorage`. O HOME de sandbox é novo a cada `launch`, então depois de reiniciar o app abre o primeiro bot da lista, não o último usado.
+- O bot aberto por último fica em `preferences` e volta mesmo com HOME novo, usando o mesmo `--data`.
 - O campo aceita até 80 caracteres; um nome recusado pelo agente mostra o erro embaixo do campo, em vermelho.
-- Apagar bot ainda não existe na janela.
+- Apague pelo menu de contexto da linha do bot. Confira que Bot, conversas, Memória e Rotinas somem do banco, que há um registro em `actions`, e que o app continua respondendo.

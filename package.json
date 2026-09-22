@@ -8,18 +8,22 @@
 		"apps/*"
 	],
 	"scripts": {
-		"postinstall": "bun node_modules/electron/install.js",
+		"postinstall": "bun node_modules/electron/install.js && electron-rebuild --force --which-module better-sqlite3",
 		"dev": "bun run --filter @mimo/desktop dev",
 		"build": "bun run --filter @mimo/desktop build",
 		"start": "apps/desktop/bin/mimo",
 		"check": "juicerq-check",
 		"check:fix": "juicerq-check --fix",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"db:generate": "drizzle-kit generate"
 	},
 	"devDependencies": {
+		"@electron/rebuild": "^4.2.0",
 		"@juicerq/check": "^0.4.0",
+		"@types/better-sqlite3": "^9.6.0",
 		"@types/bun": "1.4.0",
 		"@types/node": "26.4.0",
+		"drizzle-kit": "0.31.11",
 		"typescript": "7.0.2"
 	}
 }

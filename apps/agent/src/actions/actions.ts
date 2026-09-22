@@ -1,7 +1,5 @@
-import { dataPath } from "../storage/home";
-import { appendJsonLine } from "../storage/files";
-
-const ACTIONS_PATH = dataPath("actions.jsonl");
+import { database } from "../storage/database";
+import { actions } from "../storage/schema";
 
 export interface ActionInput {
 	kind: "send_email" | "delete_routine" | "delete_bot";
@@ -12,7 +10,7 @@ export interface ActionInput {
 }
 
 async function write(input: ActionInput, result: "ok" | "failed", error: string | null): Promise<void> {
-	await appendJsonLine(ACTIONS_PATH, {
+	database().insert(actions).values({
 		at: new Date().toISOString(),
 		kind: input.kind,
 		botId: input.botId,
@@ -21,7 +19,7 @@ async function write(input: ActionInput, result: "ok" | "failed", error: string 
 		result,
 		detail: input.detail ?? {},
 		error,
-	});
+	}).run();
 }
 
 export async function recordAction(input: ActionInput): Promise<void> {

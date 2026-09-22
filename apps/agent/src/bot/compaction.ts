@@ -51,7 +51,7 @@ function crowdedText(floor: number, contextWindow: number): string | null {
 	return `As instruções permanentes deste bot ocupam ${share} da janela, então sobra pouco para a conversa.`;
 }
 
-export async function compactTranscript(input: { messages: AgentMessage[]; model: Model<Api>; systemPrompt: string; sessionId: string }): Promise<Compaction | null> {
+export async function compactTranscript(input: { messages: AgentMessage[]; model: Model<Api>; systemPrompt: string; sessionId: string; signal: AbortSignal }): Promise<Compaction | null> {
 	if (estimateContextTokens(input.messages).tokens < input.model.contextWindow * COMPACT_AT) {
 		return null;
 	}
@@ -65,7 +65,7 @@ export async function compactTranscript(input: { messages: AgentMessage[]; model
 	const summary = await models().completeSimple(input.model, {
 		systemPrompt: SUMMARY_PROMPT,
 		messages: withoutBorrowedReasoning(earlier).filter(isLlmMessage),
-	}, sessionOptions(input.model, input.sessionId));
+	}, { ...sessionOptions(input.model, input.sessionId), signal: input.signal });
 	if (summary.stopReason !== "stop") {
 		throw new Error("O resumo da conversa não terminou.");
 	}

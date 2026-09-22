@@ -24,6 +24,7 @@ uso: control-mimo <comando> [argumentos]
 
 comandos:
   launch [--data <dir>]      sobe o app desktop com CDP; dados e HOME em sandbox por padrão
+  db <sql>                   consulta SQLite em modo somente leitura
   doctor                     checagem somente leitura da instância
   data | home | port | log   imprime o diretório de dados, o HOME, a porta CDP ou o log do app
   state                      imprime o estado do bot aberto: parado, trabalhando, esperando aprovação, falhou
@@ -263,7 +264,21 @@ doctor() {
 	report_auth_writes "$run_dir/home"
 	local data_dir
 	data_dir="$(run_value "$run_dir" data-dir)"
-	echo "bots: $(find "$data_dir/bots" -maxdepth 1 -name '*.json' 2>/dev/null | wc -l)"
+	echo "bots: $(read_database 'select count(*) as count from bots')"
+}
+
+read_database() {
+	local data_dir
+	data_dir="$(run_value "$(run_dir_or_die)" data-dir)"
+	python3 - "$data_dir/mimo.sqlite" "$1" <<'PYDB'
+import json
+import sqlite3
+import sys
+from pathlib import Path
+with sqlite3.connect(Path(sys.argv[1]).as_uri() + "?mode=ro", uri=True) as db:
+    db.row_factory = sqlite3.Row
+    print(json.dumps([dict(row) for row in db.execute(sys.argv[2])], ensure_ascii=False))
+PYDB
 }
 
 send_text() {
@@ -359,6 +374,9 @@ launch)
 		exit 1
 	fi
 	launch "$launch_data"
+	;;
+db)
+	read_database "${2:?informe a consulta SQL}"
 	;;
 doctor)
 	doctor

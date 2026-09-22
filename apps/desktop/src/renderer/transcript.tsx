@@ -714,7 +714,7 @@ interface TranscriptProps {
 }
 
 export function Transcript({ conversation, level, name, botId, onPeer, children }: TranscriptProps) {
-	const empty = conversation.lines.length === 0 && conversation.turn === "idle" && conversation.queue.length === 0;
+	const empty = conversation.lines.length === 0 && conversation.turn === "idle";
 	const label = turnLabel(conversation);
 	const scroller = useRef<HTMLDivElement>(null);
 
@@ -736,17 +736,6 @@ export function Transcript({ conversation, level, name, botId, onPeer, children 
 			{conversation.ready && !empty && (
 				<div className="shrink-0 grow px-6 pt-2 pb-11">
 					<Lines lines={conversation.lines} level={level} name={name} botId={botId} onPeer={onPeer} scroller={scroller} />
-					{conversation.queue.map((item, index) => (
-						<EventLine
-							key={index}
-							head={
-								<>
-									<span className={LABEL}>Na fila</span>
-									<span className={GIST}>{oneLine(item)}</span>
-								</>
-							}
-						/>
-					))}
 					{label && <Working name={name} label={label} />}
 				</div>
 			)}

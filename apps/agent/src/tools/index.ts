@@ -32,7 +32,7 @@ export function botInstructions(): string {
 
 export function botTools(context: ToolContext): AgentTool[] {
 	return [
-		speechTool,
+		speechTool(context),
 		currentTime,
 		...memoryTools(context),
 		...historyTools(context),

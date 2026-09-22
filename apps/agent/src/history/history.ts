@@ -1,6 +1,5 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import { summaryStart } from "../bot/events";
-import { readTranscript } from "../bot/store";
+import { ConversationRecord } from "../conversation/record";
 import type { ChatKey } from "../bot/types";
 import { contentText, isLlmMessage } from "../messages";
 
@@ -32,8 +31,7 @@ function projectMessage(message: AgentMessage): { kind: string; text: string }[]
 }
 
 async function beforeWindow(chat: ChatKey): Promise<HistoryMessage[]> {
-	const log = await readTranscript(chat);
-	return log.slice(0, summaryStart(log))
+	return new ConversationRecord(chat).archive
 		.flatMap(projectMessage)
 		.map((message, messageId) => ({ ...message, messageId }));
 }

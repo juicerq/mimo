@@ -5,7 +5,7 @@ description: Drive the mimo desktop app (Electron, apps/desktop) like a user to 
 
 # Verificar o mimo
 
-O mimo é um app desktop Electron (`apps/desktop`). O processo main roda o agente (`apps/agent`) e fala com o renderer React por oRPC. O usuário clica e digita na janela; toda prova atravessa esse caminho e termina em estado observável: a tela e os arquivos do diretório de dados. Não há suíte de testes: verificação é rodar de verdade.
+O mimo é um app desktop Electron (`apps/desktop`). O processo main roda o agente (`apps/agent`) e fala com o renderer React por oRPC. O usuário clica e digita na janela; toda prova atravessa esse caminho e termina em estado observável: a tela e o banco do diretório de dados. Não há suíte de testes: verificação é rodar de verdade.
 
 Carregue a skill **agent-browser** antes de dirigir. Rode os comandos a partir da raiz do repositório:
 
@@ -58,7 +58,7 @@ $CONTROL capture 02-chat
 - Use seletor CSS pelo `aria-label`: `[aria-label="Mensagem"]`, `[aria-label="Modelo"]`, `[aria-label="Sobre o bot"]`.
 - O que não tem `aria-label` (opções de lista, botões de texto como `Não` e `Completo`) sai do `snapshot`: clique na referência, `$CONTROL browser click @e30`. A referência muda a cada snapshot; tire um novo antes de clicar.
 - `agent-browser find role|label ...` **não acha nada** nesta instância. Não use.
-- `send` preenche o campo `Mensagem`, aperta Enter e só retorna quando o turno termina, imprimindo o estado final. `send --no-wait` retorna na hora; é o caminho para a Fila.
+- `send` preenche o campo `Mensagem`, aperta Enter e só retorna quando o turno termina, imprimindo o estado final. `send --no-wait` retorna na hora; permite enviar outra mensagem enquanto o bot trabalha.
 - `state` lê o estado do bot aberto no título da conversa: `parado`, `trabalhando`, `esperando aprovação` ou `falhou`. O título sai na árvore como `heading "<nome> , <estado>"`, com espaço antes da vírgula.
 - `wait <regex> [seg]` procura na árvore de acessibilidade. Linhas de tool só aparecem na árvore com o Detalhe em `Completo` (veja `features/chat.md`).
 - Depois que o Vite otimiza uma dependência nova, a janela pode ficar em branco com `Invalid hook call` no console. É artefato do dev server: `$CONTROL browser reload`.
@@ -71,7 +71,7 @@ Padrões de prova:
 
 - exercite o caminho real do usuário pela janela, não o router oRPC nem módulos internos;
 - capture a ação e o estado resultante, não só a tela final;
-- confirme efeitos colaterais onde eles vivem, no diretório de `$CONTROL data`: `bots/<id>.json` (modelo), `bots/<id>/messages.json`, `bots/<id>/memory.md`, `routines.json`, `actions.jsonl`. Mensagem de sucesso sozinha não conta;
+- confirme efeitos colaterais onde eles vivem, no diretório de `$CONTROL data`: `mimo.sqlite`, consultado em modo somente leitura por `$CONTROL db 'select * from bots'`. Use `records` para a conversa visível, `messages` para a transcrição do modelo, `speeches` para Falas aceitas, `turns`/`deliveries` para Turno e entrega aceita, `memories`, `routines`, `actions` e `preferences` para os demais efeitos. Mensagem de sucesso sozinha não conta;
 - o modelo é remoto e a redação varia: asserte tokens únicos, ids, nomes de tool e caminhos, não frases;
 - Gmail, rascunhos e envios são reais. A prova padrão de aprovação é **recusar** (`Não`); envio aprovado só para endereço próprio, com assunto `VERIFICACAO ...`, e limpeza manual depois.
 
@@ -93,6 +93,7 @@ $CONTROL stop
 | Comando | Efeito |
 | --- | --- |
 | `launch [--data <dir>]` | sobe o app com CDP, dados e HOME em sandbox, e registra run dir, porta, pid e HEAD |
+| `db <sql>` | consulta o banco da instância em modo somente leitura; requer Python 3 |
 | `doctor` | checagem somente leitura (processo, CDP, HEAD, main desatualizado, credenciais, bots) |
 | `data` / `home` / `port` / `log` | imprime o diretório de dados, o HOME, a porta CDP ou o caminho do log |
 | `state` | estado do bot aberto |

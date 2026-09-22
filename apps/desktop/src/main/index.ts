@@ -1,14 +1,18 @@
+import { importLegacy } from "@agent/storage/legacy";
 import { join } from "node:path";
 import { installBrowser } from "@agent/browser/registry";
 import { startRoutines } from "@agent/routines/dispatcher";
 import { loadEnv } from "@agent/storage/home";
 import { RPCHandler } from "@orpc/server/message-port";
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electron";
 import { PageView } from "./browser/view";
 import { claimPictures, servePictures } from "./pictures";
 import { router } from "./router";
 
 loadEnv();
+if (!app.requestSingleInstanceLock()) {
+	app.quit();
+}
 app.setDesktopName("mimo.desktop");
 
 if (process.env.XDG_SESSION_TYPE === "wayland") {
@@ -59,8 +63,14 @@ function openWindow(): void {
 
 app.on("window-all-closed", () => app.quit());
 
-app.on("ready", () => {
+void app.whenReady().then(async () => {
+	await importLegacy();
 	servePictures();
 	void startRoutines();
 	openWindow();
+}).catch((error: unknown) => {
+	const message = error instanceof Error ? error.message : String(error);
+	console.error(message);
+	dialog.showErrorBox("O Mimo não conseguiu abrir os dados", message);
+	app.quit();
 });

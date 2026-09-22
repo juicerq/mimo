@@ -47,9 +47,10 @@ export interface Ask {
 
 export type AskResult = { bot: string; reply: string } | { bot: string; status: string };
 
+export type Interruption = "user" | "message" | "closed";
+
 export type BotEvent =
 	| { type: "user"; text: string; images: readonly string[] }
-	| { type: "queue"; items: readonly string[] }
 	| { type: "summary"; text: string }
 	| { type: "warning"; text: string }
 	| { type: "routine"; name: string; prompt: string }
@@ -62,9 +63,9 @@ export type BotEvent =
 	| { type: "tool-failed"; id: string; toolName: string; message: string }
 	| { type: "approval"; approval: Approval }
 	| { type: "login"; target: LoginTarget; session: LoginSession }
-	| { type: "approval-resolved"; outcome: "approved" | "denied" }
+	| { type: "approval-resolved"; id: string; outcome: "approved" | "denied" }
 	| { type: "usage"; contextTokens: number }
 	| { type: "turn-started" }
 	| { type: "turn-finished" }
 	| { type: "turn-failed"; message: string }
-	| { type: "turn-cancelled" };
+	| { type: "turn-cancelled"; reason: Interruption };

@@ -1,12 +1,12 @@
 import { recordAction } from "../actions/actions";
-import { deleteBotRoutines } from "../routines/routines";
-import type { Chat } from "./chat";
-import type { LastMessage } from "./events";
+import type { Conversation } from "../conversation/conversation";
+import type { LastMessage } from "../conversation/record";
 import { readBot, removeBot, writeBot } from "./store";
-import type { BotInfo, ChatKey } from "./types";
+import type { BotInfo } from "./types";
 
-const open = new Map<string, Chat>();
-const opening = new Map<string, Promise<Chat>>();
+const open = new Map<string, Conversation>();
+const opening = new Map<string, Promise<Conversation>>();
+const deleting = new Set<string>();
 
 export interface BotActivity {
 	id: string;
@@ -17,18 +17,14 @@ export interface BotActivity {
 	last: LastMessage | null;
 }
 
-export function chatId(chat: ChatKey): string {
-	if (chat.askedBy) {
-		return `${chat.botId}:${chat.askedBy}`;
-	}
-	return chat.botId;
-}
-
-export function mainChat(botId: string): Chat | null {
+export function mainChat(botId: string): Conversation | null {
 	return open.get(botId) ?? null;
 }
 
-export async function openOnce(id: string, load: () => Promise<Chat>): Promise<Chat> {
+export async function openOnce(id: string, load: () => Promise<Conversation>): Promise<Conversation> {
+	if (id.split(":").some((botId) => deleting.has(botId))) {
+		throw new Error("Este bot está sendo apagado.");
+	}
 	const running = open.get(id);
 	if (running) {
 		return running;
@@ -74,20 +70,23 @@ export async function updateBot(id: string, patch: Partial<BotInfo>): Promise<Bo
 }
 
 export async function deleteBot(id: string): Promise<void> {
-	const record = await readBot(id);
-	forget(id);
-	await deleteBotRoutines(id);
-	await removeBot(id);
-	if (record) {
-		await recordAction({ kind: "delete_bot", botId: id, summary: record.name });
+	if (deleting.has(id)) {
+		throw new Error("Este bot já está sendo apagado.");
 	}
-}
-
-function forget(botId: string): void {
-	for (const [id, chat] of open) {
-		if (chat.botId === botId) {
-			chat.cancel();
-			open.delete(id);
+	deleting.add(id);
+	try {
+		const record = await readBot(id);
+		await Promise.allSettled([...opening].filter(([key]) => key.split(":").includes(id)).map(([, promise]) => promise));
+		const chats = [...open].filter(([, chat]) => chat.botId === id || chat.chat.askedBy === id);
+		await Promise.all(chats.map(async ([key, chat]) => {
+			await chat.close();
+			open.delete(key);
+		}));
+		await removeBot(id);
+		if (record) {
+			await recordAction({ kind: "delete_bot", botId: id, summary: record.name });
 		}
+	} finally {
+		deleting.delete(id);
 	}
 }

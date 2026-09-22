@@ -1,44 +1,17 @@
-import { dataPath } from "../storage/home";
-import { readTextFile, writeTextFile } from "../storage/files";
+import { and, eq } from "drizzle-orm";
+import { database } from "../storage/database";
+import { memories } from "../storage/schema";
 
 const MAX_ENTRY_CHARACTERS = 2_000;
 const MAX_MEMORY_CHARACTERS = 4_000;
-const ENTRY_PATTERN = /^(\d+): (.+)$/;
 
 interface MemoryEntry {
 	index: number;
 	text: string;
 }
 
-let queue: Promise<unknown> = Promise.resolve();
-
-function serialize<T>(operation: () => Promise<T>): Promise<T> {
-	const result = queue.then(operation, operation);
-	queue = result.then(() => {}, () => {});
-	return result;
-}
-
-function memoryPath(botId: string) {
-	return dataPath("bots", botId, "memory.md");
-}
-
 async function readEntries(botId: string): Promise<MemoryEntry[]> {
-	const raw = await readTextFile(memoryPath(botId));
-	if (raw === null) {
-		return [];
-	}
-	return raw.split("\n").flatMap((line) => {
-		const match = ENTRY_PATTERN.exec(line);
-		if (!match) {
-			return [];
-		}
-		return [{ index: Number(match[1]), text: match[2] }];
-	});
-}
-
-async function writeEntries(botId: string, entries: MemoryEntry[]): Promise<void> {
-	const content = entries.map((entry) => `${entry.index}: ${entry.text}`).join("\n");
-	await writeTextFile(memoryPath(botId), content ? `${content}\n` : "", 0o600);
+	return database().select({ index: memories.position, text: memories.text }).from(memories).where(eq(memories.botId, botId)).orderBy(memories.position).all();
 }
 
 export async function recallMemory(botId: string): Promise<string> {
@@ -63,8 +36,8 @@ export async function saveMemory(botId: string, text: string): Promise<MemoryEnt
 	if (normalized.length > MAX_ENTRY_CHARACTERS) {
 		throw new Error(`A memória passa do limite de ${MAX_ENTRY_CHARACTERS} caracteres.`);
 	}
-	return await serialize(async () => {
-		const entries = await readEntries(botId);
+	return database().transaction((db) => {
+		const entries = db.select({ index: memories.position, text: memories.text }).from(memories).where(eq(memories.botId, botId)).all();
 		const existing = entries.find((entry) => entry.text === normalized);
 		if (existing) {
 			return existing;
@@ -74,19 +47,11 @@ export async function saveMemory(botId: string, text: string): Promise<MemoryEnt
 		if (updated.reduce((total, current) => total + current.text.length, 0) > MAX_MEMORY_CHARACTERS) {
 			throw new Error(`A memória passaria do limite de ${MAX_MEMORY_CHARACTERS} caracteres. Remova uma memória antiga por índice e tente de novo.`);
 		}
-		await writeEntries(botId, updated);
+		db.insert(memories).values({ botId, position: entry.index, text: entry.text }).run();
 		return entry;
 	});
 }
 
 export async function removeMemory(botId: string, index: number): Promise<boolean> {
-	return await serialize(async () => {
-		const entries = await readEntries(botId);
-		const remaining = entries.filter((entry) => entry.index !== index);
-		if (remaining.length === entries.length) {
-			return false;
-		}
-		await writeEntries(botId, remaining);
-		return true;
-	});
+	return database().delete(memories).where(and(eq(memories.botId, botId), eq(memories.position, index))).returning().all().length > 0;
 }

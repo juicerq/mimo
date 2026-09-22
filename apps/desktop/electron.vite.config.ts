@@ -1,3 +1,4 @@
+import { cpSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -16,7 +17,12 @@ const markdownAsText: Plugin = {
 
 export default defineConfig({
 	main: {
-		plugins: [markdownAsText],
+		plugins: [markdownAsText, {
+			name: "sqlite-migrations",
+			closeBundle() {
+				cpSync(fileURLToPath(new URL("../agent/src/storage/migrations", import.meta.url)), fileURLToPath(new URL("./out/main/migrations", import.meta.url)), { recursive: true });
+			},
+		}],
 		resolve: { alias: { "@agent": fileURLToPath(new URL("../agent/src", import.meta.url)) } },
 		build: {
 			externalizeDeps: { include: Object.keys(agent.dependencies) },

@@ -1,4 +1,4 @@
-import type { AssistantMessage } from "@earendil-works/pi-ai";
+import type { ToolContext } from "../tools/context";
 import { z } from "zod";
 import { tool } from "../tools/tool";
 
@@ -13,10 +13,6 @@ export function isSpeech(toolName: string): boolean {
 	return toolName === SPEAK;
 }
 
-export function endsTurn(message: AssistantMessage): boolean {
-	return message.content.some((part) => part.type === "toolCall" && isSpeech(part.name) && SpeakInput.safeParse(part.arguments).data?.done === true);
-}
-
 export function spokenText(toolName: string, input: unknown): string | null {
 	if (!isSpeech(toolName)) {
 		return null;
@@ -24,11 +20,16 @@ export function spokenText(toolName: string, input: unknown): string | null {
 	return SpeakInput.pick({ text: true }).safeParse(input).data?.text ?? null;
 }
 
-export const speechTool = tool({
-	name: SPEAK,
-	description: "Manda uma mensagem para a pessoa. É o único canal com ela: texto fora desta tool, inclusive o comentário ao lado de outra tool, é descartado sem ela ver. Use para dizer o que vai fazer, para contar cada achado durante o trabalho, chamando junto com a próxima tool, e para a resposta final, com done: true.",
-	input: SpeakInput,
-	async execute() {
-		return { sent: true };
-	},
-});
+export function speechTool(context: ToolContext) {
+	return tool({
+		name: SPEAK,
+		description: "Manda uma mensagem para a pessoa. É o único canal com ela: texto fora desta tool, inclusive o comentário ao lado de outra tool, é descartado sem ela ver. Use para dizer o que vai fazer, para contar cada achado durante o trabalho, chamando junto com a próxima tool, e para a resposta final, com done: true.",
+		input: SpeakInput,
+		async execute(input, _signal, id) {
+			if (!id) {
+				throw new Error("Esta fala não tem identificação.");
+			}
+			return context.speak({ ...input, id });
+		},
+	});
+}

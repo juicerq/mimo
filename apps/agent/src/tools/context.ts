@@ -3,6 +3,7 @@ import type { LoginSession, LoginTarget } from "../login/login";
 import type { Ask, AskResult, ChatKey } from "../bot/types";
 
 export interface ToolContext {
+	speak(speech: { id: string; text: string; done: boolean }): { sent: true };
 	readonly chat: ChatKey;
 	login(target: LoginTarget): LoginSession;
 	browser(): BrowserSession;

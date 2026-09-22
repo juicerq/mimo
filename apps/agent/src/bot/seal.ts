@@ -1,46 +1,42 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { AssistantMessage } from "@earendil-works/pi-ai";
-import { isLlmMessage } from "../messages";
 
 const CUT = "Interrompido: o mimo fechou antes desta ação terminar, então ela pode ou não ter acontecido.";
 
-function answeredCalls(log: AgentMessage[]): Set<string> {
-	const answered = new Set<string>();
-	for (const message of log) {
-		if (isLlmMessage(message) && message.role === "toolResult") {
-			answered.add(message.toolCallId);
+export interface TranscriptRow { id: string; message: AgentMessage }
+
+export function unansweredCalls(rows: TranscriptRow[]): TranscriptRow[] {
+	const answered = new Set(rows.map((row) => row.id));
+	return rows.flatMap((row) => row.message.role === "assistant" ? row.message.content.flatMap((part, index) => {
+		const id = `result:${row.id}:${index}`;
+		if (part.type !== "toolCall" || answered.has(id)) {
+			return [];
+		}
+		const message: AgentMessage = {
+			role: "toolResult", toolCallId: part.id, toolName: part.name,
+			content: [{ type: "text", text: JSON.stringify({ warning: CUT }) }],
+			isError: false, timestamp: row.message.timestamp,
+		};
+		return [{ id, message }];
+	}) : []);
+}
+
+export function orderTranscript(rows: TranscriptRow[]): AgentMessage[] {
+	const results = new Map(rows.filter((row) => row.message.role === "toolResult").map((row) => [row.id, row.message]));
+	const referenced = new Set(rows.flatMap((row) => row.message.role === "assistant" ? row.message.content.flatMap((part, index) => part.type === "toolCall" ? [`result:${row.id}:${index}`] : []) : []));
+	const ordered: AgentMessage[] = [];
+	for (const row of rows) {
+		if (row.message.role === "toolResult" && referenced.has(row.id)) {
+			continue;
+		}
+		ordered.push(row.message);
+		if (row.message.role === "assistant") {
+			for (const [index, part] of row.message.content.entries()) {
+				const result = results.get(`result:${row.id}:${index}`);
+				if (part.type === "toolCall" && result) {
+					ordered.push(result);
+				}
+			}
 		}
 	}
-	return answered;
-}
-
-function missingResults(content: AssistantMessage["content"], answered: Set<string>, timestamp: number): AgentMessage[] {
-	return content.filter((part) => part.type === "toolCall").filter((part) => !answered.has(part.id)).map((part) => cutResult(part, timestamp));
-}
-
-function cutResult(call: { id: string; name: string }, timestamp: number): AgentMessage {
-	return {
-		role: "toolResult",
-		toolCallId: call.id,
-		toolName: call.name,
-		content: [{ type: "text", text: JSON.stringify({ warning: CUT }) }],
-		isError: false,
-		timestamp,
-	};
-}
-
-export function sealTranscript(log: AgentMessage[]): AgentMessage[] {
-	const answered = answeredCalls(log);
-	const sealed: AgentMessage[] = [];
-	const pending: AgentMessage[] = [];
-	for (const message of log) {
-		if (!isLlmMessage(message) || message.role !== "toolResult") {
-			sealed.push(...pending.splice(0));
-		}
-		sealed.push(message);
-		if (isLlmMessage(message) && message.role === "assistant") {
-			pending.push(...missingResults(message.content, answered, message.timestamp));
-		}
-	}
-	return [...sealed, ...pending];
+	return ordered;
 }

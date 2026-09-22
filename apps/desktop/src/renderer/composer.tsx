@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { ArrowUpIcon, SquareIcon, XIcon } from "lucide-react";
-import { type ClipboardEvent, type FormEvent, type KeyboardEvent, memo, type RefObject, useEffect, useState } from "react";
+import { type ClipboardEvent, type FormEvent, type KeyboardEvent, memo, type RefObject, useEffect, useRef, useState } from "react";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@renderer/components/ui/input-group";
 import { orpc } from "./rpc";
 
@@ -11,6 +11,7 @@ interface Picture {
 }
 
 const drafts = new Map<string, string>();
+const attempts = new Map<string, { id: string; text: string; images: { mimeType: string; data: string }[] }>();
 const pastes = new Map<string, Picture[]>();
 
 function readPicture(file: File): Promise<Picture> {
@@ -34,13 +35,24 @@ interface ComposerProps {
 }
 
 export const Composer = memo(function Composer({ botId, name, working, input, fail }: ComposerProps) {
+	const attempt = useRef(attempts.get(botId));
 	const [draft, setDraft] = useState(() => drafts.get(botId) ?? "");
 	const [pictures, setPictures] = useState<Picture[]>(() => pastes.get(botId) ?? []);
 	const send = useMutation(orpc.conversation.send.mutationOptions({
 		onError: (error, variables) => {
+			attempts.set(botId, { ...variables, images: variables.images ?? [] });
+			attempt.current = { ...variables, images: variables.images ?? [] };
 			setDraft((current) => current || variables.text);
 			setPictures((current) => current.length > 0 ? current : (variables.images ?? []).map((image) => ({ ...image, id: crypto.randomUUID() })));
 			fail(error.message);
+		},
+		onSuccess: (_result, variables) => {
+			if (attempts.get(botId)?.id === variables.id) {
+				attempts.delete(botId);
+			}
+			if (attempt.current?.id === variables.id) {
+				attempt.current = undefined;
+			}
 		},
 	}));
 	const cancel = useMutation(orpc.conversation.cancel.mutationOptions());
@@ -64,12 +76,18 @@ export const Composer = memo(function Composer({ botId, name, working, input, fa
 
 	function submit(event: FormEvent): void {
 		event.preventDefault();
-		if (empty) {
+		if (empty || send.isPending) {
 			return;
 		}
 		setDraft("");
 		setPictures([]);
-		send.mutate({ botId, text: draft.trim(), images: pictures.map(({ mimeType, data }) => ({ mimeType, data })) });
+		const images = pictures.map(({ mimeType, data }) => ({ mimeType, data }));
+		const previous = attempt.current;
+		const id = previous?.text === draft.trim() && JSON.stringify(previous.images) === JSON.stringify(images) ? previous.id : crypto.randomUUID();
+		const next = { id, text: draft.trim(), images };
+		attempts.set(botId, next);
+		attempt.current = next;
+		send.mutate({ ...next, botId });
 	}
 
 	function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
@@ -119,7 +137,7 @@ export const Composer = memo(function Composer({ botId, name, working, input, fa
 					rows={1}
 					value={draft}
 					aria-label="Mensagem"
-					placeholder={working ? `Mensagem para ${name}, entra na fila` : `Mensagem para ${name}`}
+					placeholder={`Mensagem para ${name}`}
 					className="max-h-44 min-h-0 py-3 pl-4 text-sm"
 					onChange={(event) => setDraft(event.target.value)}
 					onKeyDown={onKeyDown}
@@ -132,7 +150,7 @@ export const Composer = memo(function Composer({ botId, name, working, input, fa
 							variant="default"
 							size="icon-sm"
 							className="rounded-full"
-							aria-label="Parar o Turno e descartar a Fila"
+							aria-label="Parar"
 							onClick={() => cancel.mutate({ botId })}
 						>
 							<SquareIcon className="size-3 fill-current" />
@@ -144,7 +162,7 @@ export const Composer = memo(function Composer({ botId, name, working, input, fa
 							size="icon-sm"
 							className="rounded-full aria-disabled:pointer-events-none aria-disabled:opacity-50"
 							aria-label="Enviar"
-							aria-disabled={empty}
+							aria-disabled={empty || send.isPending}
 						>
 							<ArrowUpIcon />
 						</InputGroupButton>

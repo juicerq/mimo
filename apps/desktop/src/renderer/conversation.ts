@@ -1,4 +1,5 @@
 import { useEffect, useReducer } from "react";
+import type { ConversationBatch } from "@agent/conversation/record";
 import type { ChatKey } from "@agent/bot/types";
 import type { ScreenEvent } from "../main/router";
 import { rpc } from "./rpc";
@@ -27,9 +28,9 @@ export type Turn = "idle" | "thinking" | "working" | "waiting";
 
 export interface Conversation {
 	ready: boolean;
+	cursor: number;
 	lines: Line[];
 	turn: Turn;
-	queue: readonly string[];
 }
 
 type Edit<Event> = (lines: Line[], event: Event) => boolean;
@@ -62,19 +63,18 @@ function settleTool(lines: Line[], call: Pick<EventMap["tool-result"], "id" | "t
 	return true;
 }
 
-function resolveApproval(lines: Line[], outcome: EventMap["approval-resolved"]["outcome"]): boolean {
-	const at = lines.findLastIndex((line) => line.kind === "approval" && !line.outcome);
+function resolveApproval(lines: Line[], event: EventMap["approval-resolved"]): boolean {
+	const at = lines.findLastIndex((line) => line.kind === "approval" && line.approval.id === event.id && !line.outcome);
 	const line = lines[at];
 	if (line?.kind !== "approval") {
 		return false;
 	}
-	lines[at] = { ...line, outcome };
+	lines[at] = { ...line, outcome: event.outcome };
 	return true;
 }
 
 const EDITS: Edits = {
 	user: adds((event) => ({ kind: "you", text: event.text, images: event.images })),
-	queue: unchanged,
 	summary: adds((event) => ({ kind: "summary", text: event.text })),
 	warning: adds((event) => ({ kind: "warning", text: event.text })),
 	routine: adds((event) => ({ kind: "routine", name: event.name, prompt: event.prompt })),
@@ -86,12 +86,12 @@ const EDITS: Edits = {
 	"tool-warned": adds((event) => ({ kind: "warning", text: event.message })),
 	"tool-failed": (lines, event) => settleTool(lines, event, { text: event.message, failed: true }),
 	approval: adds((event) => ({ kind: "approval", approval: event.approval })),
-	"approval-resolved": (lines, event) => resolveApproval(lines, event.outcome),
+	"approval-resolved": resolveApproval,
 	usage: unchanged,
 	"turn-started": unchanged,
 	"turn-finished": unchanged,
 	"turn-failed": adds((event) => ({ kind: "error", text: event.message })),
-	"turn-cancelled": adds(() => ({ kind: "stopped" })),
+	"turn-cancelled": adds((event) => (event.reason === "user" ? { kind: "stopped" } : null)),
 };
 
 const TURN_AFTER: Partial<Record<ScreenEvent["type"], Turn>> = {
@@ -103,7 +103,7 @@ const TURN_AFTER: Partial<Record<ScreenEvent["type"], Turn>> = {
 	"turn-cancelled": "idle",
 };
 
-const EMPTY: Conversation = { ready: false, lines: [], turn: "idle", queue: [] };
+const EMPTY: Conversation = { ready: false, cursor: 0, lines: [], turn: "idle" };
 
 function edit<Type extends keyof EventMap>(lines: Line[], type: Type, event: EventMap[Type]): boolean {
 	const apply: Edit<EventMap[Type]> = EDITS[type];
@@ -124,9 +124,6 @@ function applyEvents(conversation: Conversation, events: ScreenEvent[]): Convers
 	for (const event of events) {
 		changed = edit(lines, event.type, event) || changed;
 		next.turn = turnAfter(next.turn, event);
-		if (event.type === "queue") {
-			next.queue = event.items;
-		}
 	}
 	if (changed) {
 		next.lines = lines;
@@ -134,15 +131,51 @@ function applyEvents(conversation: Conversation, events: ScreenEvent[]): Convers
 	return next;
 }
 
-async function follow(chat: ChatKey, signal: AbortSignal, apply: (events: ScreenEvent[]) => void): Promise<void> {
-	const batches = await rpc.conversation.watch(chat, { signal });
-	for await (const events of batches) {
-		apply(events);
+function applyBatch(conversation: Conversation, batch: ConversationBatch | ScreenEvent[]): Conversation {
+	if (Array.isArray(batch)) {
+		return applyEvents(conversation, batch);
+	}
+	if (!batch.reset && batch.cursor <= conversation.cursor) {
+		return conversation;
+	}
+	return { ...applyEvents(batch.reset ? EMPTY : conversation, batch.events), cursor: batch.cursor };
+}
+
+async function reconnect(signal: AbortSignal): Promise<void> {
+	await new Promise<void>((resolve) => {
+		const done = () => {
+			clearTimeout(timer);
+			signal.removeEventListener("abort", done);
+			resolve();
+		};
+		const timer = setTimeout(done, 1000);
+		signal.addEventListener("abort", done, { once: true });
+		if (signal.aborted) {
+			done();
+		}
+	});
+}
+
+async function follow(chat: ChatKey, signal: AbortSignal, apply: (events: ConversationBatch | ScreenEvent[]) => void): Promise<void> {
+	while (!signal.aborted) {
+		try {
+			const batches = await rpc.conversation.watch(chat, { signal });
+			for await (const events of batches) {
+				if (!signal.aborted) {
+					apply(events);
+				}
+			}
+		} catch (error) {
+			if (!signal.aborted) {
+				apply([{ type: "warning", text: error instanceof Error ? error.message : String(error) }]);
+			}
+		}
+		await reconnect(signal);
 	}
 }
 
 export function useConversation(botId: string, askedBy?: string) {
-	const [conversation, apply] = useReducer(applyEvents, EMPTY);
+	const [conversation, apply] = useReducer(applyBatch, EMPTY);
 
 	useEffect(() => {
 		const controller = new AbortController();

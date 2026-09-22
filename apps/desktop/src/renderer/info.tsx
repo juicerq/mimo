@@ -1,3 +1,4 @@
+import { preference, savePreference } from "./preferences";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "cn";
 import { About } from "./about";
@@ -6,12 +7,12 @@ const DOCKED = "mimo:info";
 const OVERLAY = "(width < 60rem)";
 
 export function useInfoPanel() {
-	const [docked, setDocked] = useState(() => localStorage.getItem(DOCKED) === "open");
+	const [docked, setDocked] = useState(() => preference(DOCKED) === "open");
 	const [overlay, setOverlay] = useState(() => matchMedia(OVERLAY).matches);
 	const [overlaid, setOverlaid] = useState(false);
 
 	useEffect(() => {
-		localStorage.setItem(DOCKED, docked ? "open" : "closed");
+		savePreference(DOCKED, docked ? "open" : "closed");
 	}, [docked]);
 
 	useEffect(() => {

@@ -7,7 +7,7 @@ O usuário escreve no campo `Mensagem`, aperta Enter e vê a resposta chegar aos
 - `chat-send` envia com Enter ou com o botão `Enviar`; `Shift+Enter` quebra a linha.
 - `chat-reply` mostra a resposta em markdown numa bolha do bot.
 - `chat-status` mostra `Pensando`, `Trabalhando` ou `Respondendo`, com o relógio do turno.
-- `chat-stop` para o turno pelo botão `Parar o Turno e descartar a Fila`; a conversa ganha `Interrompido`.
+- `chat-stop` para o turno pelo botão `Parar`; a conversa ganha `Você parou`.
 - `chat-tools` mostra a linha de cada tool com o nome em `code`, só com o Detalhe em `Completo`.
 - `chat-context` mantém o contexto entre turnos.
 - `chat-error` mostra a falha do turno na conversa, sem derrubar o app; o bot fica `falhou`.
@@ -23,9 +23,9 @@ Preconditions:
 - Um bot aberto e `$CONTROL state` em `parado`.
 
 - **Enviar.** `$CONTROL send 'responda apenas com MIMO-CHAT-OK'`. O comando imprime `estado: parado` quando o turno termina. `$CONTROL wait 'MIMO-CHAT-OK' 30` confirma a resposta na árvore.
-- **No disco.** `grep -c MIMO-CHAT-OK "$($CONTROL data)"/bots/*/messages.json` é maior que zero.
-- **Rótulo do turno.** `$CONTROL send --no-wait 'escreva um texto de 800 palavras sobre rios'` e `$CONTROL wait 'Pensando|Trabalhando|Respondendo' 20`. A árvore também mostra `button "Parar o Turno e descartar a Fila"`.
-- **Parar.** `$CONTROL browser click '[aria-label="Parar o Turno e descartar a Fila"]'` e `$CONTROL wait 'Interrompido' 20`. Um segundo depois, `$CONTROL state` volta a `parado`.
+- **No disco.** `$CONTROL db 'select text from speeches'` mostra `MIMO-CHAT-OK` uma vez; `records` contém seu evento `reply`.
+- **Rótulo do turno.** `$CONTROL send --no-wait 'escreva um texto de 800 palavras sobre rios'` e `$CONTROL wait 'Pensando|Trabalhando|Respondendo' 20`. A árvore também mostra `button "Parar"`.
+- **Parar.** `$CONTROL browser click '[aria-label="Parar"]'` e `$CONTROL wait 'Você parou' 20`. Um segundo depois, `$CONTROL state` volta a `parado`.
 - **Tool na tela.** Ponha o Detalhe em `Completo` (veja [settings.md](./settings.md)). `$CONTROL send 'que horas são? use a tool e responda em uma linha'`; `$CONTROL wait 'current_time' 30` acha o nome da tool na árvore.
 - **Contexto.** `$CONTROL send 'nesta conversa, guarde o código 73'` e `$CONTROL send 'qual código eu pedi para guardar?'`. A última resposta contém `73`.
 - **Falha.** Escolha na barra Sobre um modelo de um provedor sem credencial ou sem saldo e envie qualquer mensagem. A conversa mostra a linha de erro e `$CONTROL state` imprime `falhou`. Troque para um modelo bom e envie `continue`: o estado volta ao normal. Reporte como não verificado quando não puder provocar a falha.

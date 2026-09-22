@@ -1,3 +1,4 @@
+import { preference, savePreference } from "./preferences";
 import { useLayoutEffect, useState } from "react";
 
 export const THEMES = ["light", "dark"] as const;
@@ -9,7 +10,7 @@ export const THEME_NAMES: Record<Theme, string> = { light: "Claro", dark: "Escur
 const THEME = "mimo:theme";
 
 function savedTheme(): Theme {
-	const saved = localStorage.getItem(THEME);
+	const saved = preference(THEME);
 	if (saved === "light" || saved === "dark") {
 		return saved;
 	}
@@ -27,7 +28,7 @@ export function useTheme() {
 	}, [theme]);
 
 	function choose(next: Theme): void {
-		localStorage.setItem(THEME, next);
+		savePreference(THEME, next);
 		setTheme(next);
 	}
 

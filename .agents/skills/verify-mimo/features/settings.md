@@ -1,12 +1,12 @@
 # Configurações
 
-Um diálogo com duas escolhas do app inteiro: o Tema (Claro ou Escuro) e o Detalhe da conversa (Breve ou Completo). As duas ficam no `localStorage`.
+Um diálogo com duas escolhas do app inteiro: o Tema (Claro ou Escuro) e o Detalhe da conversa (Breve ou Completo). As duas ficam na tabela `preferences` de `mimo.sqlite`.
 
 ## Sub-features
 
 - `settings-open` a engrenagem no pé da barra de bots abre o diálogo; `Esc` fecha.
 - `settings-theme` troca entre Claro e Escuro na hora.
-- `settings-detail` `Breve` mostra mensagens, confirmações, avisos, erros, rotinas e equipe; `Completo` soma as linhas de tool com entrada e resultado.
+- `settings-detail` `Breve` mostra mensagens, confirmações, avisos, erros, rotinas e conversas entre bots; `Completo` soma as linhas de tool com entrada e resultado.
 
 ## How to get to it (user POV)
 
@@ -26,4 +26,4 @@ Preconditions:
 ## Gotchas
 
 - Os botões do diálogo não têm `aria-label` e a árvore não marca qual está escolhido. Prove a escolha pelo efeito: a cor da captura e as linhas de tool na árvore.
-- O HOME de sandbox zera o `localStorage` a cada `launch`: o app abre com o tema do sistema e o Detalhe em `Breve`. A persistência entre execuções não é dirigível com o sandbox padrão; reporte como não verificada.
+- O HOME novo não apaga preferências: use `launch --data` com os mesmos dados. `$CONTROL db 'select * from preferences'` e a tela devem conservar Tema e Detalhe.

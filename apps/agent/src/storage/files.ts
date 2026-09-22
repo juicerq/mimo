@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
 
@@ -50,9 +50,4 @@ export async function writeBinaryFile(path: string, bytes: Uint8Array, mode = 0o
 	const temporary = `${path}.${randomUUID()}.tmp`;
 	await writeFile(temporary, bytes, { mode });
 	await rename(temporary, path);
-}
-
-export async function appendJsonLine(path: string, value: unknown): Promise<void> {
-	await mkdir(dirname(path), { recursive: true });
-	await appendFile(path, `${JSON.stringify(value)}\n`, { mode: 0o600 });
 }

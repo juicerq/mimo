@@ -1,3 +1,4 @@
+import { preference, savePreference } from "./preferences";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { Empty, EmptyDescription } from "@renderer/components/ui/empty";
 import { Bar } from "./bar";
@@ -21,7 +22,7 @@ export interface Thread {
 }
 
 function savedDetail(): Detail {
-	return DETAIL_LEVELS.find((level) => level === localStorage.getItem(DETAIL)) ?? "brief";
+	return DETAIL_LEVELS.find((level) => level === preference(DETAIL)) ?? "brief";
 }
 
 function liveThread(thread: Thread | null, bots: BotRow[] | undefined): Thread | null {
@@ -66,7 +67,7 @@ function PeerConversation({ thread, level, onPeer }: { thread: Thread; level: De
 
 export function App() {
 	const { bots, error } = useBots();
-	const [chosen, setChosen] = useState(() => localStorage.getItem(LAST_BOT));
+	const [chosen, setChosen] = useState<string | undefined>(() => preference(LAST_BOT));
 	const [level, setLevel] = useState(savedDetail);
 	const [chosenThread, setThread] = useState<Thread | null>(null);
 	const { open: infoOpen, overlay, toggle: toggleInfo, close: closeInfo } = useInfoPanel();
@@ -76,7 +77,7 @@ export function App() {
 	const focusComposer = useCallback(() => input.current?.focus(), []);
 
 	useEffect(() => {
-		localStorage.setItem(DETAIL, level);
+		savePreference(DETAIL, level);
 	}, [level]);
 
 	const openPeer = useCallback(
@@ -92,7 +93,7 @@ export function App() {
 	function select(id: string): void {
 		setChosen(id);
 		setThread(null);
-		localStorage.setItem(LAST_BOT, id);
+		savePreference(LAST_BOT, id);
 	}
 
 	return (

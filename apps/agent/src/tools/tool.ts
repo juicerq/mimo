@@ -24,7 +24,7 @@ export interface ToolDefinition<T extends z.ZodObject> {
 	name: string;
 	description: string;
 	input: T;
-	execute: (input: z.output<T>, signal?: AbortSignal) => Promise<unknown>;
+	execute: (input: z.output<T>, signal?: AbortSignal, id?: string) => Promise<unknown>;
 }
 
 export function tool<T extends z.ZodObject>(definition: ToolDefinition<T>): AgentTool {
@@ -33,9 +33,9 @@ export function tool<T extends z.ZodObject>(definition: ToolDefinition<T>): Agen
 		label: definition.name,
 		description: definition.description,
 		parameters: Type.Unsafe(z.toJSONSchema(definition.input, { io: "input" })),
-		async execute(_toolCallId, params, signal) {
+		async execute(toolCallId, params, signal) {
 			const input = definition.input.parse(params);
-			const details = await definition.execute(input, signal);
+			const details = await definition.execute(input, signal, toolCallId);
 			return { content: [{ type: "text", text: JSON.stringify(details) }], details };
 		},
 	};

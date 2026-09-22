@@ -1,7 +1,8 @@
-import { Chat } from "@agent/bot/chat";
-import { lastMessage } from "@agent/bot/events";
+import { Conversation } from "@agent/conversation/conversation";
+import { ConversationRecord } from "@agent/conversation/record";
+import { Preferences, readPreferences, savePreferences } from "@agent/storage/preferences";
 import { activity, deleteBot, mainChat, updateBot } from "@agent/bot/registry";
-import { createBot, listBots, readBot, readTranscript } from "@agent/bot/store";
+import { createBot, listBots, readBot } from "@agent/bot/store";
 import { BotNameSchema, BotPromptSchema, type BotEvent } from "@agent/bot/types";
 import { browserSession, watchBrowsers, type BrowserActivity } from "@agent/browser/registry";
 import { disconnectAccount, listAccounts } from "@agent/gmail/accounts";
@@ -34,28 +35,10 @@ const agent = base.use(async ({ next }) => {
 	}
 });
 
-function onScreen(event: BotEvent): event is ScreenEvent {
-	return event.type !== "login";
-}
-
-function replay(chat: Chat): BotEvent[] {
-	const events: BotEvent[] = [...chat.transcript(), { type: "queue", items: chat.queue }];
-	if (chat.busy) {
-		events.push({ type: "turn-started" });
-	}
-	if (chat.approval) {
-		events.push({ type: "approval", approval: chat.approval });
-	}
-	if (chat.failed) {
-		events.push({ type: "turn-failed", message: chat.failed });
-	}
-	return events;
-}
-
 async function listedBots() {
 	return await Promise.all((await listBots()).map(async (bot) => ({
 		...bot,
-		last: mainChat(bot.id)?.lastMessage ?? lastMessage(await readTranscript({ botId: bot.id }).catch(() => [])),
+		last: mainChat(bot.id)?.lastMessage ?? new ConversationRecord({ botId: bot.id }).lastMessage,
 	})));
 }
 
@@ -103,25 +86,15 @@ async function* browsing(signal?: AbortSignal) {
 	}
 }
 
-async function* watch(chat: Chat, signal?: AbortSignal) {
-	const publisher = new EventPublisher<{ event: ScreenEvent }>({ maxBufferedEvents: Number.POSITIVE_INFINITY });
-	const live = publisher.subscribe("event", { ...signal && { signal } });
-	const unsubscribe = chat.observe((event) => {
-		if (onScreen(event)) {
-			publisher.publish("event", event);
-		}
-	});
-	try {
-		yield replay(chat).filter(onScreen);
-		for await (const event of live) {
-			yield [event];
-		}
-	} finally {
-		unsubscribe();
-	}
-}
-
 export const router = {
+	preferences: {
+		read: agent.handler(readPreferences),
+		save: agent.input(Preferences).handler(({ input }) => savePreferences(input)),
+		import: agent.input(Preferences).handler(({ input }) => {
+			savePreferences(input, true);
+			return readPreferences();
+		}),
+	},
 	bots: {
 		list: agent.handler(listedBots),
 		activity: agent.handler(activity),
@@ -147,26 +120,27 @@ export const router = {
 	conversation: {
 		watch: agent
 			.input(ChatInput)
-			.handler(async ({ input, signal }) => watch(await Chat.open(input), signal)),
+			.handler(async ({ input, signal }) => (await Conversation.open(input)).watch(signal)),
 		send: agent
 			.input(BotInput.extend({
+				id: z.uuid(),
 				text: z.string().trim(),
 				images: z.array(z.object({ mimeType: z.string().min(1), data: z.string().min(1) })).default([]),
 			}).refine((input) => input.text.length > 0 || input.images.length > 0, "Escreva alguma coisa ou cole uma imagem."))
 			.handler(async ({ input }) => {
-				const chat = await Chat.open(input);
-				await chat.send(input.text, input.images);
+				const chat = await Conversation.open(input);
+				await chat.send(input.id, input.text, input.images);
 			}),
 		answer: agent
 			.input(BotInput.extend({ id: z.string().min(1), approved: z.boolean() }))
 			.handler(async ({ input }) => {
-				const chat = await Chat.open(input);
+				const chat = await Conversation.open(input);
 				chat.resolveApproval(input.id, input.approved);
 			}),
 		cancel: agent
 			.input(BotInput)
 			.handler(async ({ input }) => {
-				const chat = await Chat.open(input);
+				const chat = await Conversation.open(input);
 				chat.cancel();
 			}),
 	},

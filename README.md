@@ -2,21 +2,21 @@
 
 Bots pessoais num app de desktop, com a harness [Pi](https://www.npmjs.com/package/@earendil-works/pi-agent-core) e Electron. Cada bot mantém sua conversa e memória própria. Seu propósito se desenvolve pelo uso.
 
-A tela e o agente rodam no mesmo processo: não há servidor nem daemon.
+A tela conversa com o agente dentro do app Electron: não há servidor nem daemon.
 
 À esquerda fica a barra de bots, sempre visível: um bot por linha, com o rosto, a última mensagem e a marca do que ele faz agora — trabalhando, esperando aprovação, falhou, parado. O mais recente fica no topo. É como você sabe o que acontece nos outros bots sem sair da conversa. Clique num bot para abrir a conversa dele; trocar de bot não interrompe seu trabalho, e ao voltar o histórico e as aprovações pendentes estão lá.
 
-Crie um bot pelo `+` no topo da barra: escreva o nome e confirme. Para apagar, clique com o botão direito no bot e escolha **Apagar bot**; a conversa, a memória e as rotinas daquele bot são apagadas. Toda exclusão entra no `actions.jsonl` com a hora, o nome e a origem. Não há limite de quantidade nem formulário de propósito.
+Crie um bot pelo `+` no topo da barra: escreva o nome e confirme. Para apagar, clique com o botão direito no bot e escolha **Apagar bot**; a conversa, a memória e as rotinas daquele bot são apagadas. Toda exclusão entra na tabela `actions` do banco com a hora, o nome e a origem. Não há limite de quantidade nem formulário de propósito.
 
 O ⓘ no topo abre **Sobre o bot**, o painel da direita: a instrução permanente, o modelo, o esforço, a data de criação e, enquanto ele navega, a prévia do navegador. A escolha de modelo pertence ao bot e permanece salva ao reiniciar. Trocar de modelo não envia mensagem nenhuma e vale para a próxima resposta; uma resposta em andamento, inclusive a continuação depois de uma aprovação, termina com o modelo com que começou.
 
 A engrenagem no pé da barra abre **Configurações**, com duas partes: **Aplicativo** (tema e detalhe) e **Contas** (entrar nos provedores de modelo, ver e desconectar as contas de Gmail).
 
-Depois de enviar, uma linha viva acima do composer mostra o que o bot faz, com o tempo correndo e um botão para parar. Parar descarta a fila junto com o turno; ações já concluídas não são desfeitas. Depois de uma falha ou interrupção, escreva "continue", ajuste o pedido ou mude de assunto normalmente.
+Depois de enviar, uma linha viva acima do composer mostra o que o bot faz, com o tempo correndo e um botão para parar. Enviar uma nova mensagem interrompe o trabalho atual e começa outro, sem fila. A troca de mensagem não mostra aviso de interrupção. “Você parou” aparece apenas ao clicar em Parar. Mensagens e ações já concluídas são preservadas. Depois de uma falha ou interrupção, escreva "continue", ajuste o pedido ou mude de assunto normalmente.
 
 Você pode escrever enquanto o bot trabalha. A mensagem fica acima do composer e entra na conversa assim que ele termina o passo atual. Várias mensagens esperam em ordem e chegam juntas, num turno só.
 
-O bot trabalha sem perguntar: `bash`, `write` e `edit` rodam direto, e cada ação fica registrada em `actions.jsonl`. A única exceção é enviar e-mail, que sempre para para você confirmar. Não há modo a escolher.
+O bot trabalha sem perguntar: `bash`, `write` e `edit` rodam direto, e os resultados ficam no Registro. A única exceção é enviar e-mail, que sempre para para você confirmar. Não há modo a escolher.
 
 **Detalhe**, em Configurações › Aplicativo, controla quanto a conversa mostra além da sua mensagem e da resposta do bot. `Breve` mostra uma linha por item, como "Procurou na web"; `Completo` acrescenta a chamada da ferramenta e o resultado, cortados em 600 caracteres. Os cards que pedem uma resposta sua — conectar o Gmail, aprovar um envio, assumir o navegador — aparecem nos dois níveis.
 
@@ -49,7 +49,7 @@ Para mexer no app com recarga automática:
 bun run dev
 ```
 
-O `dev` sempre usa a Casa `.data-desktop`, nunca os seus bots reais, então ele e o app compilado convivem sem disputa. A tela recarrega sozinha; o processo principal (`apps/desktop/src/main`, `apps/agent/src`) exige reiniciar o comando.
+O `dev` sempre usa a Casa `.data-desktop`, nunca os seus bots reais, e mantém os dados separados do app compilado. Há uma instância por perfil do Electron; feche a outra antes de abrir. A tela recarrega sozinha; o processo principal (`apps/desktop/src/main`, `apps/agent/src`) exige reiniciar o comando.
 
 Para conferir a versão compilada:
 
@@ -78,13 +78,19 @@ Se uma chamada de modelo falhar, o erro aparece na conversa. Para mudar de prove
 
 O mimo guarda tudo em `~/.mimo/`: bots, transcripts, memória, contas do Gmail, rotinas, registros de ações e as chaves em `~/.mimo/.env`. A casa não depende da pasta de onde você chamou o mimo. `MIMO_DATA_DIR` troca o lugar dos dados (relativo à pasta atual ou absoluto); as chaves e as credenciais seguem o `$HOME`, porque pertencem a você e não ao sandbox.
 
-A verificação de ponta a ponta (`verify-mimo`) também roda em sandbox por padrão e só usa os dados reais se for apontada para eles de propósito.
+A verificação de ponta a ponta (`verify-mimo`) roda com dados e perfil separados e recusa a Casa real.
+
+O estado durável do app fica em `mimo.sqlite`, com SQLite e Drizzle: bots, conversas, turnos, entregas aceitas, falas, memória, rotinas, ações e preferências. Imagens, `MIMO.md`, `.env` e credenciais continuam em arquivos. Ao abrir pela primeira vez, o app importa os JSON/MD antigos numa transação e mantém os originais intactos como cópia da versão anterior, inclusive após apagar um bot no app. Se encontrar dados inválidos, avisa e interrompe a abertura sem importar parcialmente. As preferências antigas do `localStorage` são importadas sem sobrescrever valores já salvos no banco.
+
+A fala só aparece depois de gravada junto com seu recibo. Uma chamada inválida de `send_message` não vira balão. Ao reiniciar, o app marca turnos incompletos como interrompidos e avisa sobre ações cujo resultado não foi registrado, sem repeti-las.
+
+O schema fica em `apps/agent/src/storage/schema.ts`. Depois de alterá-lo, rode `bun run db:generate` e revise a migração gerada em `storage/migrations`; o app aplica as migrações ao abrir. Não use `drizzle-kit push`. O `bun install` recompila o driver SQLite para a versão instalada do Electron.
 
 ## Memória
 
-Cada bot tem memória isolada em `~/.mimo/bots/<id>/memory.md`. Ela registra fatos, preferências e decisões úteis para os próximos turnos. Peça ao bot para lembrar ou remover algo.
+Cada bot tem memória isolada na tabela `memories` do banco. Ela registra fatos, preferências e decisões úteis para os próximos turnos. Peça ao bot para lembrar ou remover algo.
 
-O registro do bot fica em `~/.mimo/bots/<id>.json` e o transcript atual em `~/.mimo/bots/<id>/messages.json`. Cada compactação arquiva a conversa anterior em `~/.mimo/bots/<id>/sessions/<session-id>.json`. As ferramentas de histórico consultam todos os arquivos do próprio bot e omitem metadados técnicos na leitura, preservando as mensagens e o estado das ações.
+O Registro e a transcrição técnica ficam separados no banco. A compactação salva o resumo e o início da nova janela; as mensagens originais permanecem. As ferramentas de histórico consultam o trecho anterior à janela e omitem metadados técnicos na leitura.
 
 ## Os outros bots
 
@@ -131,7 +137,7 @@ EXA_API_KEY=
 
 ## Rotinas
 
-As rotinas ficam em `~/.mimo/routines.json` e pertencem ao bot que as criou. Um dispatcher de um minuto roda dentro do app e entrega o prompt ao bot pelo mesmo caminho usado pela conversa. Com o app fechado, nenhuma rotina dispara.
+As rotinas ficam na tabela `routines` de `~/.mimo/mimo.sqlite` e pertencem ao bot que as criou. Um dispatcher de um minuto roda dentro do app e entrega o prompt ao bot pelo mesmo caminho usado pela conversa. Com o app fechado, nenhuma rotina dispara. Se o bot estiver ocupado, a ocorrência aguarda o próximo tick. Cada ocorrência tem um identificador estável para não ser entregue duas vezes.
 
 Cada rotina tem um nome curto, escolhido na criação e único dentro do bot, como `check_emails`. As tools `update_routine` e `delete_routine` tratam a rotina pelo nome, e `list_routines` mostra os nomes.
 

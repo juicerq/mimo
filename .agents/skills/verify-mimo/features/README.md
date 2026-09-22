@@ -16,7 +16,7 @@ Este diretório é a fonte mantida para verificar o comportamento visível do ap
 - Comece cada receita do estado de linha de base, salvo precondição em contrário.
 - Seletor CSS por `aria-label` primeiro; referência `@eN` de um `snapshot` novo quando o elemento não tem rótulo. `agent-browser find` não funciona aqui.
 - Prefira marcadores únicos (`MIMO-...-<run>`, ids, nomes de tool) a frases do modelo.
-- `send` espera o turno terminar; `send --no-wait` é só para a Fila e para parar um turno.
+- `send` espera o turno terminar; `send --no-wait` permite interromper com outra mensagem ou com o botão Parar.
 - O estado do bot vem de uma consulta a cada segundo. Logo depois de um evento, `state` pode atrasar 1 s; use `wait` no marcador em vez de ler `state` na hora.
 - Capture os passos-chave com `$CONTROL capture NN-nome`.
 - Termine com `$CONTROL stop`; a evidência fica no run dir.
@@ -37,12 +37,18 @@ Cada arquivo começa com um H1 e um parágrafo com o comportamento visível. Dep
 
 - [Bots](./bots.md) cobre o primeiro bot, criar outro, trocar de bot, a prévia na lista e a persistência.
 - [Conversa](./chat.md) cobre envio, resposta, o rótulo do turno, parar, o nível de Detalhe e falha de turno.
-- [Fila](./queue.md) cobre escrever durante o trabalho do bot, a ordem e o descarte ao parar.
+- [Interrupção](./interruption.md) cobre uma nova mensagem durante o trabalho do bot, inclusive com Aprovação pendente.
 - [Sobre o bot](./about.md) cobre a barra lateral: Modelo e Esforço.
 - [Configurações](./settings.md) cobre Tema e Detalhe.
-- [Tools do agente](./agent-tools.md) cobre web, computador, memória, rotinas e equipe pedidos na conversa.
+- [Tools do agente](./agent-tools.md) cobre web, computador, memória, rotinas e conversas entre bots pedidos na conversa.
 - [Gmail](./gmail.md) cobre leitura, rascunho e a confirmação de envio.
 
-## Sem superfície no desktop
+## Persistência e recuperação
 
-Ainda não existem na janela: login de provedor, conectar conta Gmail e apagar bot. Um login pedido pelo bot falha na hora. Reporte essas features como sem superfície; não prove por outro caminho.
+Use `$CONTROL db '<consulta SELECT>'` para conferir `mimo.sqlite` sem escrever nele. O comando devolve JSON. Capture a tela antes e depois de reiniciar com o mesmo `--data`: o HOME muda, mas a conversa, a seleção do bot, o tema e o detalhe permanecem.
+
+Para reproduzir a duplicação antiga, peça uma chamada `send_message` sem `done` e uma nova tentativa com `done: true`. Só a aceita aparece em `speeches` e como `reply` em `records`, tanto ao vivo quanto depois de reabrir.
+
+Para verificar queda, pare a instância com uma ferramenta `bash` executando `sleep 30` em andamento. Reabra com os mesmos dados: o Turno fica interrompido, a ação sem resultado recebe Selo. Nenhuma dessas ações é repetida.
+
+Para verificar importação, use uma cópia dos JSON/MD antigos em outro sandbox, sem credenciais nem rotinas habilitadas. Compare os hashes dos originais, a conversa importada e o marcador em `imports`; abrir novamente não aumenta os registros. Um JSON inválido deve impedir a abertura sem importar Bots parcialmente.

@@ -3,6 +3,8 @@ import type { Approval, BotEvent } from "./types";
 interface Pending {
 	approval: Approval;
 	resolve: (approved: boolean) => void;
+	reject: (error: unknown) => void;
+	cleanup: () => void;
 }
 
 export class Approvals {
@@ -15,13 +17,17 @@ export class Approvals {
 	}
 
 	ask(approval: Approval, signal?: AbortSignal): Promise<boolean> {
-		return new Promise<boolean>((resolve) => {
-			const entry: Pending = { approval, resolve };
-			this.pending.push(entry);
-			signal?.addEventListener("abort", () => this.settle(entry, false), { once: true });
-			if (this.pending[0] === entry) {
+		if (signal?.aborted) {
+			return Promise.resolve(false);
+		}
+		return new Promise<boolean>((resolve, reject) => {
+			const abort = () => { this.settle(entry, false); };
+			const entry: Pending = { approval, resolve, reject, cleanup: () => signal?.removeEventListener("abort", abort) };
+			if (this.pending.length === 0) {
 				this.emit({ type: "approval", approval });
 			}
+			this.pending.push(entry);
+			signal?.addEventListener("abort", abort, { once: true });
 		});
 	}
 
@@ -45,11 +51,18 @@ export class Approvals {
 		if (index === -1) {
 			return;
 		}
-		this.pending.splice(index, 1);
+		try {
+			this.emit({ type: "approval-resolved", id: entry.approval.id, outcome: approved ? "approved" : "denied" });
+		} catch (error) {
+			entry.reject(error);
+			throw error;
+		} finally {
+			this.pending.splice(index, 1);
+			entry.cleanup();
+		}
 		entry.resolve(approved);
-		this.emit({ type: "approval-resolved", outcome: approved ? "approved" : "denied" });
 		const next = this.pending[0];
-		if (next) {
+		if (index === 0 && next) {
 			this.emit({ type: "approval", approval: next.approval });
 		}
 	}

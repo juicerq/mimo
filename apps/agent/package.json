@@ -9,6 +9,8 @@
 	"dependencies": {
 		"@earendil-works/pi-agent-core": "^0.85.1",
 		"@earendil-works/pi-ai": "^0.85.1",
+		"better-sqlite3": "13.0.3",
+		"drizzle-orm": "0.45.3",
 		"zod": "^4.6.1"
 	}
 }

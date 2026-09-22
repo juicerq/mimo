@@ -20,7 +20,7 @@ export function isAsk(toolName: string): boolean {
 	return toolName === ASK;
 }
 
-export function askedEvent(toolName: string, id: string, input: unknown): BotEvent | null {
+export function askedEvent(toolName: string, id: string, input: unknown): Extract<BotEvent, { type: "asked" | "answered" }> | null {
 	if (!isAsk(toolName)) {
 		return null;
 	}
@@ -31,7 +31,7 @@ export function askedEvent(toolName: string, id: string, input: unknown): BotEve
 	return { type: "asked", id, peer: parsed.data.bot, prompt: parsed.data.prompt };
 }
 
-export function answeredEvent(output: string): BotEvent | null {
+export function answeredEvent(output: string): Extract<BotEvent, { type: "asked" | "answered" }> | null {
 	const parsed = AskedResult.safeParse(parseJson(output));
 	if (!parsed.success) {
 		return null;
