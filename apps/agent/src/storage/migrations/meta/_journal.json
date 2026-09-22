@@ -22,6 +22,13 @@
       "when": 1790101900087,
       "tag": "0002_drop_imports",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790103375913,
+      "tag": "0003_model_catalogs",
+      "breakpoints": true
     }
   ]
 }

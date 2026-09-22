@@ -1,7 +1,7 @@
 import type { AuthEvent, AuthInteraction, AuthPrompt, AuthType } from "@earendil-works/pi-ai";
 import { z } from "zod";
 import { connectGmail } from "../gmail/connect";
-import { models } from "../model/models";
+import { models, refreshModels } from "../model/models";
 import type { Provider } from "../model/types";
 
 const AUTH_TYPES: Record<Provider, AuthType> = { opencode: "api_key", "opencode-go": "api_key", "openai-codex": "oauth" };
@@ -189,6 +189,7 @@ export class LoginSession {
 				this.connected = await connectGmail(interaction);
 			} else {
 				await models().login(this.target, AUTH_TYPES[this.target], interaction);
+				await refreshModels();
 			}
 			this.finish(null);
 		} catch (error) {

@@ -1,11 +1,15 @@
-import { createModels, type Api, type Credential, type CredentialStore, type Model, type Models } from "@earendil-works/pi-ai";
+import { createModels, type Api, type Credential, type CredentialStore, type Model, type Models, type ModelsRefreshResult, type ModelsStore } from "@earendil-works/pi-ai";
 import { openaiCodexProvider } from "@earendil-works/pi-ai/providers/openai-codex";
 import { opencodeProvider } from "@earendil-works/pi-ai/providers/opencode";
 import { opencodeGoProvider } from "@earendil-works/pi-ai/providers/opencode-go";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { database } from "../storage/database";
 import { readTextFile, writeTextFile } from "../storage/files";
+import { modelCatalogs } from "../storage/schema";
+import { withLiveModels } from "./codex";
 import { withCatalog } from "./overlay";
 import { withFreeTier } from "./zen";
 import { ProviderSchema, type Provider } from "./types";
@@ -155,18 +159,41 @@ const credentials: CredentialStore = {
 	},
 };
 
+const catalogs: ModelsStore = {
+	async read(provider) {
+		return database().select().from(modelCatalogs).where(eq(modelCatalogs.provider, provider)).get()?.entry;
+	},
+	async write(provider, entry) {
+		database().insert(modelCatalogs).values({ provider, entry }).onConflictDoUpdate({ target: modelCatalogs.provider, set: { entry } }).run();
+	},
+	async delete(provider) {
+		database().delete(modelCatalogs).where(eq(modelCatalogs.provider, provider)).run();
+	},
+};
+
 let registry: Models | null = null;
 
 export function models(): Models {
 	if (registry) {
 		return registry;
 	}
-	const created = createModels({ credentials });
+	const created = createModels({ credentials, modelsStore: catalogs });
 	created.setProvider(withFreeTier(opencodeProvider()));
 	created.setProvider(withCatalog(opencodeGoProvider()));
-	created.setProvider(openaiCodexProvider());
+	created.setProvider(withLiveModels(openaiCodexProvider()));
 	registry = created;
 	return created;
+}
+
+function reportRefresh(result: ModelsRefreshResult): void {
+	for (const [provider, error] of result.errors) {
+		console.error(`Model list for ${provider} could not be refreshed`, error);
+	}
+}
+
+export async function refreshModels(): Promise<void> {
+	reportRefresh(await models().refresh({ allowNetwork: false }));
+	void models().refresh().then(reportRefresh);
 }
 
 export function sessionOptions(model: Pick<Model<Api>, "provider">, sessionId: string) {

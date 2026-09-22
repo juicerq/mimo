@@ -1,4 +1,5 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type { ModelsStoreEntry } from "@earendil-works/pi-ai";
 import { sql } from "drizzle-orm";
 import { check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { Entry } from "../bot/events";
@@ -99,6 +100,8 @@ export const actions = sqliteTable("actions", {
 });
 
 export const preferences = sqliteTable("preferences", { key: text().primaryKey(), value: text().notNull() });
+
+export const modelCatalogs = sqliteTable("model_catalogs", { provider: text().primaryKey(), entry: text({ mode: "json" }).$type<ModelsStoreEntry>().notNull() });
 
 export const compactions = sqliteTable("compactions", {
 	seq: integer().primaryKey({ autoIncrement: true }),

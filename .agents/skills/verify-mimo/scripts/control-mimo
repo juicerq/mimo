@@ -16,6 +16,7 @@ PORT_FIRST=9340
 PORT_LAST=9399
 AUTH_PATHS=(".codex/auth.json" ".local/share/opencode/auth.json")
 ENV_PATH=".mimo/.env"
+CODEX_CACHE_PATH=".codex/models_cache.json"
 MAIN_SOURCES=("apps/desktop/src/main" "apps/desktop/src/preload" "apps/desktop/electron.vite.config.ts" "apps/agent/src")
 
 usage() {
@@ -102,6 +103,9 @@ prepare_home() {
 	if [ -f "$HOME/$ENV_PATH" ]; then
 		mkdir -p "$home_dir/$(dirname "$ENV_PATH")"
 		ln -s "$HOME/$ENV_PATH" "$home_dir/$ENV_PATH"
+	fi
+	if [ -f "$HOME/$CODEX_CACHE_PATH" ]; then
+		ln -s "$HOME/$CODEX_CACHE_PATH" "$home_dir/$CODEX_CACHE_PATH"
 	fi
 	printf '%s' "$home_dir"
 }

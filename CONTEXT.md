@@ -37,7 +37,7 @@ _Dono_: `apps/agent/src/conversation/conversation.ts` (`submit`, `cancel`); esta
 **Modelo do Bot**:
 A escolha de provedor, modelo e esforço para as próximas respostas de um Bot. Permanece salva e pode mudar a qualquer momento. Uma resposta em andamento mantém a escolha com que começou, inclusive enquanto espera Aprovação.
 _Evitar_: Modelo global, modelo da sessão
-_Dono_: `apps/agent/src/model/catalog.ts`; na tela, `apps/desktop/src/renderer/about.tsx`
+_Dono_: `apps/agent/src/model/catalog.ts`; os modelos novos da OpenAI, `apps/agent/src/model/codex.ts`; na tela, `apps/desktop/src/renderer/about.tsx`
 
 **Imagem colada**:
 Uma imagem que a pessoa cola no campo de mensagem e manda junto com o texto. Os bytes ficam em arquivo (`bots/<id>/images/<hash>.png`) e o Registro guarda só a marca `[imagem: <hash>.png]` na frente do texto, do mesmo jeito que `[resumo]` e `[rotina:]`; a imagem de verdade entra só na Janela, montada a cada chamada do modelo, e não duplica seus bytes no Registro. Na conversa ela aparece acima do balão da pessoa, fora dele. Um Bot com Modelo que não lê imagem recusa antes de gravar qualquer coisa, e a pessoa recebe o texto e a imagem de volta no campo.
@@ -124,7 +124,7 @@ O dispatcher de Rotinas vive dentro do processo principal e faz um tick por minu
 
 Os blocos de instruções ficam em `apps/agent/src/<área>/instructions.md`, e `botInstructions` em `apps/agent/src/tools/index.ts` junta todos, sempre os mesmos: todo Bot recebe o prompt inteiro e todas as tools.
 
-Tudo o que dura fica na Casa (`MIMO_DATA_DIR`, padrão `~/.mimo`): `mimo.sqlite`, acessado pelo Drizzle. O schema e as migrações versionadas ficam em `apps/agent/src/storage/`. O banco guarda Bots, Registros, transcrições técnicas, Turnos, entregas aceitas, Falas, Memória, Rotinas, ações e preferências da tela. Imagens, `MIMO.md`, `.env` e credenciais continuam em arquivos. As chaves entram por `loadEnv()`, chamado no começo de `main()`: ele lê `~/.mimo/.env` e não sobrescreve variável já definida no ambiente.
+Tudo o que dura fica na Casa (`MIMO_DATA_DIR`, padrão `~/.mimo`): `mimo.sqlite`, acessado pelo Drizzle. O schema e as migrações versionadas ficam em `apps/agent/src/storage/`. O banco guarda Bots, Registros, transcrições técnicas, Turnos, entregas aceitas, Falas, Memória, Rotinas, ações, preferências da tela e os modelos do Codex que a integração não conhece. Imagens, `MIMO.md`, `.env` e credenciais continuam em arquivos. As chaves entram por `loadEnv()`, chamado no começo de `main()`: ele lê `~/.mimo/.env` e não sobrescreve variável já definida no ambiente.
 
 Quem está aberto agora mora em `apps/agent/src/bot/registry.ts`: ele guarda o mapa das conversas vivas por identificador de conversa, garante que dois pedidos para abrir a mesma conversa recebem a mesma instância (`openOnce`), responde o que a Barra de bots mostra (`activity`) e apaga um Bot com as rotinas e as Conversas entre bots dele (`deleteBot`).
 
