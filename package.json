@@ -23,6 +23,7 @@
     "bench:scroll": "bun bench/scroll.ts",
     "bench:memory": "bun bench/memory.ts",
     "bench:queue": "bun bench/queue.ts",
+    "bench:jev": "bun bench/jev-isolated.ts",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "check": "juicerq-check",
