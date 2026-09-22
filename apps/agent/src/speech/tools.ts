@@ -16,7 +16,7 @@ export function isSpeech(toolName: string): boolean {
 export function speechTool(context: ToolContext) {
 	return tool({
 		name: SPEAK,
-		description: "Manda uma mensagem para a pessoa. É o único canal com ela: texto fora desta tool, inclusive o comentário ao lado de outra tool, é descartado sem ela ver. Use para dizer o que vai fazer, para contar cada achado durante o trabalho, chamando junto com a próxima tool, e para a resposta final, com done: true.",
+		description: "Manda uma mensagem para a pessoa. É o único canal com ela: texto fora desta tool, inclusive o comentário ao lado de outra tool, é descartado sem ela ver. Use para dizer o que vai fazer, para dar notícia quando algo muda durante o trabalho, chamando junto com a próxima tool, e para a resposta final, com done: true.",
 		input: SpeakInput,
 		async execute(input, _signal, id) {
 			if (!id) {
