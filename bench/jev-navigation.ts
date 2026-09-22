@@ -220,7 +220,7 @@ function summarize(observations: Observation[]) {
     tools: events("pi.tool").map((entry) => entry.attributes?.tool ?? "unknown"),
     browserActions: observations.flatMap((entry) => entry.kind === "span" && entry.name === "browser.action" ? [entry.attributes?.state ?? "unknown"] : []),
     jev: result ? { status: result.status, reason: result.reason, calls: result.count, inputTokens: result.inputTokens, outputTokens: result.outputTokens, commands: result.commands, recoveries: result.recoveries, discarded: result.discarded } : null,
-    decisions: events("browser.jev.decision").map((entry) => ({ state: entry.attributes?.state, percent: entry.attributes?.percent, targetPercent: entry.attributes?.targetPercent })),
+    decisions: events("browser.jev.decision").map((entry) => ({ state: entry.attributes?.state, percent: entry.attributes?.percent })),
     // Sequential phases inside one turn: the Jev run and conventional browser actions are tool time; the rest of the turn is the principal model and its overhead.
     phases: {
       turnMs,

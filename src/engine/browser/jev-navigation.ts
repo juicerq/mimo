@@ -125,9 +125,8 @@ export async function runJevNavigation(botId: string, input: BrowserRun, callerS
     usage.inputTokens += decision.usage.inputTokens
     usage.outputTokens += decision.usage.outputTokens
     const next = readJevDecision(decision.answers, plan)
-    const action = decision.answers.action
-    const target = next.kind === "act" && "target" in next.step ? decision.answers[`${next.step.action}_target`] : undefined
-    navigation.observability.event({ name: "browser.jev.decision", context, attributes: { model, ...decision.usage, observationId: current.id, state: action?.choice ?? "none", percent: (action?.probabilities[action.choice] ?? 0) * 100, ...(target ? { target: target.choice, targetPercent: (target.probabilities[target.choice] ?? 0) * 100 } : {}) } })
+    const step = decision.answers.step
+    navigation.observability.event({ name: "browser.jev.decision", context, attributes: { model, ...decision.usage, observationId: current.id, state: step?.choice ?? "none", percent: (step?.probabilities[step.choice] ?? 0) * 100 } })
 
     return next
   }

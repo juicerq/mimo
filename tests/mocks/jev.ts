@@ -15,21 +15,35 @@ export const JevMock = await Mock.create({}, (app) => {
     if (status !== 200) {
       return { error: "controlled failure" }
     }
-    const keysNamed = (criteria: Record<string, unknown>, names: string[]) => names.flatMap((wanted) => Object.entries(criteria).filter(([, description]) => z.object({ name: z.literal(wanted) }).safeParse(description).success).map(([key]) => key))
+    const option = z.object({ action: z.literal("click"), name: z.string() }).or(z.object({ action: z.literal("fill"), field: z.object({ name: z.string() }), supplied: z.string() }))
+    const label = (description: unknown) => {
+      const parsed = option.safeParse(description)
+
+      if (!parsed.success) {
+        return
+      }
+
+      if (parsed.data.action === "click") {
+        return parsed.data.name
+      }
+
+      return `${parsed.data.field.name}=${parsed.data.supplied}`
+    }
+    // names:A|B picks the first click on a target named A or B; fill:Field=Value picks that field and supplied value; find:A keeps paging with more_targets until a click on A is offered.
     const choose = (name: string, criteria: Record<string, unknown>) => {
       const requested = overrides[name]
+      const matching = (wanted: string[]) => wanted.flatMap((entry) => Object.entries(criteria).filter(([, description]) => label(description) === entry).map(([key]) => key))
 
-      // find: keeps paging with more_targets until the named target is offered, then clicks it.
       if (requested?.startsWith("find:")) {
-        if (keysNamed(body.questions.click_target?.criteria ?? {}, [requested.slice(5)]).length) {
-          return "click"
-        }
-
-        return "more_targets"
+        return matching([requested.slice(5)]).at(0) ?? "more_targets"
       }
 
       if (requested?.startsWith("names:")) {
-        return keysNamed(criteria, requested.slice(6).split("|")).at(0) ?? Object.keys(criteria).at(0)
+        return matching(requested.slice(6).split("|")).at(0) ?? Object.keys(criteria).at(0)
+      }
+
+      if (requested?.startsWith("fill:")) {
+        return matching([requested.slice(5)]).at(0) ?? Object.keys(criteria).at(0)
       }
 
       return requested ?? Object.keys(criteria).at(0)

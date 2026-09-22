@@ -37,7 +37,6 @@ export const observationAttributes = z.strictObject({
   state: z.string().optional(),
   status: z.string().optional(),
   target: z.string().optional(),
-  targetPercent: z.number().optional(),
   valuePercent: z.number().optional(),
   tokens: z.number().optional(),
   tool: z.string().optional(),
