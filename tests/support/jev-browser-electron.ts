@@ -10,8 +10,8 @@ import { browserDebuggingPort } from "@src/main/browser/browser-debugging"
 
 function send(value: unknown) { process.stdout.write(`${JSON.stringify(value)}\n`) }
 
-const directory = process.argv.at(-2)!
-const repository = process.argv.at(-1)!
+const directory = z.string().parse(process.argv.at(-2))
+const repository = z.string().parse(process.argv.at(-1))
 app.setPath("userData", directory)
 app.setPath("home", directory)
 await symlink(join(repository, "node_modules"), join(directory, "node_modules"), "dir")
@@ -44,7 +44,11 @@ void app.whenReady().then(async () => {
     if (!page) {
       page = new BrowserPage({ window, cover }, { botId, botName: botId }, () => {})
       pages.set(botId, page)
-      page.show({ x: 0, y: 0, width: 1280, height: 800 })
+
+      // Only one page is shown, as in the app; another page on top would occlude it and stall its rendering.
+      if (pages.size === 1) {
+        page.show({ x: 0, y: 0, width: 1280, height: 800 })
+      }
     }
     return page
   }

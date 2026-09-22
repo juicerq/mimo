@@ -208,7 +208,7 @@ export class Browser {
       return result
     }
 
-    const requiresPage = ["take_control", "observe", "act"].includes(request.input.action)
+    const requiresPage = request.input.action === "take_control" || request.input.action === "act" || (request.input.action === "observe" && !request.input.url)
     const page = requiresPage ? this.page(request.botId) : this.ensurePage(request)
 
     this.preparingSession ??= importZenSession(page.view.webContents.session.cookies).catch(() => {

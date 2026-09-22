@@ -15,10 +15,27 @@ export const JevMock = await Mock.create({}, (app) => {
     if (status !== 200) {
       return { error: "controlled failure" }
     }
-    const answers = Object.fromEntries(Object.entries(body.questions).map(([name, question]) => {
+    const keysNamed = (criteria: Record<string, unknown>, names: string[]) => names.flatMap((wanted) => Object.entries(criteria).filter(([, description]) => z.object({ name: z.literal(wanted) }).safeParse(description).success).map(([key]) => key))
+    const choose = (name: string, criteria: Record<string, unknown>) => {
       const requested = overrides[name]
-      const named = requested?.startsWith("names:") ? requested.slice(6).split("|").flatMap((wanted) => Object.entries(question.criteria).filter(([, description]) => z.object({ name: z.literal(wanted) }).safeParse(description).success).map(([key]) => key))[0] : undefined
-      const selected = named ?? requested ?? Object.keys(question.criteria)[0]!
+
+      // find: keeps paging with more_targets until the named target is offered, then clicks it.
+      if (requested?.startsWith("find:")) {
+        if (keysNamed(body.questions.click_target?.criteria ?? {}, [requested.slice(5)]).length) {
+          return "click"
+        }
+
+        return "more_targets"
+      }
+
+      if (requested?.startsWith("names:")) {
+        return keysNamed(criteria, requested.slice(6).split("|")).at(0) ?? Object.keys(criteria).at(0)
+      }
+
+      return requested ?? Object.keys(criteria).at(0)
+    }
+    const answers = Object.fromEntries(Object.entries(body.questions).map(([name, question]) => {
+      const selected = choose(name, question.criteria)
       return [name, { type: "choice", choice: selected, confidence: 0.99, probabilities: Object.fromEntries(Object.keys(question.criteria).map((key) => [key, key === selected ? 1 : 0])) }]
     }))
     return { model: "jev-test", answers, usage: { input_tokens: 30, output_tokens: 5 } }
@@ -33,4 +50,4 @@ export const JevMock = await Mock.create({}, (app) => {
       requests.length = 0
     },
   }
-}, { base_url: process.env.TYPESAFE_BASE_URL! })
+}, { base_url: z.string().parse(process.env.TYPESAFE_BASE_URL) })

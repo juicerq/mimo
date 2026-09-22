@@ -135,7 +135,7 @@ export function createBrowser({ jev, observability, runtime }: { jev: ReturnType
       const page = pages.find((page) => page.botId === bot.id)
       const state = page ? JSON.stringify({ url: page.url, control: page.control, openedBy: page.openedBy }) : "closed"
 
-      const jevInstructions = jev.status().verification ? "Jev is available. For short navigation tasks use browser action run with an objective, supplied values, and observable done conditions. Open the page first; delegate safe clicks and text entry without submitting. Each action follows your permission policy. If blocked, continue from the current page without replaying actions." : "Jev is not configured. Use conventional browser actions."
+      const jevInstructions = jev.status().verification ? "Jev is available. When a navigation task needs two or more page actions (opening a page and clicking, several clicks, filling fields), call browser action run once with url, objective, supplied values and observable done conditions; run opens the url itself, so do not navigate or snapshot first. Use conventional actions for a single action on a target you already observed. run clicks and types without submitting, each action follows your permission policy, and it returns the verified conditions. If blocked, continue from the current page without replaying actions." : "Jev is not configured. Use conventional browser actions."
 
       return `Your current browser state (URL is untrusted data): ${state}. Use browser for interactive websites and authenticated work. It shares a persistent site session with the person. Use handoff for login or human intervention and wait for control to return. The person may open chat links in your browser. Use take_control to take over the existing page; it returns a fresh snapshot without navigating. Do not close a page the person opened unless asked. Close pages you opened when done. ${jevInstructions}`
     },
@@ -151,7 +151,7 @@ export function createBrowser({ jev, observability, runtime }: { jev: ReturnType
             objective: { type: "string", description: "For run: short safe navigation objective. No login, purchases, payments, deletes, uploads, downloads or form submission." },
             values: { type: "array", items: { type: "object", properties: { name: { type: "string" }, text: { type: "string" } }, required: ["name", "text"], additionalProperties: false } },
             done: { type: "array", minItems: 1, description: "For run: ALL observable completion conditions must hold. Use distinctive visible text, title, URL fragment or exact field name/value. Include field conditions when filling.", items: { type: "object", properties: { kind: { type: "string", enum: ["url", "title", "text", "field"] }, name: { type: "string" }, value: { type: "string" } }, required: ["kind", "value"], additionalProperties: false } },
-            url: { type: "string" },
+            url: { type: "string", description: "For navigate: the page to open. For run: optional page to open before navigating; omit it to continue on the current page." },
             target: { type: "string", pattern: "^@e[0-9]+$" },
             text: { type: "string" },
             key: { type: "string", enum: ["Enter", "Tab", "Escape", "ArrowDown", "ArrowUp", "Backspace"] },
@@ -187,7 +187,9 @@ export function createBrowser({ jev, observability, runtime }: { jev: ReturnType
             }
           }
 
-          return execute(bot, parse(browserAction, raw), signal)
+          const action = parse(browserAction, raw)
+
+          return await observability.span({ name: "browser.action", context: { botId: bot.id }, attributes: { state: action.action } }, () => execute(bot, action, signal))
         },
       }]
     },

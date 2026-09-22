@@ -372,11 +372,11 @@ export class BrowserPage {
       await ready()
 
       if (input.action === "observe") {
-        return await this.driver.observe(input.done, signal, ready)
+        return await this.driver.observe(input, signal, ready)
       }
 
       if (input.action === "act") {
-        return await this.driver.act(input.observationId, input.step, signal, ready)
+        return await this.driver.act(input, signal, ready)
       }
 
       if (input.action === "close") {
