@@ -80,7 +80,7 @@ _Evitar_: Contexto, histórico
 _Dono_: `apps/agent/src/memory/memory.ts`
 
 **Propósito**:
-Para que a pessoa usa um Bot, em uma ou duas frases. O próprio Bot escreve o Propósito assim que um pedido mostra esse uso e reescreve quando o uso muda. A pessoa lê e edita em Sobre o bot, e o Bot reescreve partindo do texto atual. Só a conversa com a pessoa muda o Propósito, nunca uma Conversa entre bots. Entra no prompt de todo Turno do Bot, e os outros Bots leem o Propósito para saber a quem perguntar. Cada troca feita pelo Bot aparece na conversa como Detalhe.
+Para que a pessoa usa um Bot, em uma ou duas frases. Ao fechar cada Turno, o próprio Bot procura um padrão nos pedidos da pessoa e escreve ou ajusta o Propósito quando acha um que o texto ainda não diz, ou quando a pessoa diz para que quer o Bot; um pedido só não forma padrão. O Propósito diz o uso, não o jeito de uma tarefa, e não se repete na Memória. A pessoa lê e edita em Sobre o bot, e o Bot reescreve partindo do texto atual. Só a conversa com a pessoa muda o Propósito, nunca uma Conversa entre bots. Entra no prompt de todo Turno do Bot, e os outros Bots leem o Propósito para saber a quem perguntar. Cada troca feita pelo Bot aparece na conversa como Detalhe.
 _Evitar_: Instrução, papel, descrição, perfil
 _Dono_: `apps/agent/src/peers/tools.ts` (`set_purpose`, `list_bots`); em disco, `apps/agent/src/bot/store.ts`; como o Bot escreve, `apps/agent/src/instructions.md`; na tela, `apps/desktop/src/renderer/about.tsx`
 
