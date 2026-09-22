@@ -13,13 +13,6 @@ export function isSpeech(toolName: string): boolean {
 	return toolName === SPEAK;
 }
 
-export function spokenText(toolName: string, input: unknown): string | null {
-	if (!isSpeech(toolName)) {
-		return null;
-	}
-	return SpeakInput.pick({ text: true }).safeParse(input).data?.text ?? null;
-}
-
 export function speechTool(context: ToolContext) {
 	return tool({
 		name: SPEAK,

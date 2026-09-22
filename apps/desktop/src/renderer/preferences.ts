@@ -4,22 +4,7 @@ type Preferences = Outputs["preferences"]["read"];
 let saved: Preferences = {};
 
 export async function loadPreferences(): Promise<void> {
-	const legacy = {
-		"mimo:theme": localStorage.getItem("mimo:theme"),
-		"mimo:detail": localStorage.getItem("mimo:detail"),
-		"mimo:bot": localStorage.getItem("mimo:bot"),
-		"mimo:info": localStorage.getItem("mimo:info"),
-	};
-	const theme = legacy["mimo:theme"];
-	const detail = legacy["mimo:detail"];
-	const info = legacy["mimo:info"];
-	const bot = legacy["mimo:bot"];
-	saved = await rpc.preferences.import({
-		...(theme === "dark" || theme === "light") && { "mimo:theme": theme },
-		...(detail === "brief" || detail === "full") && { "mimo:detail": detail },
-		...(info === "open" || info === "closed") && { "mimo:info": info },
-		...bot && { "mimo:bot": bot },
-	});
+	saved = await rpc.preferences.read();
 }
 
 export function preference<Key extends keyof Preferences>(key: Key): Preferences[Key] {

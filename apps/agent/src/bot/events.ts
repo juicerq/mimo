@@ -76,7 +76,7 @@ function peerEntry(text: string): Entry | null {
 	return { kind: "answer", peer: peer.groups.peer, text: body, failed: peer.groups.kind === PEER_MARKS.failure };
 }
 
-export function entryOf(text: string): Entry {
+function entryOf(text: string): Entry {
 	const routine = ROUTINE_MARK.exec(text);
 	if (routine) {
 		return { kind: "routine", name: routine.groups?.name ?? "rotina", text: text.slice(routine[0].length) };

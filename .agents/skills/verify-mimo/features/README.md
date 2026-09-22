@@ -50,5 +50,3 @@ Use `$CONTROL db '<consulta SELECT>'` para conferir `mimo.sqlite` sem escrever n
 Para reproduzir a duplicação antiga, peça uma chamada `send_message` sem `done` e uma nova tentativa com `done: true`. Só a aceita aparece em `speeches` e como `reply` em `records`, tanto ao vivo quanto depois de reabrir.
 
 Para verificar queda, pare a instância com uma ferramenta `bash` executando `sleep 30` em andamento. Reabra com os mesmos dados: o Turno fica interrompido, a ação sem resultado recebe Selo. Nenhuma dessas ações é repetida.
-
-Para verificar importação, use uma cópia dos JSON/MD antigos em outro sandbox, sem credenciais nem rotinas habilitadas. Compare os hashes dos originais, a conversa importada e o marcador em `imports`; abrir novamente não aumenta os registros. Um JSON inválido deve impedir a abertura sem importar Bots parcialmente.

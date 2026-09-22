@@ -1,7 +1,7 @@
-import { importLegacy } from "@agent/storage/legacy";
 import { join } from "node:path";
 import { installBrowser } from "@agent/browser/registry";
 import { startRoutines } from "@agent/routines/dispatcher";
+import { database } from "@agent/storage/database";
 import { loadEnv } from "@agent/storage/home";
 import { RPCHandler } from "@orpc/server/message-port";
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electron";
@@ -63,8 +63,8 @@ function openWindow(): void {
 
 app.on("window-all-closed", () => app.quit());
 
-void app.whenReady().then(async () => {
-	await importLegacy();
+void app.whenReady().then(() => {
+	database();
 	servePictures();
 	void startRoutines();
 	openWindow();

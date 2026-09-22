@@ -4,8 +4,6 @@ import { check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } fro
 import type { Entry } from "../bot/events";
 import type { BotEvent, Interruption } from "../bot/types";
 
-export const imports = sqliteTable("imports", { name: text().primaryKey() });
-
 export const bots = sqliteTable("bots", {
 	id: text().primaryKey(),
 	name: text().notNull(),
