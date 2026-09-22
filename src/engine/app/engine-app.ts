@@ -7,6 +7,7 @@ import type { createPiProvider } from "../pi/pi-provider"
 import type { createPiAgentRuntime } from "../pi/pi-agent-runtime"
 import type { createBots } from "../bots/bots"
 import type { createBrowser } from "../browser/browser"
+import type { createJev } from "../browser/jev"
 import type { createConversations } from "../conversations/conversations"
 import type { createMemory } from "../memory/memory"
 import type { createPlugins } from "../plugins/plugins"
@@ -33,7 +34,7 @@ async function* surfacedStream<T>(stream: AsyncIterable<T>) {
   }
 }
 
-export function createEngineRouter({ startedAt, observability, diagnostics, receiver, providers, bots, browser, projects, conversations, tasks, routines, triggers, memory, permissions, plugins }: {
+export function createEngineRouter({ startedAt, observability, diagnostics, receiver, providers, bots, browser, jev, projects, conversations, tasks, routines, triggers, memory, permissions, plugins }: {
   startedAt: string
   observability: Observability
   diagnostics: ReturnType<typeof createDiagnostics>
@@ -41,6 +42,7 @@ export function createEngineRouter({ startedAt, observability, diagnostics, rece
   providers: ReturnType<typeof createPiProvider>
   bots: ReturnType<typeof createBots>
   browser: Pick<ReturnType<typeof createBrowser>, "pages" | "frame">
+  jev: ReturnType<typeof createJev>
   projects: ReturnType<typeof createProjects>
   conversations: ReturnType<typeof createConversations>
   tasks: ReturnType<typeof createTasks>
@@ -66,6 +68,12 @@ export function createEngineRouter({ startedAt, observability, diagnostics, rece
   })
 
   return operations.router({
+    jev: {
+      status: operations.jev.status.handler(() => jev.status()),
+      save: operations.jev.save.handler(({ input, signal }) => jev.save(input, signal)),
+      verify: operations.jev.verify.handler(({ signal }) => jev.verify(signal)),
+      remove: operations.jev.remove.handler(() => jev.remove()),
+    },
     health: operations.health.handler(() => ({ status: "ready", runtime: `Bun ${Bun.version}`, startedAt })),
     diagnostics: {
       get: operations.diagnostics.get.handler(() => diagnostics.get()),
@@ -144,6 +152,8 @@ export function createEngineRouter({ startedAt, observability, diagnostics, rece
       list: operations.routines.list.handler(({ input }) => routines.list(input.botId)),
       update: operations.routines.update.handler(({ input }) => routines.update(input)),
       remove: operations.routines.remove.handler(({ input }) => routines.remove(input.id)),
+      updateFavorite: operations.routines.updateFavorite.handler(({ input }) => routines.updateFavorite(input)),
+      fireNow: operations.routines.fireNow.handler(({ input }) => routines.fireNow(input.id)),
     },
     triggers: {
       create: operations.triggers.create.handler(({ input }) => triggers.create(input)),

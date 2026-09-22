@@ -17,7 +17,7 @@ interface PiPermissionPolicyBase {
 }
 
 export type PiPermissionPolicy =
-  | (PiPermissionPolicyBase & { mode: Extract<BotPermissionMode, "ask">; request(request: PermissionRequest): Promise<PermissionDecision> })
+  | (PiPermissionPolicyBase & { mode: Extract<BotPermissionMode, "ask">; request(request: PermissionRequest, signal?: AbortSignal): Promise<PermissionDecision> })
   | (PiPermissionPolicyBase & { mode: Extract<BotPermissionMode, "read-only"> })
   | (PiPermissionPolicyBase & { mode: Extract<BotPermissionMode, "full"> })
 
@@ -103,7 +103,8 @@ async function observesInside(policy: Pick<PiPermissionPolicy, "allowedRoot" | "
   return !!policy.botDirectory && typeof path === "string" && await pathIsInside(policy.botDirectory, resolve(policy.allowedRoot, path))
 }
 
-async function authorizeToolCall(policy: PiPermissionPolicy, tool: string, input: unknown, callId: string) {
+export async function authorizeToolCall(policy: PiPermissionPolicy, tool: string, input: unknown, callId: string, signal?: AbortSignal) {
+  signal?.throwIfAborted()
   if (policy.mode === "full") {
     return { allowed: true as const }
   }
@@ -131,7 +132,7 @@ async function authorizeToolCall(policy: PiPermissionPolicy, tool: string, input
     return { allowed: true as const }
   }
 
-  const decision = await policy.request(describeToolCall(callId, tool, input, policy.labels?.[tool], policy.allowedRoot))
+  const decision = await policy.request(describeToolCall(callId, tool, input, policy.labels?.[tool], policy.allowedRoot), signal)
 
   if (decision === "denied") {
     return { allowed: false as const, reason: "person_denied" as const }

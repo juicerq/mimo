@@ -5,6 +5,7 @@ import type { PermissionDecision, PermissionRequest } from "@src/shared/permissi
 import type { ProviderName } from "@src/shared/providers"
 import type { Observability } from "../observability/observability"
 import type { PiPermissionPolicy } from "./pi-permissions"
+import { authorizeToolCall } from "./pi-permissions"
 
 export type PiRuntimeEvent =
   | { type: "started" }
@@ -16,6 +17,7 @@ export type PiRuntimeEvent =
   | { type: "thinking"; text: string }
   | { type: "thinking-finished" }
   | { type: "tool-started"; callId: string; tool: string; label?: string; detail?: string; brief?: string }
+  | { type: "tool-progress"; callId: string; tool: string; label: string; detail: string; brief: string }
   | { type: "tool-finished"; callId: string; tool: string; failed: boolean; denied?: boolean; error?: string }
   | { type: "permission-requested"; request: PermissionRequest }
   | { type: "permission-resolved"; requestId: string }
@@ -43,7 +45,7 @@ export interface PiSchemaTool {
   description: string
   label?: string
   inputSchema: ToolInputSchema
-  execute(params: Record<string, unknown>, signal?: AbortSignal): Promise<string>
+  execute(params: Record<string, unknown>, signal?: AbortSignal, progress?: (update: { label: string; detail: string; brief: string }) => void): Promise<string>
 }
 
 export type PiTool = PiCustomTool | PiSchemaTool
@@ -192,14 +194,29 @@ export function createPiAgentRuntime(sessionFactory: PiSessionFactory, observabi
         ...(input.botDirectory ? { botDirectory: input.botDirectory } : {}),
         mode: input.permissionMode,
         labels: toolLabels(input.customTools ?? []),
-        request: (request) => new Promise<PermissionDecision>((resolve) => {
+        request: (request, signal) => new Promise<PermissionDecision>((resolve) => {
           const key = pendingKey(input.botId, request.id)
+          const finish = (decision: PermissionDecision) => {
+            signal?.removeEventListener("abort", abort)
+            resolve(decision)
+          }
+          const abort = () => {
+            pending.delete(key)
+            finish("denied")
+            deliver(input.botId, { type: "permission-resolved", requestId: request.id })
+          }
+
+          if (signal?.aborted) {
+            finish("denied")
+            return
+          }
 
           if (pending.has(key)) {
             throw new Error("Permission request already exists")
           }
 
-          pending.set(key, { botId: input.botId, request, resolve })
+          pending.set(key, { botId: input.botId, request, resolve: finish })
+          signal?.addEventListener("abort", abort, { once: true })
           deliver(input.botId, { type: "permission-requested", request })
         }),
       }
@@ -228,6 +245,13 @@ export function createPiAgentRuntime(sessionFactory: PiSessionFactory, observabi
       entry.listeners.add(listener)
 
       return () => entry.listeners.delete(listener)
+    },
+    async authorize(botId: string, tool: string, action: unknown, signal: AbortSignal) {
+      const entry = existing(botId)
+      const result = await authorizeToolCall(entry.policy, tool, action, crypto.randomUUID(), signal)
+      signal.throwIfAborted()
+
+      return result
     },
     async prompt(botId: string, prompt: PiPrompt) {
       const entry = existing(botId)

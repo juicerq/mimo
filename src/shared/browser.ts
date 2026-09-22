@@ -14,6 +14,41 @@ export const browserAction = z.discriminatedUnion("action", [
   z.object({ action: z.literal("close") }),
 ])
 
+export const browserRun = z.strictObject({
+  action: z.literal("run"),
+  objective: z.string().trim().min(1).max(1000),
+  values: z.array(z.strictObject({ name: z.string().min(1).max(80), text: z.string().max(1000) })).max(10).default([]),
+  done: z.array(z.discriminatedUnion("kind", [
+    z.strictObject({ kind: z.literal("url"), value: z.string().min(1).max(500) }),
+    z.strictObject({ kind: z.literal("title"), value: z.string().min(1).max(200) }),
+    z.strictObject({ kind: z.literal("text"), value: z.string().min(1).max(200) }),
+    z.strictObject({ kind: z.literal("field"), name: z.string().min(1).max(80), value: z.string().max(1000) }),
+  ])).min(1).max(5),
+})
+
+export const browserStep = z.discriminatedUnion("action", [
+  browserAction.options[3],
+  browserAction.options[4],
+  browserAction.options[6],
+  z.object({ action: z.literal("wait") }),
+])
+
+export const browserObservation = z.object({
+  id: z.uuid(),
+  url: z.string(),
+  title: z.string(),
+  candidates: z.array(z.object({ ref: z.string().regex(/^@e[0-9]+$/), role: z.string(), name: z.string() })),
+  complete: z.boolean(),
+  evidence: z.array(z.boolean()),
+  fingerprint: z.string(),
+})
+
+export const browserCommand = z.discriminatedUnion("action", [
+  ...browserAction.options,
+  z.object({ action: z.literal("observe"), done: browserRun.shape.done }),
+  z.object({ action: z.literal("act"), observationId: z.uuid(), step: browserStep }),
+])
+
 export const browserOpen = z.object({ botId, botName: z.string().min(1), url: z.url({ protocol: /^https?$/ }) })
 
 export type BrowserOpen = z.infer<typeof browserOpen>
@@ -23,7 +58,7 @@ export const browserRequest = z.object({
   id: z.uuid(),
   botId,
   botName: z.string().min(1),
-  input: browserAction,
+  input: browserCommand,
 })
 
 const browserReply = z.object({
@@ -75,6 +110,10 @@ export interface BrowserState {
 }
 
 export type BrowserAction = z.infer<typeof browserAction>
+export type BrowserCommand = z.infer<typeof browserCommand>
+export type BrowserRun = z.infer<typeof browserRun>
+export type BrowserStep = z.infer<typeof browserStep>
+export type BrowserObservation = z.infer<typeof browserObservation>
 export type BrowserRequest = z.infer<typeof browserRequest>
 export type BrowserReply = z.infer<typeof browserReply>
 export type BrowserBounds = z.infer<typeof browserBounds>

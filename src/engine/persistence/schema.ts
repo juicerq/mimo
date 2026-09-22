@@ -8,6 +8,13 @@ import type { StoredAccount, StoredPlugin } from "@src/shared/plugins"
 import type { Routine } from "@src/shared/routines"
 import type { Task } from "@src/shared/tasks"
 import type { Trigger, TriggerRun } from "@src/shared/triggers"
+import type { JevVerification } from "@src/shared/jev"
+
+export const jevSettings = snakeCase.table("jev_settings", {
+  id: integer().primaryKey(),
+  key: text().notNull(),
+  verification: text({ mode: "json" }).$type<JevVerification>(),
+})
 
 export const projects = snakeCase.table("projects", {
   id: text().primaryKey(),
@@ -94,6 +101,7 @@ export const routines = snakeCase.table("routines", {
   status: text().$type<Routine["status"]>().notNull().default("active"),
   timeZone: text().notNull(),
   nextCallAt: text(),
+  favorite: integer({ mode: "boolean" }).notNull().default(false),
   createdAt: text().notNull(),
 }, (table) => [index("routines_bot_id").on(table.botId)])
 

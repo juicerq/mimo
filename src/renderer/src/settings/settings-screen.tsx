@@ -12,6 +12,7 @@ import { appSettingsStore, setActivityDetailsVisible } from "./app-settings-stor
 import { ProviderConnections } from "./provider-connections"
 import { MemorySettings } from "./memory-settings"
 import { MobileAccessSettings } from "./mobile-access"
+import { JevSettings } from "./jev-settings"
 
 export function SettingsScreen({ client }: { client: EngineClient }) {
   const activityDetailsVisible = useSelector(appSettingsStore, (state) => state.activityDetailsVisible)
@@ -34,6 +35,7 @@ export function SettingsScreen({ client }: { client: EngineClient }) {
           </SettingsSection>
         )}
         <ProviderConnections client={client} />
+        <JevSettings client={client} />
         <MemorySettings client={client} />
         <MobileAccessSettings />
       </BotPage>

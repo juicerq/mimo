@@ -208,7 +208,8 @@ export class Browser {
       return result
     }
 
-    const page = request.input.action === "take_control" ? this.page(request.botId) : this.ensurePage(request)
+    const requiresPage = ["take_control", "observe", "act"].includes(request.input.action)
+    const page = requiresPage ? this.page(request.botId) : this.ensurePage(request)
 
     this.preparingSession ??= importZenSession(page.view.webContents.session.cookies).catch(() => {
       console.warn("Não foi possível importar as sessões do Zen. Confira MIMO_ZEN_PROFILE e MIMO_ZEN_CONTAINER; o navegador continua disponível.")

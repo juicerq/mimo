@@ -1,5 +1,5 @@
 import { WebContentsView, type BrowserWindow, type BrowserWindowConstructorOptions, type View, type WebContents } from "electron"
-import type { BrowserAction, BrowserBounds, BrowserFrame, BrowserPreview } from "@src/shared/browser"
+import type { BrowserCommand, BrowserBounds, BrowserFrame, BrowserPreview } from "@src/shared/browser"
 import { BrowserDriver } from "./browser-driver"
 
 const webPreferences = { partition: "persist:mimo-browser", sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false }
@@ -28,7 +28,7 @@ export class BrowserPage {
   private closed = false
   private controlRevision = 0
   private readonly lifetime = new AbortController()
-  private running?: { controller: AbortController; done: Promise<void> }
+  private running?: { controller: AbortController; done: Promise<void>; jev: boolean }
   private opening = false
   private requestingControl = false
   private popup?: WebContentsView
@@ -62,8 +62,8 @@ export class BrowserPage {
   private observe(contents: WebContents) {
     contents.on("will-navigate", blockNonHttp)
     contents.on("will-redirect", blockNonHttp)
-    contents.on("did-navigate", () => this.update())
-    contents.on("did-navigate-in-page", () => this.update())
+    contents.on("did-navigate", () => { this.driver.invalidate(); this.update() })
+    contents.on("did-navigate-in-page", () => { this.driver.invalidate(); this.update() })
     contents.on("page-title-updated", () => this.update())
     contents.on("focus", () => {
       if (!this.shown || this.preview.control === "bot") {
@@ -176,6 +176,11 @@ export class BrowserPage {
 
   async takeControl(reason?: string) {
     this.controlRevision += 1
+    this.driver.invalidate()
+
+    if (this.running?.jev) {
+      this.running.controller.abort(new Error("The person took browser control"))
+    }
     this.requestingControl = true
     await this.driver.settle()
 
@@ -321,7 +326,7 @@ export class BrowserPage {
     }
   }
 
-  async execute(input: BrowserAction, callerSignal: AbortSignal) {
+  async execute(input: BrowserCommand, callerSignal: AbortSignal) {
     if (this.running || this.opening) {
       throw new Error("A browser action is already running for this Bot")
     }
@@ -329,7 +334,8 @@ export class BrowserPage {
     const controller = new AbortController()
     const signal = AbortSignal.any([callerSignal, this.lifetime.signal, controller.signal])
     const { promise: done, resolve: finish } = Promise.withResolvers<void>()
-    this.running = { controller, done }
+    const jev = input.action === "observe" || input.action === "act"
+    this.running = { controller, done, jev }
 
     try {
       signal.throwIfAborted()
@@ -339,6 +345,10 @@ export class BrowserPage {
       }
 
       const revision = this.controlRevision
+
+      if (jev && (this.preview.control !== "bot" || this.requestingControl)) {
+        throw new Error("The person controls this page. Jev was interrupted.")
+      }
 
       await this.waitForControl(signal)
       this.preview.error = null
@@ -350,6 +360,9 @@ export class BrowserPage {
       }
 
       const ready = async () => {
+        if (jev && (revision !== this.controlRevision || this.preview.control !== "bot" || this.requestingControl)) {
+          throw new Error("Browser control changed. Jev was interrupted.")
+        }
         await this.waitForControl(signal)
 
         if (revision !== this.controlRevision && input.action !== "snapshot" && input.action !== "take_control") {
@@ -357,6 +370,14 @@ export class BrowserPage {
         }
       }
       await ready()
+
+      if (input.action === "observe") {
+        return await this.driver.observe(input.done, signal, ready)
+      }
+
+      if (input.action === "act") {
+        return await this.driver.act(input.observationId, input.step, signal, ready)
+      }
 
       if (input.action === "close") {
         return "Browser page closed. Site sessions are saved."

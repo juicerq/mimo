@@ -191,6 +191,10 @@ export function formatRunningChatActivityStepLabel(step: ChatActivityStep) {
     return "Pensando"
   }
 
+  if (step.tools.some((tool) => tool.status === "running" && tool.label === "Navegando com Jev")) {
+    return "Navegando com Jev"
+  }
+
   const group = toolGroups.find((candidate) => candidate.name === step.name)
 
   if (!group) {
@@ -221,6 +225,10 @@ export function splitChatActivitySteps<Step extends ChatActivityStep>(steps: Ste
 export function getChatActivityStepDetails(step: Extract<ChatActivityStep, { type: "tool" }>) {
   const group = toolGroups.find((candidate) => candidate.name === step.name)
   const errors = step.tools.flatMap((tool) => tool.error && tool.status !== "denied" ? [tool.error] : [])
+
+  if (step.tools.some((tool) => tool.label === "Navegando com Jev")) {
+    return { prose: true, items: [...step.tools.flatMap((tool) => tool.brief ? [tool.brief] : []), ...errors] }
+  }
 
   if (group?.prose) {
     return { prose: true, items: [...new Set([...step.tools.flatMap((tool) => tool.brief ? [tool.brief] : []), ...errors])] }

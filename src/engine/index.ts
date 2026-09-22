@@ -1,5 +1,6 @@
 import { browserMainMessage } from "../shared/browser"
 import { createBrowser } from "./browser/browser"
+import { createJev } from "./browser/jev"
 import { RPCHandler } from "@orpc/server/fetch"
 import { registerBunOAuthFlows } from "@earendil-works/pi-ai/bun-oauth"
 import { z } from "zod"
@@ -127,8 +128,9 @@ const deferredPiSessionFactory = deferPiSessionFactory(() =>
   }))
 const piSessionFactory = loadProvider ? createPiLoadSessionFactory() : deferredPiSessionFactory
 const piRuntime = createPiAgentRuntime(piSessionFactory, observationSystem.observability)
+const jev = createJev({ database, secrets: createSecrets(environment.BOT_TEAMS_SECRET_KEY) })
 const tasks = createTasks({ database, observability: observationSystem.observability })
-const browser = createBrowser()
+const browser = createBrowser({ jev, observability: observationSystem.observability, runtime: piRuntime })
 const conversations = createConversations({
   database,
   bots,
@@ -208,6 +210,7 @@ const handler = new RPCHandler(
     bots,
     browser,
     projects,
+    jev,
     conversations,
     tasks,
     routines,

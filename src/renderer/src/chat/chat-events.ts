@@ -10,6 +10,7 @@ import {
   finishChatMessage,
   finishChatThinking,
   finishChatTool,
+  progressChatTool,
   requestChatPermission,
   requestChatPlugin,
   resolveChatPermission,
@@ -100,6 +101,11 @@ export function subscribeChatEvents({ client, queryClient }: { client: Pick<Engi
       return
     }
 
+    if (event.type === "tool-progress") {
+      progressChatTool(botId, event)
+      return
+    }
+
     if (event.type === "compaction-started" || event.type === "compaction-finished") {
       setChatCompacting(botId, event.type === "compaction-started")
       return
@@ -153,6 +159,7 @@ export function subscribeChatEvents({ client, queryClient }: { client: Pick<Engi
     void Promise.all([
       queryClient.invalidateQueries({ queryKey: client.query.conversations.history.key({ input: { botId } }) }),
       queryClient.invalidateQueries({ queryKey: client.query.tasks.key() }),
+      queryClient.invalidateQueries({ queryKey: client.query.routines.list.key({ input: { botId } }) }),
       queryClient.invalidateQueries({ queryKey: client.query.conversations.overview.key() }),
       invalidateTeam(),
       alertTurnFinished({ bot, reason: event.reason, response, ...(event.silent ? { silent: true } : {}), ...(event.error ? { error: event.error } : {}) }).catch((alertError: unknown) => {

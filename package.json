@@ -49,6 +49,7 @@
     "@orpc/tanstack-query": "1.15.0",
     "@tanstack/react-query": "5.102.8",
     "@tanstack/react-store": "0.11.1",
+    "@typesafe-ai/sdk": "0.6.0",
     "agent-browser": "0.36.0",
     "baileys": "^7.0.0-rc14",
     "blobatar": "^2.7.0",
@@ -70,6 +71,7 @@
   },
   "devDependencies": {
     "@juicerq/check": "^0.4.0",
+    "@lobomfz/ghostapi": "1.0.1",
     "@tailwindcss/vite": "^4",
     "@types/bun": "1.4.0",
     "@types/hast": "3.0.5",

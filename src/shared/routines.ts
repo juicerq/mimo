@@ -23,12 +23,14 @@ const routine = z.strictObject({
   status,
   timeZone: id,
   nextCallAt: id.nullable(),
+  favorite: z.boolean(),
   createdAt: id,
 })
 
 export const routineSchemas = {
   createInput: routine.pick({ botId: true, name: true, content: true, frequency: true }),
   updateInput: routine.pick({ id: true, name: true, content: true, frequency: true, status: true }),
+  updateFavoriteInput: routine.pick({ id: true, favorite: true }),
   frequency,
   routine,
   routineList: z.array(routine),
@@ -39,3 +41,4 @@ export type Frequency = z.infer<typeof frequency>
 export type Weekday = z.infer<typeof weekday>
 export type CreateRoutineInput = z.infer<typeof routineSchemas.createInput>
 export type UpdateRoutineInput = z.infer<typeof routineSchemas.updateInput>
+export type UpdateFavoriteInput = z.infer<typeof routineSchemas.updateFavoriteInput>

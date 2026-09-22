@@ -163,6 +163,10 @@ export function setChatCompacting(botId: string, compacting: boolean) {
   updateRun(botId, (run) => ({ ...run, compacting }))
 }
 
+export function progressChatTool(botId: string, event: Extract<ConversationEvent, { type: "tool-progress" }>) {
+  updateRun(botId, (run) => ({ ...run, steps: run.steps.map((step) => step.type === "tool" ? { ...step, tools: step.tools.map((tool) => tool.callId === event.callId ? { ...tool, label: event.label, detail: event.detail, brief: event.brief } : tool) } : step) }))
+}
+
 export function setChatDelegationWaiting(botId: string, waiting: boolean) {
   updateRun(botId, (run) => ({ ...run, waitingForTasks: waiting }))
 }
