@@ -20,11 +20,11 @@ export function conversationId(chat: ChatKey): string {
 	return chat.botId;
 }
 
-export function appendRecord(db: Store, record: { conversationId: string; event: RecordedEvent; id?: string; turnId?: string; at?: number }): void {
+function appendRecord(db: Store, record: { conversationId: string; event: RecordedEvent; id?: string; turnId?: string; at?: number }): void {
 	db.insert(records).values({ ...record, kind: record.event.type, id: record.id ?? randomUUID(), at: record.at ?? Date.now() }).onConflictDoNothing().run();
 }
 
-export function appendMessage(db: Store, conversationId: string, message: AgentMessage, id?: string): void {
+function appendMessage(db: Store, conversationId: string, message: AgentMessage, id?: string): void {
 	const identity = id ?? randomUUID();
 	db.insert(messages).values({ conversationId, id: identity, message }).onConflictDoNothing().run();
 }

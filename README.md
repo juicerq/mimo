@@ -80,7 +80,7 @@ O mimo guarda tudo em `~/.mimo/`: bots, transcripts, memória, contas do Gmail, 
 
 A verificação de ponta a ponta (`verify-mimo`) roda com dados e perfil separados e recusa a Casa real.
 
-O estado durável do app fica em `mimo.sqlite`, com SQLite e Drizzle: bots, conversas, turnos, entregas aceitas, falas, memória, rotinas, ações e preferências. Imagens, `MIMO.md`, `.env` e credenciais continuam em arquivos. Ao abrir pela primeira vez, o app importa os JSON/MD antigos numa transação e mantém os originais intactos como cópia da versão anterior, inclusive após apagar um bot no app. Se encontrar dados inválidos, avisa e interrompe a abertura sem importar parcialmente. As preferências antigas do `localStorage` são importadas sem sobrescrever valores já salvos no banco.
+O estado durável do app fica em `mimo.sqlite`, com SQLite e Drizzle: bots, conversas, turnos, entregas aceitas, falas, memória, rotinas, ações e preferências. Imagens, `MIMO.md`, `.env` e credenciais continuam em arquivos.
 
 A fala só aparece depois de gravada junto com seu recibo. Uma chamada inválida de `send_message` não vira balão. Ao reiniciar, o app marca turnos incompletos como interrompidos e avisa sobre ações cujo resultado não foi registrado, sem repeti-las.
 

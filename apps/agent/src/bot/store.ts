@@ -1,32 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { eq } from "drizzle-orm";
-import { z } from "zod";
 import { initialModel, selectModel } from "../model/catalog";
 import { ModelSelectionSchema, type ModelInfo } from "../model/types";
 import { dataPath } from "../storage/home";
 import { database } from "../storage/database";
 import { bots } from "../storage/schema";
-import { BotNameSchema, BotPromptSchema, type BotInfo } from "./types";
+import type { BotInfo } from "./types";
 
-const LEGACY_PROVIDERS: Record<string, string> = { "openai-oauth": "openai-codex" };
-const LEGACY_MODEL_IDS: Record<string, string> = { "deepseek-flash": "deepseek-v4-flash" };
-const LEGACY_REASONING: Record<string, string> = { "provider-default": "medium", none: "off" };
-
-const StoredBotSchema = z.object({
-	id: z.uuid(),
-	name: BotNameSchema,
-	createdAt: z.iso.datetime(),
-	model: z.looseObject({ provider: z.string(), id: z.string(), reasoning: z.string() }).optional(),
-	prompt: BotPromptSchema.optional(),
-});
-
-function repairModel(stored: z.infer<typeof StoredBotSchema>["model"]): ModelInfo {
-	const selection = ModelSelectionSchema.safeParse(stored && {
-		provider: LEGACY_PROVIDERS[stored.provider] ?? stored.provider,
-		id: LEGACY_MODEL_IDS[stored.id] ?? stored.id,
-		reasoning: LEGACY_REASONING[stored.reasoning] ?? stored.reasoning,
-	});
+function repairModel(stored: { provider: string; id: string; reasoning: string }): ModelInfo {
+	const selection = ModelSelectionSchema.safeParse(stored);
 	if (!selection.success) {
 		return initialModel();
 	}
@@ -37,17 +20,11 @@ function repairModel(stored: z.infer<typeof StoredBotSchema>["model"]): ModelInf
 	}
 }
 
-
-export function legacyBot(value: unknown): BotInfo {
-	const stored = StoredBotSchema.parse(value);
-	return { ...stored, model: repairModel(stored.model) };
-}
-
 function botInfo(row: typeof bots.$inferSelect): BotInfo {
 	return { id: row.id, name: row.name, createdAt: row.createdAt, model: repairModel({ provider: row.provider, id: row.modelId, reasoning: row.reasoning }), ...row.prompt && { prompt: row.prompt } };
 }
 
-export function botRow(bot: BotInfo): typeof bots.$inferInsert {
+function botRow(bot: BotInfo): typeof bots.$inferInsert {
 	return { id: bot.id, name: bot.name, createdAt: bot.createdAt, provider: bot.model.provider, modelId: bot.model.id, reasoning: bot.model.reasoning, prompt: bot.prompt ?? null };
 }
 

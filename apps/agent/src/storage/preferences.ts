@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { database } from "./database";
 import { preferences } from "./schema";
@@ -14,10 +13,10 @@ export function readPreferences() {
 	return Preferences.parse(Object.fromEntries(database().select().from(preferences).all().map((row) => [row.key, row.value])));
 }
 
-export function savePreferences(input: z.infer<typeof Preferences>, onlyMissing = false): void {
+export function savePreferences(input: z.infer<typeof Preferences>): void {
 	database().transaction((db) => {
 		for (const [key, value] of Object.entries(input)) {
-			if (!value || (onlyMissing && db.select().from(preferences).where(eq(preferences.key, key)).get())) {
+			if (!value) {
 				continue;
 			}
 			db.insert(preferences).values({ key, value }).onConflictDoUpdate({ target: preferences.key, set: { value } }).run();

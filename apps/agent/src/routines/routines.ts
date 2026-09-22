@@ -5,9 +5,6 @@ import { database } from "../storage/database";
 import { routines } from "../storage/schema";
 
 export const RoutineNameSchema = z.string().trim().min(1).max(40).regex(/^[a-zA-Z0-9_-]+$/);
-export const LegacyRoutineSchema = z.object({
-	id: z.string().min(1), name: RoutineNameSchema.optional(), prompt: z.string().min(1), everyMinutes: z.number().int().min(1), botId: z.uuid(), createdAt: z.string(), nextRunAt: z.string(), lastRunAt: z.string().optional(), lastError: z.string().optional(), enabled: z.boolean(),
-});
 export type Routine = typeof routines.$inferSelect;
 export interface RoutineInput { name: string; prompt: string; everyMinutes: number; startInMinutes: number; botId: string }
 export interface RoutinePatch { name?: string; prompt?: string; everyMinutes?: number; enabled?: boolean }

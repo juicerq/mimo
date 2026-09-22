@@ -90,10 +90,6 @@ export const router = {
 	preferences: {
 		read: agent.handler(readPreferences),
 		save: agent.input(Preferences).handler(({ input }) => savePreferences(input)),
-		import: agent.input(Preferences).handler(({ input }) => {
-			savePreferences(input, true);
-			return readPreferences();
-		}),
 	},
 	bots: {
 		list: agent.handler(listedBots),
