@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { installBrowser } from "@agent/browser/registry";
+import { refreshModels } from "@agent/model/models";
 import { startRoutines } from "@agent/routines/dispatcher";
 import { database } from "@agent/storage/database";
 import { loadEnv } from "@agent/storage/home";
@@ -63,8 +64,9 @@ function openWindow(): void {
 
 app.on("window-all-closed", () => app.quit());
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
 	database();
+	await refreshModels();
 	servePictures();
 	void startRoutines();
 	openWindow();
