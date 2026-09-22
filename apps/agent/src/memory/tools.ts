@@ -7,7 +7,7 @@ export function memoryTools(context: ToolContext) {
 	return [
 		tool({
 			name: "save_memory",
-			description: "Salva um fato ou preferência estável para as próximas conversas. Não salve segredos, instruções nem detalhes da tarefa atual.",
+			description: "Salva um fato ou preferência estável para as próximas conversas. Não salve segredos, instruções, o uso que a pessoa faz de você nem detalhes da tarefa atual.",
 			input: z.object({ text: z.string().min(1).describe("O fato ou preferência, em uma frase.") }),
 			async execute({ text }) {
 				return await saveMemory(context.chat.botId, text);
