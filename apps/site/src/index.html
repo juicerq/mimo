@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>mimo: bots pessoais no seu desktop</title>
+		<meta name="description" content="Crie bots pessoais, dê um nome a cada um e deixe o propósito aparecer com o uso." />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Recursive:slnt,wght,CASL,CRSV,MONO@-15..0,300..900,0..1,0..1,0..1&display=swap" rel="stylesheet" />
+		<link rel="stylesheet" href="./styles.css" />
+	</head>
+	<body>
+		<header class="top">
+			<span class="brand">mimo</span>
+			<a href="#instalar">Instalar</a>
+		</header>
+
+		<main>
+			<section class="hero">
+				<div class="pitch">
+					<h1>Um bot para cada coisa da sua vida.</h1>
+					<p>O mimo é um app de desktop onde você cria bots pessoais. Cada um tem nome, memória e uma conversa que nunca se perde. Você não escolhe para que ele serve: isso aparece com o uso.</p>
+					<label class="namer">
+						<span>Dê um nome e veja quem aparece</span>
+						<input id="name" type="text" value="Contas da casa" maxlength="80" autocomplete="off" spellcheck="false" />
+					</label>
+				</div>
+				<figure class="stage">
+					<svg id="face" data-look="pointer" aria-hidden="true"></svg>
+					<figcaption id="caption">Contas da casa</figcaption>
+				</figure>
+			</section>
+
+			<section class="bar-section">
+				<div class="bar">
+					<div class="row">
+						<span class="avatar"><svg data-face="Viagem pra Lisboa" data-state="working" data-look="still" aria-hidden="true"></svg><i class="dot working" role="img" aria-label="trabalhando"></i></span>
+						<span class="who"><b>Viagem pra Lisboa</b><small>Comparando voos de 12 a 19 de outubro</small></span>
+					</div>
+					<div class="row">
+						<span class="avatar"><svg data-face="Caixa de entrada" data-state="waiting" data-look="still" aria-hidden="true"></svg><i class="dot waiting" role="img" aria-label="esperando aprovação"></i></span>
+						<span class="who"><b>Caixa de entrada</b><small>Posso enviar a resposta pro síndico?</small></span>
+					</div>
+					<div class="row">
+						<span class="avatar"><svg data-face="Treino" data-state="failed" data-look="still" aria-hidden="true"></svg><i class="dot failed" role="img" aria-label="falhou"></i></span>
+						<span class="who"><b>Treino</b><small>A planilha não abriu</small></span>
+					</div>
+					<div class="row">
+						<span class="avatar"><svg data-face="Leituras" data-state="idle" data-look="still" aria-hidden="true"></svg></span>
+						<span class="who"><b>Leituras</b><small>Anotei o capítulo 7</small></span>
+					</div>
+				</div>
+				<div class="bar-copy">
+					<h2>Você vê o que cada um está fazendo.</h2>
+					<p>Todos os bots ficam numa barra à esquerda, sempre visível. Cada um mostra o rosto, a última mensagem e o que faz agora: trabalhando, esperando sua aprovação, falhou ou parado.</p>
+					<p>Troque de bot quando quiser. O trabalho dele continua, e quando você volta, a conversa e os pedidos pendentes estão lá.</p>
+				</div>
+			</section>
+
+			<section class="abilities">
+				<h2>O que um bot faz por você</h2>
+				<dl>
+					<div>
+						<dt>Usa o seu computador</dt>
+						<dd>Roda comandos, lê e edita arquivos a partir da sua pasta pessoal. Cada ação fica registrada.</dd>
+					</div>
+					<div>
+						<dt>Navega por você</dt>
+						<dd>Abre páginas, clica e preenche. Quando a página pede senha ou captcha, ele te passa o navegador e espera.</dd>
+					</div>
+					<div>
+						<dt>Cuida do seu Gmail</dt>
+						<dd>Lê os não lidos, escreve rascunhos e responde. Enviar um e-mail é a única coisa que espera o seu ok. Pede um cliente OAuth seu no Google.</dd>
+					</div>
+					<div>
+						<dt>Trabalha sozinho</dt>
+						<dd>Rotinas rodam na frequência que você escolher enquanto o app está aberto, como olhar os e-mails toda manhã.</dd>
+					</div>
+					<div>
+						<dt>Pergunta aos outros bots</dt>
+						<dd>Qualquer bot pergunta a outro pelo nome. Você abre e lê a conversa entre eles.</dd>
+					</div>
+					<div>
+						<dt>Lembra do que importa</dt>
+						<dd>Guarda fatos e preferências na própria memória. A conversa só cresce: a parte antiga vira um resumo e continua pesquisável.</dd>
+					</div>
+				</dl>
+			</section>
+
+			<section class="install" id="instalar">
+				<div>
+					<h2>Instalar</h2>
+					<p>O mimo roda no seu computador, sem servidor. Você precisa do <a href="https://bun.sh">Bun</a> e do <a href="https://github.com/juicerq/mimo-tui">código no GitHub</a>. Bots, conversas, memória e rotinas ficam em <code>~/.mimo</code>.</p>
+					<p>Os modelos vêm da sua assinatura OpenAI no Codex ou da OpenCode Go. Você conecta as contas em Configurações.</p>
+				</div>
+				<pre><code>git clone https://github.com/juicerq/mimo-tui
+cd mimo-tui
+bun install
+bun run build
+cd apps/desktop &amp;&amp; bun link
+mimo</code></pre>
+			</section>
+		</main>
+
+		<footer>
+			<p>mimo, feito com Pi e Electron.</p>
+		</footer>
+
+		<script type="module" src="./main.ts"></script>
+	</body>
+</html>

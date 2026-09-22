@@ -121,7 +121,7 @@ _Dono_: `apps/agent/src/storage/home.ts` (`dataPath`); a receita, `.agents/skill
 
 ## Onde as coisas rodam
 
-O mimo é um app Electron. A tela e o agente moram no mesmo processo: a entrada é `apps/desktop/src/main/index.ts`, que lê as chaves, chama `startRoutines()` e abre a janela. `apps/desktop` é a tela e `apps/agent` é o agente; o alias `@agent/*` aponta para `apps/agent/src`. A seta vai só num sentido: a tela importa do agente, nunca o contrário.
+O mimo é um app Electron. A tela e o agente moram no mesmo processo: a entrada é `apps/desktop/src/main/index.ts`, que lê as chaves, chama `startRoutines()` e abre a janela. `apps/desktop` é a tela e `apps/agent` é o agente; o alias `@agent/*` aponta para `apps/agent/src`. A seta vai só num sentido: a tela importa do agente, nunca o contrário. `apps/site` é a landing page, servida pelo Bun com `bun run --filter @mimo/site dev`; ela importa o rosto dos Bots de `apps/desktop/src/renderer/face.ts` e nada importa dela.
 
 O agente roda no processo principal do Electron. A tela fala com ele por oRPC sobre `MessagePort`, e o router em `apps/desktop/src/main/router.ts` é a única porta. `bun run dev` abre o app em desenvolvimento, sempre na Casa `.data-desktop`; `bun run build` compila e o comando `mimo` abre o app compilado, na Casa real.
 
