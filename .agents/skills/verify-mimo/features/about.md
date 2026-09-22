@@ -1,10 +1,11 @@
 # Sobre o bot
 
-A barra da direita mostra e muda o bot aberto: Modelo e Esforço, mais a data de criação. Cada mudança grava na hora em a tabela `bots`.
+A barra da direita mostra e muda o bot aberto: Propósito, Modelo e Esforço, mais a data de criação. Cada mudança grava na hora em a tabela `bots`.
 
 ## Sub-features
 
 - `about-toggle` o botão `Sobre o bot` abre e fecha a barra; em janela estreita (menos de 960 px) ela vira uma gaveta por cima da conversa, e `Esc` ou um clique fora fecha.
+- `about-purpose` o campo Propósito grava ao sair dele e mostra sozinho, em até 1 s, o texto que o próprio Bot escreve com `set_purpose`.
 - `about-model` o seletor Modelo tem busca e agrupa por provedor; o botão fechado mostra o modelo e o provedor.
 - `about-effort` o Esforço lista só os níveis do modelo escolhido, e trava quando há um só.
 - `about-error` uma gravação que falha mostra o erro em vermelho no fim da barra.
@@ -18,8 +19,9 @@ A barra da direita mostra e muda o bot aberto: Modelo e Esforço, mais a data de
 Preconditions:
 
 - Um bot aberto. A árvore tem `complementary "Sobre <nome>"`; se não tiver, `$CONTROL browser click '[aria-label="Sobre o bot"]'`.
-- Consulte o bot por `$CONTROL db 'select id, name, provider, modelId, reasoning from bots'`.
+- Consulte o bot por `$CONTROL db 'select id, name, provider, modelId, reasoning, purpose from bots'`.
 
+- **Propósito.** `$CONTROL browser fill '[aria-label="Propósito"]' 'MIMO-PURPOSE-<run>'` e `$CONTROL browser press Tab`. A linha do bot tem `purpose` igual ao token.
 - **Buscar modelo.** `$CONTROL browser click '[aria-label="Modelo"]'` e `$CONTROL browser fill '[placeholder="Procurar modelo"]' 'terra'`. O `snapshot` mostra um `group "<provedor>"` por provedor que tem o modelo, cada um com a sua `option "GPT-5.6 Terra"`.
 - **Escolher.** Clique na referência da `option` debaixo de `group "OpenAI"`: `$CONTROL browser click @eN`. `$CONTROL wait 'combobox "Modelo".*GPT-5.6 Terra OpenAI' 10`. Na linha do bot, `provider` é `openai-codex`, `modelId` é `gpt-5.6-terra` e `reasoning` é o esforço padrão do modelo.
 - **Busca vazia.** Preencha `zzzz`: a árvore mostra `Nenhum modelo com esse nome.` `$CONTROL browser press Escape` fecha sem mudar a linha do bot.

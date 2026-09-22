@@ -5,7 +5,7 @@ Este contexto define como uma pessoa cria e usa Bots pessoais num app de desktop
 ## Linguagem
 
 **Bot**:
-Um agente pessoal criado e nomeado pela pessoa, com Memória e Registro próprios. Seu propósito se desenvolve pelo uso, sem especialidade predeterminada, e a pessoa pode criar quantos Bots quiser.
+Um agente pessoal criado e nomeado pela pessoa, com Memória e Registro próprios. Seu Propósito se desenvolve pelo uso, sem especialidade predeterminada, e a pessoa pode criar quantos Bots quiser.
 _Evitar_: Assistente, agente
 _Dono_: `apps/agent/src/conversation/conversation.ts` (classe `Conversation`); em disco, `apps/agent/src/bot/store.ts`; quem está aberto, `apps/agent/src/bot/registry.ts`
 
@@ -79,6 +79,11 @@ Fatos, preferências e decisões duráveis que um Bot guarda para os próximos t
 _Evitar_: Contexto, histórico
 _Dono_: `apps/agent/src/memory/memory.ts`
 
+**Propósito**:
+Para que a pessoa usa um Bot, em uma ou duas frases. O próprio Bot escreve o Propósito assim que um pedido mostra esse uso e reescreve quando o uso muda. A pessoa lê e edita em Sobre o bot, e o Bot reescreve partindo do texto atual. Só a conversa com a pessoa muda o Propósito, nunca uma Conversa entre bots. Entra no prompt de todo Turno do Bot, e os outros Bots leem o Propósito para saber a quem perguntar. Cada troca feita pelo Bot aparece na conversa como Detalhe.
+_Evitar_: Instrução, papel, descrição, perfil
+_Dono_: `apps/agent/src/peers/tools.ts` (`set_purpose`, `list_bots`); em disco, `apps/agent/src/bot/store.ts`; como o Bot escreve, `apps/agent/src/instructions.md`; na tela, `apps/desktop/src/renderer/about.tsx`
+
 **Aprovação**:
 A confirmação da pessoa antes de enviar um e-mail. É o único freio do app: o resto das ações acontece direto e fica no registro de ações. A resposta fica gravada antes de liberar a ação. Reiniciar encerra pedidos pendentes como recusados. O Turno para até a pessoa responder; ela não perde o pedido ao trocar de Bot, porque ele volta à tela quando o Bot reabre.
 _Evitar_: Permissão, consentimento, modo
@@ -95,7 +100,7 @@ _Evitar_: Browser, aba, webview
 _Dono_: `apps/agent/src/browser/browser.ts` (`BrowserSession`); quem abre de verdade, `apps/desktop/src/main/browser/view.ts`; na tela, `apps/desktop/src/renderer/preview.tsx` e `apps/desktop/src/renderer/browsing.tsx`
 
 **Sobre o bot**:
-O painel da direita, com a Instrução, o Modelo do Bot, o esforço, a data de criação e, enquanto ele navega, a prévia do Navegador. Abre e fecha pelo ⓘ e lembra se ficou aberto.
+O painel da direita, com o Propósito, o Modelo do Bot, o esforço, a data de criação e, enquanto ele navega, a prévia do Navegador. Abre e fecha pelo ⓘ e lembra se ficou aberto.
 _Evitar_: Sidebar, drawer, detalhes
 _Dono_: `apps/desktop/src/renderer/info.tsx` (abrir e fechar); o conteúdo, `apps/desktop/src/renderer/about.tsx`
 

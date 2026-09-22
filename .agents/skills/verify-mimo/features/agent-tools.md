@@ -9,6 +9,7 @@ O usuário pede na conversa e o bot escolhe a tool: buscar na web, mexer no comp
 - `tools-memory` `save_memory` e `remove_memory` gravam em `memories`; o fato volta depois de reiniciar.
 - `tools-routines` `create_routine`, `list_routines` e `delete_routine` gravam em `routines`; o disparo entra na conversa como `Rotina <nome> começou`.
 - `tools-peers` `list_bots` e `ask_bot`; uma conversa por direção, legível pela pessoa.
+- `tools-purpose` `set_purpose` grava o Propósito do Bot em `bots.purpose`; `list_bots` devolve o `purpose` de cada outro Bot.
 
 ## How to get to it (user POV)
 
@@ -26,6 +27,7 @@ Preconditions:
 - **Memória.** `$CONTROL send 'lembre que o nome do meu gato é MIMO-MEM-<run>'` e `$CONTROL wait 'save_memory' 30`; `$CONTROL db 'select * from memories'` mostra o fato. `$CONTROL stop`, `$CONTROL launch --data "$DATA"`, abra o mesmo bot e pergunte o nome do gato: a resposta contém o token. `$CONTROL send 'remova essa memória'` e a consulta já não mostra o fato.
 - **Rotina.** `$CONTROL send 'crie uma rotina chamada eco_<run> para responder apenas MIMO-ROTINA-<run> a cada 5 minutos, começando agora'` e `$CONTROL wait 'create_routine' 30`; `$CONTROL db 'select * from routines'` mostra o prompt. `$CONTROL wait 'Rotina' 120` e `$CONTROL wait 'MIMO-ROTINA-<run>' 240` confirmam o disparo (um tick por minuto, mais o turno). `$CONTROL send 'apague a rotina eco_<run>'`: o nome some da consulta.
 - **Outros bots.** Crie Rex pelo `Novo bot`, volte ao primeiro bot e use `$CONTROL send 'pergunte ao Rex qual é a capital da Austrália'`. A linha de pergunta abre a conversa entre bots; a resposta chega ao primeiro bot. `$CONTROL db 'select id, botId, askedBy from conversations'` mostra a conversa separada. Os dois bots aparecem na barra.
+- **Propósito.** Num Bot novo, com Propósito vazio, mande um pedido que mostre o uso, como planejar os jantares da semana. `$CONTROL wait 'Atualizou o propósito' 60` e `$CONTROL db 'select name, purpose from bots'` mostra o texto. Um pedido do mesmo uso não reescreve; um uso que cresce reescreve, e o resultado da tool traz o `previous`. De outro Bot, pergunte quais bots existem: o resultado de `list_bots` traz o `purpose`. Numa Conversa entre bots, `set_purpose` volta com erro e o `purpose` de quem respondeu não muda.
 - **Prova.** Um `capture` por tool, com o nome da tool na árvore, mais a consulta correspondente no banco.
 
 ## Gotchas

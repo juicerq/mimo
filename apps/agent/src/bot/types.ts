@@ -5,14 +5,14 @@ import type { ModelInfo } from "../model/types";
 const NAME_RULE = "Use um nome de 1 a 80 caracteres visíveis.";
 
 export const BotNameSchema = z.string().trim().min(1, NAME_RULE).max(80, NAME_RULE).regex(/^[^\p{Cc}\p{Cf}]+$/u, NAME_RULE);
-export const BotPromptSchema = z.string().trim().min(1).max(4_000);
+export const BotPurposeSchema = z.string().trim().min(1).max(4_000);
 
 export interface BotInfo {
 	id: string;
 	name: string;
 	createdAt: string;
 	model: ModelInfo;
-	prompt?: string;
+	purpose?: string;
 }
 
 export interface ChatKey {

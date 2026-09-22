@@ -33,6 +33,7 @@ const TOOL_LABELS: Record<string, string> = {
 	web_search: "Procurou na web",
 	browse: "Usou o navegador",
 	list_bots: "Viu os outros bots",
+	set_purpose: "Atualizou o propósito",
 	connect_gmail: "Conectou o Gmail",
 	disconnect_gmail: "Desconectou o Gmail",
 	list_accounts: "Viu as contas do Gmail",

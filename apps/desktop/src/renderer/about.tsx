@@ -269,39 +269,49 @@ function Brain({ model, catalog, loading, onOpen, onChange }: BrainProps) {
 	);
 }
 
-interface InstructionProps {
+interface PurposeProps {
 	botId: string;
-	prompt: string;
+	purpose: string;
 	onSave: (record: BotInfo) => void;
 }
 
-function Instruction({ botId, prompt, onSave }: InstructionProps) {
-	const instruct = useMutation(orpc.bot.instruct.mutationOptions({ onSuccess: onSave }));
+function Purpose({ botId, purpose, onSave }: PurposeProps) {
+	const [draft, setDraft] = useState<string | null>(null);
+	const setPurpose = useMutation(orpc.bot.setPurpose.mutationOptions({
+		onSuccess: (record) => {
+			onSave(record);
+			setDraft(null);
+		},
+	}));
 
 	return (
-		<Field label="Instrução">
+		<Field label="Propósito">
 			<Textarea
-				aria-label="Instrução"
-				defaultValue={prompt}
+				aria-label="Propósito"
+				value={draft ?? purpose}
 				maxLength={4_000}
 				spellCheck={false}
-				placeholder="O que ele faz e como ele responde. Os outros bots leem a primeira linha."
+				placeholder="Para que ele serve. Ele escreve e ajusta com o uso."
 				className="max-h-64 min-h-24 text-sm"
-				onBlur={(event) => {
-					const next = event.target.value.trim();
-					if (next !== prompt) {
-						instruct.mutate({ botId, prompt: next });
+				onChange={(event) => setDraft(event.target.value)}
+				onBlur={() => {
+					const next = draft?.trim();
+					if (next === undefined || next === purpose) {
+						setDraft(null);
+						return;
 					}
+
+					setPurpose.mutate({ botId, purpose: next });
 				}}
 			/>
-			{instruct.error && <p className="mt-1.5 text-xs text-destructive wrap-anywhere">{instruct.error.message}</p>}
+			{setPurpose.error && <p className="mt-1.5 text-xs text-destructive wrap-anywhere">{setPurpose.error.message}</p>}
 		</Field>
 	);
 }
 
 export function About({ botId }: { botId: string }) {
 	const queryClient = useQueryClient();
-	const info = useQuery(orpc.bot.info.queryOptions({ input: { botId } }));
+	const info = useQuery(orpc.bot.info.queryOptions({ input: { botId }, refetchInterval: 1000 }));
 	const catalog = useQuery(orpc.bot.models.queryOptions());
 	const apply = (record: BotInfo) => {
 		queryClient.setQueryData(orpc.bot.info.key({ input: { botId }, type: "query" }), record);
@@ -318,7 +328,7 @@ export function About({ botId }: { botId: string }) {
 	return (
 		<>
 			<Preview botId={botId} />
-			<Instruction key={botId} botId={botId} prompt={bot.prompt ?? ""} onSave={apply} />
+			<Purpose key={botId} botId={botId} purpose={bot.purpose ?? ""} onSave={apply} />
 			<Brain
 				model={bot.model}
 				catalog={catalog.data}

@@ -12,7 +12,7 @@ export const bots = sqliteTable("bots", {
 	provider: text().notNull(),
 	modelId: text().notNull(),
 	reasoning: text().notNull(),
-	prompt: text(),
+	purpose: text(),
 }, (table) => [uniqueIndex("bot_name").on(sql`lower(${table.name})`)]);
 
 export const conversations = sqliteTable("conversations", {
