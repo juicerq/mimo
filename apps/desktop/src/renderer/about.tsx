@@ -68,14 +68,20 @@ interface ModelProps {
 	current: ModelItem | null;
 	groups: ModelGroup[];
 	loading: boolean;
+	onOpen: () => void;
 	onChange: (key: string) => void;
 }
 
-function Model({ name, provider, current, groups, loading, onChange }: ModelProps) {
+function Model({ name, provider, current, groups, loading, onOpen, onChange }: ModelProps) {
 	return (
 		<Combobox
 			items={groups}
 			value={current}
+			onOpenChange={(open: boolean) => {
+				if (open) {
+					onOpen();
+				}
+			}}
 			isItemEqualToValue={(item: ModelItem, other: ModelItem) => item.value === other.value}
 			onValueChange={(item: ModelItem | null) => {
 				if (item) {
@@ -224,10 +230,11 @@ interface BrainProps {
 	model: ModelInfo;
 	catalog: Catalog | undefined;
 	loading: boolean;
+	onOpen: () => void;
 	onChange: (model: ModelSelection) => void;
 }
 
-function Brain({ model, catalog, loading, onChange }: BrainProps) {
+function Brain({ model, catalog, loading, onOpen, onChange }: BrainProps) {
 	const models = catalog?.models ?? [];
 	const chosen = models.find((option) => modelKey(option) === modelKey(model));
 	const groups = catalog ? groupModels(models, catalog.providerNames) : [];
@@ -249,6 +256,7 @@ function Brain({ model, catalog, loading, onChange }: BrainProps) {
 					current={current}
 					groups={groups}
 					loading={loading}
+					onOpen={onOpen}
 					onChange={pick}
 				/>
 			</Field>
@@ -315,6 +323,7 @@ export function About({ botId }: { botId: string }) {
 				model={bot.model}
 				catalog={catalog.data}
 				loading={catalog.isPending}
+				onOpen={() => void catalog.refetch()}
 				onChange={(model) => selectModel.mutate({ botId, model })}
 			/>
 			<Field label="Criado">
