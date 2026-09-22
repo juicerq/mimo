@@ -176,6 +176,15 @@ export function watchSidebar(element: HTMLElement): () => void {
 	};
 }
 
+interface Pose {
+	yaw: number;
+	pitch: number;
+	vyaw: number;
+	vpitch: number;
+	lid: number;
+	nextBlink: number;
+}
+
 interface Rig {
 	svg: SVGSVGElement;
 	body: SVGPathElement;
@@ -183,14 +192,11 @@ interface Rig {
 	clipShape: SVGPathElement;
 	shape: Shape;
 	seed: number;
-	yaw: number;
-	pitch: number;
-	vyaw: number;
-	vpitch: number;
-	lid: number;
-	nextBlink: number;
+	pose: Pose;
 	rect: DOMRect | null;
 }
+
+const poses = new WeakMap<SVGSVGElement, Pose>();
 
 const STATES: State[] = ["idle", "working", "waiting", "failed"];
 const LOOKS: Look[] = ["pointer", "sidebar", "still"];
@@ -254,13 +260,13 @@ function target(rig: Rig, clock: number): [number, number] {
 
 function draw(rig: Rig): void {
 	const mood = moodOf(rig);
-	const pose = `rotate(${n2(rig.yaw * LEAN)} 0 ${n2(R * 0.55)}) rotate(${n2(rig.shape.spin)})`;
+	const transform = `rotate(${n2(rig.pose.yaw * LEAN)} 0 ${n2(R * 0.55)}) rotate(${n2(rig.shape.spin)})`;
 
-	rig.body.setAttribute("transform", pose);
-	rig.clipShape.setAttribute("transform", pose);
+	rig.body.setAttribute("transform", transform);
+	rig.clipShape.setAttribute("transform", transform);
 
 	for (const [index, side] of [-1, 1].entries()) {
-		const eye = eyeFrame(side, rig.yaw, rig.pitch, mood, rig.shape.faceR);
+		const eye = eyeFrame(side, rig.pose.yaw, rig.pose.pitch, mood, rig.shape.faceR);
 		const pupil = rig.pupils[index];
 
 		if (eye.depth <= 0.02) {
@@ -270,7 +276,7 @@ function draw(rig: Rig): void {
 
 		pupil.removeAttribute("display");
 		const width = Math.max(0.6, eye.rx * 2);
-		const height = Math.max(0.6, eye.ry * 2 * rig.lid);
+		const height = Math.max(0.6, eye.ry * 2 * rig.pose.lid);
 		pupil.setAttribute("x", n2(-width / 2));
 		pupil.setAttribute("y", n2(-height / 2));
 		pupil.setAttribute("width", n2(width));
@@ -294,17 +300,17 @@ function tick(now: number): void {
 		const [tx, ty] = target(rig, clock);
 		const stiff = rig.svg.dataset.state === "working" ? WORK_STIFF : STIFF;
 
-		rig.vyaw += (tx - rig.yaw) * stiff * dt - rig.vyaw * DAMP * dt;
-		rig.vpitch += (ty - rig.pitch) * stiff * dt - rig.vpitch * DAMP * dt;
-		rig.yaw += rig.vyaw * dt;
-		rig.pitch += rig.vpitch * dt;
+		rig.pose.vyaw += (tx - rig.pose.yaw) * stiff * dt - rig.pose.vyaw * DAMP * dt;
+		rig.pose.vpitch += (ty - rig.pose.pitch) * stiff * dt - rig.pose.vpitch * DAMP * dt;
+		rig.pose.yaw += rig.pose.vyaw * dt;
+		rig.pose.pitch += rig.pose.vpitch * dt;
 
-		rig.nextBlink -= dt * 1000;
-		if (rig.nextBlink <= 0) {
-			rig.nextBlink = mood.blinkMin + Math.random() * mood.blinkSpread;
-			rig.lid = 0.08;
+		rig.pose.nextBlink -= dt * 1000;
+		if (rig.pose.nextBlink <= 0) {
+			rig.pose.nextBlink = mood.blinkMin + Math.random() * mood.blinkSpread;
+			rig.pose.lid = 0.08;
 		}
-		rig.lid += (1 - rig.lid) * Math.min(1, dt * LID_SPEED);
+		rig.pose.lid += (1 - rig.pose.lid) * Math.min(1, dt * LID_SPEED);
 	}
 
 	for (const rig of rigs) {
@@ -380,21 +386,10 @@ export function mountFace(svg: SVGSVGElement, name: string): () => void {
 	eyes.append(...pupils);
 	svg.append(defs, body, eyes);
 
-	const rig: Rig = {
-		svg,
-		body,
-		clipShape,
-		pupils,
-		shape,
-		seed: t("mimo.phase"),
-		yaw: 0,
-		pitch: 0,
-		vyaw: 0,
-		vpitch: 0,
-		lid: 1,
-		nextBlink: 900 + t("mimo.phase") * 3000,
-		rect: null,
-	};
+	const pose = poses.get(svg) ?? { yaw: 0, pitch: 0, vyaw: 0, vpitch: 0, lid: 1, nextBlink: 900 + t("mimo.phase") * 3000 };
+	poses.set(svg, pose);
+
+	const rig: Rig = { svg, body, clipShape, pupils, shape, seed: t("mimo.phase"), pose, rect: null };
 
 	draw(rig);
 	rigs.add(rig);
