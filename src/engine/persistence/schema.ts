@@ -48,6 +48,7 @@ export const bots = snakeCase.table("bots", {
 export const conversations = snakeCase.table("conversations", {
   botId: text().primaryKey().references(() => bots.id, { onDelete: "cascade" }),
   sessionFile: text(),
+  visibleFromPosition: integer().notNull().default(0),
 })
 
 export const tasks = snakeCase.table("tasks", {

@@ -27,6 +27,7 @@ import memoryCurationVersion from "@drizzle/20260909142116_overjoyed_stellaris/m
 import messageMemory from "@drizzle/20260909155316_message-memory/migration.sql" with { type: "text" }
 import routineFavorite from "@drizzle/20260916152430_routine-favorite/migration.sql" with { type: "text" }
 import jevSettings from "@drizzle/20260922142502_jev-settings/migration.sql" with { type: "text" }
+import visibleSession from "@drizzle/20260923130909_parallel_mole_man/migration.sql" with { type: "text" }
 
 export const migrations = [
   { name: "20260901132949_initial-schema", timestamp: 1788269389000, sql: initialSchema },
@@ -56,4 +57,5 @@ export const migrations = [
   { name: "20260909155316_message-memory", timestamp: 1788978796000, sql: messageMemory },
   { name: "20260916152430_routine-favorite", timestamp: 1789572270000, sql: routineFavorite },
   { name: "20260922142502_jev-settings", timestamp: 1790087102000, sql: jevSettings },
+  { name: "20260923130909_parallel_mole_man", timestamp: 1790179749000, sql: visibleSession },
 ] satisfies MigrationsJournal

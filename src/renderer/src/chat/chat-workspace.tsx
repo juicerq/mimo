@@ -57,6 +57,7 @@ const pulsingDotDelays = ["", "[animation-delay:150ms]", "[animation-delay:300ms
 export function ChatWorkspace({ bot, client }: { bot: Bot; client: EngineClient }) {
   const mobile = useIsMobile()
   const [shown, setShown] = useState(() => chatReadingPosition.shown(bot.id, initialMessageLimit))
+  const [sessionVersion, setSessionVersion] = useState(0)
   const activityDetailsVisible = useSelector(appSettingsStore, (state) => state.activityDetailsVisible)
   const { data: pages, error, isPending, isFetchedAfterMount, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteQuery(client.query.conversations.history.infiniteOptions({
     input: (before: string | undefined) => historyPageInput(bot.id, before),
@@ -149,13 +150,19 @@ export function ChatWorkspace({ bot, client }: { bot: Bot; client: EngineClient 
     })
   }
 
+  function handleNewSession() {
+    chatReadingPosition.clear(bot.id)
+    setShown(initialMessageLimit)
+    setSessionVersion((version) => version + 1)
+  }
+
   return (
     <ChatFileDirectory value={bot.effectiveWorkingDirectory}>
       <section ref={handleOpened} className="relative grid h-full min-h-0 min-w-0 grid-rows-[minmax(0,1fr)] overflow-hidden bg-surface before:pointer-events-none before:absolute before:top-0 before:right-2 before:left-px before:z-[1] before:h-3 before:rounded-tl-[23px] before:bg-[color-mix(in_srgb,var(--color-surface)_36%,transparent)] before:backdrop-blur-[6px] before:[clip-path:inset(0_round_23px_0_0)] before:[mask-image:linear-gradient(to_bottom,#000,transparent)] max-md:before:hidden">
-        <ChatScroller botId={bot.id} footer={<>
+        <ChatScroller key={sessionVersion} botId={bot.id} footer={<>
           <ChatTeamControl key={bot.id} bot={bot} members={members} client={client} />
           <ChatQueue bot={bot} client={client} />
-          <ChatComposer bot={bot} client={client} onAbort={handleAbort} onSend={handleSend} />
+          <ChatComposer bot={bot} client={client} onAbort={handleAbort} onNewSession={handleNewSession} onSend={handleSend} />
         </>} {...(hidden + earlier > 0 ? { onRevealEarlier: revealEarlier } : {})}>
           {isPending && <ChatLoading />}
           {error && <ChatError message={error.message} />}

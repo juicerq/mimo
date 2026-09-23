@@ -854,7 +854,7 @@ export function createConversations(input: {
         await Promise.all([delegation.abortFor(new Set([botId])), active.get(botId)?.abort("person")])
         input.runtime.close(botId)
         sessions.delete(botId)
-        input.database.conversations.saveSessionFile(botId, null)
+        input.database.conversations.resetSession(botId)
         messageQueue.clear(botId)
         publishQueue(botId)
         await open(botId)
