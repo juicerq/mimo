@@ -3,7 +3,7 @@
   "dialect": "sqlite",
   "id": "900ce44c-b0e5-4a74-97e5-0da23619b83a",
   "prevIds": [
-    "d3c3a053-f86b-45cf-a7d4-ed14cb109cc9"
+    "bdd7e598-fd0d-415f-a408-3c11c4b0d81b"
   ],
   "ddl": [
     {
@@ -835,6 +835,16 @@
       "default": null,
       "generated": null,
       "name": "next_call_at",
+      "entityType": "columns",
+      "table": "routines"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "favorite",
       "entityType": "columns",
       "table": "routines"
     },

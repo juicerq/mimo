@@ -144,6 +144,8 @@ export function createEngineRouter({ startedAt, observability, diagnostics, rece
       list: operations.routines.list.handler(({ input }) => routines.list(input.botId)),
       update: operations.routines.update.handler(({ input }) => routines.update(input)),
       remove: operations.routines.remove.handler(({ input }) => routines.remove(input.id)),
+      updateFavorite: operations.routines.updateFavorite.handler(({ input }) => routines.updateFavorite(input)),
+      fireNow: operations.routines.fireNow.handler(({ input }) => routines.fireNow(input.id)),
     },
     triggers: {
       create: operations.triggers.create.handler(({ input }) => triggers.create(input)),

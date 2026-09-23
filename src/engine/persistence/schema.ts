@@ -95,6 +95,7 @@ export const routines = snakeCase.table("routines", {
   status: text().$type<Routine["status"]>().notNull().default("active"),
   timeZone: text().notNull(),
   nextCallAt: text(),
+  favorite: integer({ mode: "boolean" }).notNull().default(false),
   createdAt: text().notNull(),
 }, (table) => [index("routines_bot_id").on(table.botId)])
 

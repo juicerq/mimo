@@ -475,7 +475,7 @@ export function openDatabase(path: string, observability: Observability) {
           database.select().from(routines).where(eq(routines.status, "active")).orderBy(asc(routines.nextCallAt), asc(insertion(routines))).all(),
         ))
       },
-      update(id: string, changes: Partial<Pick<Routine, "name" | "content" | "frequency" | "status" | "timeZone" | "nextCallAt">>) {
+      update(id: string, changes: Partial<Pick<Routine, "name" | "content" | "frequency" | "status" | "timeZone" | "nextCallAt" | "favorite">>) {
         return observability.span({ name: "database.routineupdate" }, () => {
           const row = database.update(routines).set(changes).where(eq(routines.id, id)).returning().get()
 
