@@ -628,16 +628,21 @@ ink for the current mode, and `Perguntar` carrying the quiet `Padrão` badge.
 At the right, before the send action, one quiet chip in metadata type names
 the Bot's Modelo in secondary ink and its Esforço in muted ink, such as
 `GPT-5.6 Luna médio`, and ends in a small chevron. It opens a menu above
-itself with a row per setting, `Modelo` and `Esforço`, each showing its
-current value at the right and a chevron, then one divider and `Redefinir
-para o padrão`, which returns the Fornecedor default and médio and stays
-disabled while both already hold. Hovering or clicking a row opens its list
-beside the menu, flipping to the left when the right has no room: the Modelos
-the Fornecedor offers, with a search above eight entries and the group label
-per Fornecedor, or the five Esforço levels, baixo, médio, alto, muito alto,
-máximo. Rows share the menu anatomy and the Fornecedor default and the médio
-Esforço carry the quiet `Padrão` badge. Choosing saves at once and closes the
-menu; the next turn already uses the new choice. The Modelo and Esforço chip stays disabled while the Bot responds. The
+itself with a searchable model list and the five Esforço levels always visible
+below it. Favorites appear first, followed by models grouped by Fornecedor.
+Each model row has a separate star action; favoriting preserves the selected
+model and the open menu. Favorites persist on this device and apply to every
+Bot, keyed by Fornecedor and model. A drag handle on each favorite changes its
+saved order; touch dragging and Alt+ArrowUp or Alt+ArrowDown use the same order.
+Reordering preserves the current model and the open panel. Selected models show a check; the Fornecedor
+default keeps its quiet `Padrão` badge. The effort control uses five horizontal
+radio segments, from baixo to máximo, with the current value above and the
+extremes `Mais rápido` and `Mais raciocínio` below. Choosing saves at once and
+keeps the panel open so both settings can be adjusted together. Only a
+click outside closes it. Dividers span the full panel width, including between
+favorites and providers and between provider groups. On mobile, Modelo e esforço share a page in the
+conversation options sheet. The Modelo and Esforço chip stays disabled while
+the Bot responds. The
 Permissões chip remains available, including while awaiting a decision.
 When a Bot awaits a decision, a
 low-emphasis status card spans the prompt above the draft. It names the
