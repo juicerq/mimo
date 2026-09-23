@@ -1,0 +1,1 @@
+ALTER TABLE `conversations` ADD `visible_from_position` integer DEFAULT 0 NOT NULL;

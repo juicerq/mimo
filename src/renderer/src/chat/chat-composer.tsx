@@ -30,6 +30,7 @@ interface ChatComposerProps {
   bot: Bot
   client: EngineClient
   onAbort: () => void
+  onNewSession: () => void
   onSend: (draft: ChatDraft, deliver: "queue" | "now") => void
 }
 
@@ -95,7 +96,7 @@ function ChatComposerActions({ command, run, pending, blocked, empty, onAbort, o
   )
 }
 
-export function ChatComposer({ bot, client, onAbort, onSend }: ChatComposerProps) {
+export function ChatComposer({ bot, client, onAbort, onNewSession, onSend }: ChatComposerProps) {
   const connected = useSelector(connectionStore, (state) => state.connected)
   const draftSaved = useSelector(chatStore, (state) => state.draftSaved)
   const [confirmStop, setConfirmStop] = useState(false)
@@ -132,6 +133,22 @@ export function ChatComposer({ bot, client, onAbort, onSend }: ChatComposerProps
     addChatDraftImages(bot.id, images)
   }
 
+  function handleCommandCompleted(completed: ChatCommand) {
+    const current = chatStore.state.drafts[bot.id] ?? emptyChatDraft
+
+    if (current.command === draft.command) {
+      const content = current === draft && commandConsumesContent(completed.command) ? "" : current.content
+      const remaining = current === draft && !draft.command && slash ? withoutChatSlash(content, slash) : content
+
+      clearChatDraftCommand(bot.id, remaining)
+      setCaret(null)
+    }
+
+    if (completed.command === "new") {
+      onNewSession()
+    }
+  }
+
   async function handleSend(immediate: boolean) {
     if (empty || busy || commandBlocked || !connected) {
       return
@@ -141,15 +158,7 @@ export function ChatComposer({ bot, client, onAbort, onSend }: ChatComposerProps
       const ran = await runCommand(command).then(() => true).catch(() => false)
 
       if (ran) {
-        const current = chatStore.state.drafts[bot.id] ?? emptyChatDraft
-
-        if (current.command === draft.command) {
-          const content = current === draft && commandConsumesContent(command.command) ? "" : current.content
-          const remaining = current === draft && !draft.command && slash ? withoutChatSlash(content, slash) : content
-
-          clearChatDraftCommand(bot.id, remaining)
-          setCaret(null)
-        }
+        handleCommandCompleted(command)
       }
 
       return

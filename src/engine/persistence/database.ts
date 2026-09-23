@@ -310,7 +310,8 @@ export function openDatabase(path: string, observability: Observability) {
     },
     conversations: {
       overview() {
-        const lastPositions = database.select({ botId: messages.botId, position: max(messages.position).as("position") }).from(messages).where(and(
+        const lastPositions = database.select({ botId: messages.botId, position: max(messages.position).as("position") }).from(messages).leftJoin(conversations, eq(conversations.botId, messages.botId)).where(and(
+          sql`${messages.position} > coalesce(${conversations.visibleFromPosition}, 0)`,
           ne(messages.author, "routine"),
           ne(messages.author, "trigger"),
           or(ne(messages.content, ""), ne(messages.images, []), isNotNull(messages.ending)),
@@ -337,16 +338,17 @@ export function openDatabase(path: string, observability: Observability) {
       },
       history(botId: string, page: { before?: string; limit: number }) {
         return observability.span({ name: "database.conversationhistory", context: { botId } }, () => {
+          const visibleFromPosition = database.select({ visibleFromPosition: conversations.visibleFromPosition }).from(conversations).where(eq(conversations.botId, botId)).get()?.visibleFromPosition ?? 0
           const cursor = page.before ? database.select({ position: messages.position }).from(messages).where(and(eq(messages.botId, botId), eq(messages.id, page.before))).get() : undefined
 
-          if (page.before && !cursor) {
+          if (page.before && (!cursor || cursor.position <= visibleFromPosition)) {
             throw new Error("Message not found")
           }
 
-          const older = cursor ? and(eq(messages.botId, botId), lt(messages.position, cursor.position)) : eq(messages.botId, botId)
+          const older = and(eq(messages.botId, botId), sql`${messages.position} > ${visibleFromPosition}`, ...(cursor ? [lt(messages.position, cursor.position)] : []))
           const rows = database.select({ ...messageColumns, position }).from(messages).where(older).orderBy(desc(messages.position)).limit(page.limit).all().toReversed()
           const oldest = rows.at(0)
-          const earlier = oldest ? database.select({ value: count() }).from(messages).where(and(eq(messages.botId, botId), lt(messages.position, oldest.position))).get()?.value ?? 0 : 0
+          const earlier = oldest ? database.select({ value: count() }).from(messages).where(and(eq(messages.botId, botId), sql`${messages.position} > ${visibleFromPosition}`, lt(messages.position, oldest.position))).get()?.value ?? 0 : 0
 
           return parse(conversationSchemas.history, { messages: rows.map(({ position: _position, ...row }) => row), earlier })
         })
@@ -382,6 +384,13 @@ export function openDatabase(path: string, observability: Observability) {
       saveSessionFile(botId: string, sessionFile: string | null) {
         return observability.span({ name: "database.conversationsessionsave", context: { botId } }, () => {
           database.insert(conversations).values({ botId, sessionFile }).onConflictDoUpdate({ target: conversations.botId, set: { sessionFile } }).run()
+        })
+      },
+      resetSession(botId: string) {
+        return observability.span({ name: "database.conversationreset", context: { botId } }, () => {
+          const lastPosition = database.select({ position: max(messages.position) }).from(messages).where(eq(messages.botId, botId)).get()?.position ?? 0
+
+          database.insert(conversations).values({ botId, sessionFile: null, visibleFromPosition: lastPosition }).onConflictDoUpdate({ target: conversations.botId, set: { sessionFile: null, visibleFromPosition: lastPosition } }).run()
         })
       },
     },
