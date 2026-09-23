@@ -1,12 +1,17 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type { AssistantMessage } from "@earendil-works/pi-ai";
 
 const CUT = "Interrompido: o mimo fechou antes desta ação terminar, então ela pode ou não ter acontecido.";
 
 export interface TranscriptRow { id: string; message: AgentMessage }
 
+function replayed(message: AgentMessage): message is AssistantMessage {
+	return message.role === "assistant" && message.stopReason !== "aborted" && message.stopReason !== "error";
+}
+
 export function unansweredCalls(rows: TranscriptRow[]): TranscriptRow[] {
 	const answered = new Set(rows.map((row) => row.id));
-	return rows.flatMap((row) => row.message.role === "assistant" ? row.message.content.flatMap((part, index) => {
+	return rows.flatMap((row) => replayed(row.message) ? row.message.content.flatMap((part, index) => {
 		const id = `result:${row.id}:${index}`;
 		if (part.type !== "toolCall" || answered.has(id)) {
 			return [];
@@ -29,7 +34,7 @@ export function orderTranscript(rows: TranscriptRow[]): AgentMessage[] {
 			continue;
 		}
 		ordered.push(row.message);
-		if (row.message.role === "assistant") {
+		if (replayed(row.message)) {
 			for (const [index, part] of row.message.content.entries()) {
 				const result = results.get(`result:${row.id}:${index}`);
 				if (part.type === "toolCall" && result) {
