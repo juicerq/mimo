@@ -10,6 +10,7 @@ import { ContextMenu } from "../ui/context-menu"
 import { Drawer } from "../ui/dialog"
 import { IconButton } from "../ui/icon-button"
 import { useEscape } from "../ui/use-escape"
+import { useIsMobile } from "../ui/use-is-mobile"
 import { BotPageHeader } from "./bot-page-header"
 import { BotArchivePreview } from "./bot-archive-preview"
 import { BotArchiveTree } from "./bot-archive-tree"
@@ -34,6 +35,7 @@ interface FileActionNotice {
 
 export function BotArchive({ bot, client, onClose }: { bot: Bot; client: EngineClient; onClose: () => void }) {
   const queryClient = useQueryClient()
+  const mobile = useIsMobile()
   const [expanded, setExpanded] = useState(new Set<string>())
   const [selected, setSelected] = useState<BotArchiveEntry | null>(null)
   const [inline, setInline] = useState(false)
@@ -60,12 +62,12 @@ export function BotArchive({ bot, client, onClose }: { bot: Bot; client: EngineC
     if (!node) { return }
 
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) { setInline(entry.contentRect.width >= 960) }
+      if (entry) { setInline(!mobile && entry.contentRect.width >= 680) }
     })
     observer.observe(node)
 
     return () => observer.disconnect()
-  }, [])
+  }, [mobile])
 
   function select(entry: BotArchiveEntry) {
     setSelected(entry.kind === "directory" ? null : entry)
@@ -125,12 +127,12 @@ export function BotArchive({ bot, client, onClose }: { bot: Bot; client: EngineC
   const preview = selected && data && <BotArchivePreview key={selected.path} client={client} botId={bot.id} entry={selected} directory={data.directory} onSelect={select} onClose={closePreview} />
 
   return <section className="flex h-full min-h-0 flex-col overflow-hidden bg-surface px-8 pt-12 pb-8 max-md:px-4 max-md:py-4" aria-label={`Acervo de ${bot.name}`}>
-    <div ref={measure} className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col gap-8 max-md:gap-5">
+    <div ref={measure} className="@container/archive mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col gap-8 max-md:gap-5">
       <div className="shrink-0"><BotPageHeader bot={bot} page="archive" /></div>
-      <div className="flex min-h-0 flex-1 gap-8 max-md:gap-0">
-        <div className={`flex min-h-0 min-w-0 flex-col ${inline ? "w-[min(36%,384px)] shrink-0" : "w-full"}`}>
+      <div className="flex min-h-0 flex-1 gap-4 @min-[960px]/archive:gap-8 max-md:gap-0">
+        <div className={`flex min-h-0 min-w-0 flex-col ${inline ? "w-[clamp(240px,32%,384px)] shrink-0" : "w-full"}`}>
           <div className="mb-3 flex shrink-0 items-center justify-between gap-3 px-2">
-            <h3 className="m-0 text-control font-semibold text-secondary">Arquivos do Bot</h3>
+            <h3 className="m-0 text-control font-semibold text-secondary">Pastas e arquivos</h3>
             <div className="flex items-center gap-1">
               <IconButton label="Recolher pastas" disabled={expanded.size === 0} onClick={() => setExpanded(new Set())}><ArrowsPointingInIcon aria-hidden="true" /></IconButton>
               <IconButton label="Atualizar Acervo" disabled={fetching} onClick={() => void queryClient.invalidateQueries({ queryKey: archiveKey })}><ArrowPathIcon className={fetching ? "animate-spin motion-reduce:animate-none" : ""} aria-hidden="true" /></IconButton>

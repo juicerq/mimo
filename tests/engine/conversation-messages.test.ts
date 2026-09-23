@@ -228,9 +228,12 @@ test("envio só confirma entrega depois de persistir a Mensagem", async () => {
   expect(c.history().filter((message) => message.author === "bot").map((message) => message.content)).toEqual(["Achei a causa."])
 })
 
-test("/novo interrompe o turno, esvazia a Fila e recarrega uma sessão sem o contexto anterior", async () => {
+test("/novo esconde o histórico só do Bot selecionado, esvazia a Fila e recarrega a sessão", async () => {
   const c = await conversation()
+  const otherBot = await c.bots.create({ name: "Outro Bot" })
+  c.database.conversations.append({ ...must(c.history()[0]), id: "other-bot-message", botId: otherBot.id })
   await c.tool(sendMessageTool).execute({ content: "Mensagem preservada no histórico." })
+  const oldMessageId = must(c.history()[0]).id
   await c.conversations.send({ botId: c.bot.id, content: "Não levar à sessão nova", images: [], replyTo: null, mentionedBotIds: [], deliver: "queue" })
   const reset = c.conversations.newSession(c.bot.id)
   await rejects(c.conversations.newSession(c.bot.id), "Aguarde a operação da sessão terminar.")
@@ -242,7 +245,22 @@ test("/novo interrompe o turno, esvazia a Fila e recarrega uma sessão sem o con
   expect(c.sessionInputs).toHaveLength(2)
   expect(c.sessionInputs.at(-1)?.sessionFile).toBeUndefined()
   expect(c.database.conversations.sessionFile(c.bot.id)).toBe("session-2.jsonl")
-  expect(c.history().map((message) => message.content)).toEqual(["Me explica com detalhes", "Mensagem preservada no histórico.", ""])
+  expect(c.history()).toEqual([])
+  expect(c.conversations.history({ botId: c.bot.id, limit: 1 }).earlier).toBe(0)
+  expect(() => c.conversations.history({ botId: c.bot.id, before: oldMessageId, limit: 1 })).toThrow("Message not found")
+  expect(c.conversations.history({ botId: otherBot.id, limit: 100 }).messages.map((message) => message.content)).toEqual(["Me explica com detalhes"])
+  expect(c.conversations.overview().some((entry) => entry.botId === c.bot.id)).toBe(false)
+  expect(c.conversations.overview().some((entry) => entry.botId === otherBot.id)).toBe(true)
+  const saved = new Database(c.databasePath)
+  expect(saved.query("SELECT content FROM messages WHERE bot_id = ? ORDER BY position").all(c.bot.id)).toMatchObject([
+    { content: "Me explica com detalhes" },
+    { content: "Mensagem preservada no histórico." },
+    { content: "" },
+  ])
+  saved.close()
+  const reopened = openDatabase(c.databasePath, c.observability)
+  expect(reopened.conversations.history(c.bot.id, { limit: 100 }).messages).toEqual([])
+  reopened.close()
   const initial = c.conversations.events()[Symbol.asyncIterator]()
   const next = initial.next()
   c.conversations.notify(c.bot.id, { type: "compaction-finished" })
@@ -252,6 +270,7 @@ test("/novo interrompe o turno, esvazia a Fila e recarrega uma sessão sem o con
   await c.conversations.close(c.bot.id)
   await c.conversations.send({ botId: c.bot.id, content: "Primeira mensagem nova", images: [], replyTo: null, mentionedBotIds: [], deliver: "queue" })
   expect(c.sessionInputs.at(-1)?.sessionFile).toBe("session-2.jsonl")
+  expect(c.history().map((message) => message.content)).toEqual(["Primeira mensagem nova"])
 })
 
 test("/novo relê as instruções atuais e uma falha ao abrir não ressuscita a sessão anterior", async () => {

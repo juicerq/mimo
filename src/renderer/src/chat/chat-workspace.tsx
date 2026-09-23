@@ -1,3 +1,4 @@
+import { splitSkillInvocations } from "@src/shared/skill-invocations"
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
 import { useCallback, useState } from "react"
@@ -33,6 +34,7 @@ import { ChatFileDirectory, ChatFileText } from "./chat-file"
 import { ChatContent } from "./chat-content"
 import { flattenHistory, historyPageInput, initialMessageLimit, olderHistoryPage, revealStep, windowHistory } from "./chat-history-window"
 import { ChatMemberResult, memberResultKind } from "./chat-member-result"
+import { ChatSkillChip } from "./chat-skills"
 import { ChatMentionChip } from "./chat-mention-chip"
 import { type ChatMention, knownChatMentions, mentionedBotIds, splitChatMentions } from "./chat-mentions"
 import { ChatPermissionRequest } from "./chat-permission-request"
@@ -55,6 +57,7 @@ const pulsingDotDelays = ["", "[animation-delay:150ms]", "[animation-delay:300ms
 export function ChatWorkspace({ bot, client }: { bot: Bot; client: EngineClient }) {
   const mobile = useIsMobile()
   const [shown, setShown] = useState(() => chatReadingPosition.shown(bot.id, initialMessageLimit))
+  const [sessionVersion, setSessionVersion] = useState(0)
   const activityDetailsVisible = useSelector(appSettingsStore, (state) => state.activityDetailsVisible)
   const { data: pages, error, isPending, isFetchedAfterMount, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteQuery(client.query.conversations.history.infiniteOptions({
     input: (before: string | undefined) => historyPageInput(bot.id, before),
@@ -97,7 +100,7 @@ export function ChatWorkspace({ bot, client }: { bot: Bot; client: EngineClient 
       return
     }
 
-    const message = { content: draft.content.trim().replace(/^(\/skill:\S+)\s+/, "$1 "), images: draft.images, replyTo: null }
+    const message = { content: draft.content.trim(), images: draft.images, replyTo: null }
 
     setChatDraft(bot.id, emptyChatDraft)
 
@@ -147,13 +150,19 @@ export function ChatWorkspace({ bot, client }: { bot: Bot; client: EngineClient 
     })
   }
 
+  function handleNewSession() {
+    chatReadingPosition.clear(bot.id)
+    setShown(initialMessageLimit)
+    setSessionVersion((version) => version + 1)
+  }
+
   return (
     <ChatFileDirectory value={bot.effectiveWorkingDirectory}>
       <section ref={handleOpened} className="relative grid h-full min-h-0 min-w-0 grid-rows-[minmax(0,1fr)] overflow-hidden bg-surface before:pointer-events-none before:absolute before:top-0 before:right-2 before:left-px before:z-[1] before:h-3 before:rounded-tl-[23px] before:bg-[color-mix(in_srgb,var(--color-surface)_36%,transparent)] before:backdrop-blur-[6px] before:[clip-path:inset(0_round_23px_0_0)] before:[mask-image:linear-gradient(to_bottom,#000,transparent)] max-md:before:hidden">
-        <ChatScroller botId={bot.id} footer={<>
+        <ChatScroller key={sessionVersion} botId={bot.id} footer={<>
           <ChatTeamControl key={bot.id} bot={bot} members={members} client={client} />
           <ChatQueue bot={bot} client={client} />
-          <ChatComposer bot={bot} client={client} onAbort={handleAbort} onSend={handleSend} />
+          <ChatComposer bot={bot} client={client} onAbort={handleAbort} onNewSession={handleNewSession} onSend={handleSend} />
         </>} {...(hidden + earlier > 0 ? { onRevealEarlier: revealEarlier } : {})}>
           {isPending && <ChatLoading />}
           {error && <ChatError message={error.message} />}
@@ -296,7 +305,7 @@ function PersonBubble({ time, content, images, mentions }: { time: string; conte
       )}
       {content && (
         <p className="m-0 whitespace-pre-wrap text-body text-primary">
-          {splitChatMentions(content, mentions).map((segment, index) => (segment.mention ? <ChatMentionChip key={`${index}-${segment.text}`} mention={segment.mention} /> : <ChatFileText key={`${index}-${segment.text}`} text={segment.text} />))}
+          {splitSkillInvocations(content).map((part) => part.name ? <ChatSkillChip key={part.start} name={part.name} /> : splitChatMentions(part.text, mentions).map((segment, index) => (segment.mention ? <ChatMentionChip key={`${part.start}-${index}-${segment.text}`} mention={segment.mention} /> : <ChatFileText key={`${part.start}-${index}-${segment.text}`} text={segment.text} />)))}
         </p>
       )}
     </ChatStamped>
@@ -308,6 +317,7 @@ function ChatRun({ activityDetailsVisible, bot, client, run, team, historyIds }:
   const pluginRequest = run.pluginRequests[0]
   const awaitingDecision = !!permissionRequest || !!pluginRequest
   const workingSilently = !activityDetailsVisible && run.status === "running" && !awaitingDecision && !run.providerWait
+  const navigation = run.steps.flatMap((step) => step.type === "tool" ? step.tools : []).find((tool) => tool.status === "running" && tool.label === "Navegando com Jev")
   const handedOff = window.desktop.remote && awaitingHandoff(run)
 
   return (
@@ -318,7 +328,7 @@ function ChatRun({ activityDetailsVisible, bot, client, run, team, historyIds }:
         <ChatRunActivity activityDetailsVisible={activityDetailsVisible} bot={bot} client={client} run={run} />
         {permissionRequest && <ChatStamped className="chat-request-bubble" name={bot.name} time="Agora" anchor="bubble"><ChatPermissionRequest key={permissionRequest.id} botId={bot.id} client={client} request={permissionRequest} remaining={run.permissionRequests.length - 1} /></ChatStamped>}
         {!permissionRequest && pluginRequest && <ChatStamped className="chat-request-bubble" name={bot.name} time="Agora" anchor="bubble"><ChatPluginRequest botId={bot.id} client={client} request={pluginRequest} step={run.pluginSteps[pluginRequest.id]} /></ChatStamped>}
-        {workingSilently && <ChatWorkingIndicator botName={bot.name} />}
+        {workingSilently && <ChatWorkingIndicator botName={bot.name} {...(navigation ? { label: navigation.label } : {})} />}
         {handedOff && <div className="flex flex-wrap items-center gap-3"><p className="m-0 text-support text-secondary" role="status">{bot.name} aguarda sua ajuda no computador.</p><Button variant="secondary" onClick={() => focusBrowser(bot.id)}>Acompanhar página</Button></div>}
         {run.error && <div className="mt-3.5 flex items-start gap-3 max-[700px]:flex-wrap"><div className="min-w-0 flex-1"><strong className="text-control font-semibold text-primary">O bot parou</strong><p className="mt-[3px] mb-0 text-support text-secondary">{run.error}</p></div><button className="flex-none rounded-lg border border-outline-strong bg-transparent px-3 py-2 text-metadata font-medium text-secondary hover:bg-surface-hover hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="button" onClick={() => settleChatRun(bot.id, "available")}>Fechar</button></div>}
       </article>
@@ -341,8 +351,8 @@ function PulsingDots({ className }: { className: string }) {
   return pulsingDotDelays.map((delay) => <span key={delay} className={`size-1.5 animate-pulse rounded-full [animation-duration:900ms] motion-reduce:animate-none ${delay} ${className}`} aria-hidden="true" />)
 }
 
-function ChatWorkingIndicator({ botName }: { botName: string }) {
-  return <div className="flex w-fit items-center gap-1" role="status" aria-label={`${botName} está trabalhando`}><PulsingDots className="bg-muted" /></div>
+function ChatWorkingIndicator({ botName, label }: { botName: string; label?: string }) {
+  return <div className="flex w-fit items-center gap-2" role="status" aria-label={label ? `${botName}: ${label}` : `${botName} está trabalhando`}><PulsingDots className="bg-muted" />{label && <span className="text-support text-secondary">{label}</span>}</div>
 }
 
 function EmptyChat({ bot }: { bot: Bot }) {

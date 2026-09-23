@@ -23,7 +23,11 @@ export function useChatCommands(bot: Bot, client: EngineClient, draft: ChatDraft
 
       if (target.command === "new") {
         await client.raw.conversations.newSession({ botId: bot.id })
-        setStatus("Sessão nova pronta. O histórico continua salvo, mas não entra no contexto desta sessão.")
+        await Promise.all([
+          queryClient.resetQueries({ queryKey: client.query.conversations.history.key({ input: { botId: bot.id } }) }),
+          queryClient.invalidateQueries({ queryKey: client.query.conversations.overview.key() }),
+        ])
+        setStatus("Sessão nova pronta. As mensagens anteriores estão ocultas neste chat.")
 
         return
       }

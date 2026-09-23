@@ -1,11 +1,13 @@
+import { splitSkillInvocations } from "@src/shared/skill-invocations"
 import { memo, useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react"
 import { ChatMentionChip } from "./chat-mention-chip"
 import { type ChatMention, splitChatMentions } from "./chat-mentions"
-import { ChatSkillChip, selectedChatSkill } from "./chat-skills"
+import { ChatSkillChip } from "./chat-skills"
 
 interface ChatEditorProps {
   id: string
   content: string
+  caret: number
   mentions: ChatMention[]
   placeholder: string
   label: string
@@ -77,12 +79,37 @@ function caretOffset(node: HTMLElement) {
   return [...before.cloneContents().childNodes].map(readNode).join("").length
 }
 
-function caretToEnd(node: HTMLElement) {
+function restoreCaret(node: HTMLElement, offset: number) {
   const selection = window.getSelection()
   const range = document.createRange()
 
   range.selectNodeContents(node)
   range.collapse(false)
+
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (child) => child.parentElement?.closest("[data-token]") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+  })
+  let remaining = offset
+
+  while (walker.nextNode()) {
+    const child = walker.currentNode
+    const length = child instanceof HTMLElement ? (child.dataset.token?.length ?? 0) : (child.nodeValue?.length ?? 0)
+
+    if (child.nodeType === Node.TEXT_NODE && remaining <= length) {
+      range.setStart(child, remaining)
+      range.collapse(true)
+      break
+    }
+
+    if (length > 0 && remaining <= length) {
+      range.setStartAfter(child)
+      range.collapse(true)
+      break
+    }
+
+    remaining -= length
+  }
+
   selection?.removeAllRanges()
   selection?.addRange(range)
 }
@@ -146,22 +173,17 @@ function scrollCaretIntoView(node: HTMLElement) {
 }
 
 const ChatEditorContent = memo(
-  ({ content, mentions, onRemoveSkill }: { revision: number; content: string; mentions: ChatMention[]; onRemoveSkill: () => void }) => {
-    const skill = selectedChatSkill(content)
-
-    return (
-      <>
-        {skill && <span className="inline-block max-w-full align-baseline" contentEditable={false} data-token={skill.token}><ChatSkillChip name={skill.name} onRemove={onRemoveSkill} /></span>}
-        {splitChatMentions(skill?.rest ?? content, mentions).map((segment, index) => (segment.mention
-          ? <span key={`${index}-${segment.text}`} className="inline-block align-middle" contentEditable={false} data-token={segment.text}><ChatMentionChip mention={segment.mention} /></span>
-          : segment.text))}
-      </>
-    )
-  },
+  ({ content, mentions, onRemoveSkill }: { revision: number; content: string; mentions: ChatMention[]; onRemoveSkill: (button: HTMLButtonElement) => void }) => <>
+    {splitSkillInvocations(content).map((part) => part.name
+      ? <span key={part.start} className="inline-block max-w-full align-baseline" contentEditable={false} data-token={part.text}><ChatSkillChip name={part.name} onRemove={(event) => onRemoveSkill(event.currentTarget)} /></span>
+      : splitChatMentions(part.text, mentions).map((segment, index) => (segment.mention
+        ? <span key={`${part.start}-${index}-${segment.text}`} className="inline-block align-middle" contentEditable={false} data-token={segment.text}><ChatMentionChip mention={segment.mention} /></span>
+        : segment.text)))}
+  </>,
   (before, after) => before.revision === after.revision,
 )
 
-export function ChatEditor({ id, content, mentions, placeholder, label, menuOpen, menuId, activeOptionId, enterBreaksLine, onChange, onCaretChange, onKeyDown, onPasteFiles }: ChatEditorProps) {
+export function ChatEditor({ id, content, caret, mentions, placeholder, label, menuOpen, menuId, activeOptionId, enterBreaksLine, onChange, onCaretChange, onKeyDown, onPasteFiles }: ChatEditorProps) {
   const ref = useRef<HTMLDivElement | null>(null)
   const typed = useRef(content)
   const [revision, setRevision] = useState(0)
@@ -171,13 +193,17 @@ export function ChatEditor({ id, content, mentions, placeholder, label, menuOpen
     setRevision((current) => current + 1)
   }
 
+  const desiredCaret = useRef(caret)
+  desiredCaret.current = caret
+
+  // The contenteditable DOM is replaced on external edits; restore its browser selection after commit.
   useEffect(() => {
     const node = ref.current
     const loose = !document.activeElement || document.activeElement === document.body
 
     if (revision > 0 && node && (loose || node.contains(document.activeElement))) {
       node.focus()
-      caretToEnd(node)
+      restoreCaret(node, desiredCaret.current)
       scrollCaretIntoView(node)
     }
   }, [revision])
@@ -200,12 +226,23 @@ export function ChatEditor({ id, content, mentions, placeholder, label, menuOpen
     }
   }
 
-  function handleRemoveSkill() {
-    const skill = selectedChatSkill(ref.current ? readEditor(ref.current) : typed.current)
+  function handleRemoveSkill(button: HTMLButtonElement) {
+    const node = ref.current
+    const chip = button.closest<HTMLElement>("[data-token]")
 
-    if (skill) {
-      onChange(skill.rest.trimStart())
+    if (!node || !chip?.dataset.token) {
+      return
     }
+
+    const current = readEditor(node)
+    const before = document.createRange()
+
+    before.selectNodeContents(node)
+    before.setEndBefore(chip)
+
+    const start = [...before.cloneContents().childNodes].map(readNode).join("").length
+
+    onChange(current.slice(0, start) + current.slice(start + chip.dataset.token.length), start)
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {

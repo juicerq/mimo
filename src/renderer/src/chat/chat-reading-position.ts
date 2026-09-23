@@ -7,6 +7,10 @@ const positions = new Map<string, ReadingPosition>()
 const windows = new Map<string, number>()
 
 export const chatReadingPosition = {
+  clear(botId: string) {
+    positions.delete(botId)
+    windows.delete(botId)
+  },
   shown(botId: string, initial: number) {
     return windows.get(botId) ?? initial
   },

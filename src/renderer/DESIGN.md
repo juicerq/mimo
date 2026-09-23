@@ -293,6 +293,11 @@ close action centered on the radius center of the conversation plane's corner. T
 stay faint at rest and reach full ink on pointer or keyboard intent. A separate
 12px strip across the top owns window dragging without covering the search field.
 
+The compact sidebar uses an 80px avatar rail with 4px row padding and an 8px
+channel to the conversation. Bot names and statuses appear on
+hover and keyboard focus. Project labels, team branches and disclosure controls
+keep the grouping visible; search, create, layout, Plugins and Settings use icons.
+
 The sidebar holds the Bot list directly. It does not start with a team picker.
 Its top row combines Bot search with one quiet "+" that opens a menu below it
 with Novo Bot and Novo Projeto. Selection uses a tonal row, not a leading line,
@@ -504,8 +509,9 @@ the same header. The conversation keeps the Bot's avatar as its identity.
 **Bot archive.** Acervo uses the shared page header above a file tree and a
 full-height preview. The tree loads folders on expansion, keeps branches open
 while selecting files, and scrolls independently from the preview. At least
-960px of available content width keeps the preview alongside the tree; narrower
-pages open it in a right drawer. Below 48rem that drawer fills the screen and
+680px of available desktop content width keeps the preview alongside the tree,
+with a 240–384px tree and a 16px gap that grows to 32px at 960px. Narrower
+pages open it in a right drawer. Below 48rem the preview always uses a drawer that fills the screen and
 respects safe areas. Its header retains the filename, path, view/source toggle
 and close action while the content scrolls. Markdown is formatted, HTML renders
 in an isolated frame, and images fit within the available area.
@@ -592,7 +598,13 @@ chat route. The current page uses the active surface. Choosing Settings,
 Integrantes, Rotinas, Gatilhos, or Memórias again returns to the conversation, except on the Rotina
 editor, where Rotinas is current and choosing it returns to the list. Choosing
 the Bot in the sidebar also returns to the conversation. Nothing sits in the
-top-right corner beside the window controls.
+top-right corner beside the window controls. Favorite Rotinas follow a short
+divider as quick calls: a clock with its position, in list order, in a 12px
+raised disc at the bottom-right corner, and the Rotina name in the tooltip.
+Choosing one calls the Rotina now and opens the conversation; they are disabled
+while the Bot works. Each row in Rotinas keeps only a star, which adds or removes
+the favorite, and a three-dot menu with Disparar agora, Pausar or Retomar,
+Editar, and Remover; right-clicking the row opens the same menu.
 
 **Prompt.** An 18px-radius card centered near the bottom of the conversation.
 The field is the strongest control on the screen. Its send action is the only
@@ -616,16 +628,21 @@ ink for the current mode, and `Perguntar` carrying the quiet `Padrão` badge.
 At the right, before the send action, one quiet chip in metadata type names
 the Bot's Modelo in secondary ink and its Esforço in muted ink, such as
 `GPT-5.6 Luna médio`, and ends in a small chevron. It opens a menu above
-itself with a row per setting, `Modelo` and `Esforço`, each showing its
-current value at the right and a chevron, then one divider and `Redefinir
-para o padrão`, which returns the Fornecedor default and médio and stays
-disabled while both already hold. Hovering or clicking a row opens its list
-beside the menu, flipping to the left when the right has no room: the Modelos
-the Fornecedor offers, with a search above eight entries and the group label
-per Fornecedor, or the five Esforço levels, baixo, médio, alto, muito alto,
-máximo. Rows share the menu anatomy and the Fornecedor default and the médio
-Esforço carry the quiet `Padrão` badge. Choosing saves at once and closes the
-menu; the next turn already uses the new choice. The Modelo and Esforço chip stays disabled while the Bot responds. The
+itself with a searchable model list and the five Esforço levels always visible
+below it. Favorites appear first, followed by models grouped by Fornecedor.
+Each model row has a separate star action; favoriting preserves the selected
+model and the open menu. Favorites persist on this device and apply to every
+Bot, keyed by Fornecedor and model. A drag handle on each favorite changes its
+saved order; touch dragging and Alt+ArrowUp or Alt+ArrowDown use the same order.
+Reordering preserves the current model and the open panel. Selected models show a check; the Fornecedor
+default keeps its quiet `Padrão` badge. The effort control uses five horizontal
+radio segments, from baixo to máximo, with the current value above and the
+extremes `Mais rápido` and `Mais raciocínio` below. Choosing saves at once and
+keeps the panel open so both settings can be adjusted together. Only a
+click outside closes it. Dividers span the full panel width, including between
+favorites and providers and between provider groups. On mobile, Modelo e esforço share a page in the
+conversation options sheet. The Modelo and Esforço chip stays disabled while
+the Bot responds. The
 Permissões chip remains available, including while awaiting a decision.
 When a Bot awaits a decision, a
 low-emphasis status card spans the prompt above the draft. It names the
