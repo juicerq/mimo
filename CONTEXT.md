@@ -15,7 +15,7 @@ _Evitar_: Sessão, chat, conversa nova, histórico arquivado
 _Dono_: `apps/agent/src/conversation/record.ts` (`ConversationRecord`); tabelas em `apps/agent/src/storage/schema.ts`;  o trecho fora da Janela, `apps/agent/src/history/history.ts`
 
 **Selo**:
-O que fecha uma ação que ficou sem resposta no Registro. Ao abrir o Bot, toda chamada de tool sem resultado ganha um resultado com o aviso de que o mimo fechou antes dela terminar e que ela pode ou não ter acontecido. O Bot lê esse aviso como qualquer outro resultado, a pessoa vê a linha `⚠` na tela, e a Janela volta válida para o modelo. O Selo não refaz a ação nem promete que ela falhou.
+O que fecha uma ação que ficou sem resposta no Registro. Ao abrir o Bot, toda chamada de tool sem resultado ganha um resultado com o aviso de que o mimo fechou antes dela terminar e que ela pode ou não ter acontecido. A chamada de uma resposta cortada no meio fica sem Selo: ela nunca rodou e o modelo não recebe essa resposta de volta. O Bot lê esse aviso como qualquer outro resultado, a pessoa vê a linha `⚠` na tela, e a Janela volta válida para o modelo. O Selo não refaz a ação nem promete que ela falhou.
 _Evitar_: Recuperar, retomar, replay
 _Dono_: `apps/agent/src/bot/seal.ts` (`unansweredCalls`); gravação, `apps/agent/src/conversation/record.ts` (`seal`)
 
