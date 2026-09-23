@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "900ce44c-b0e5-4a74-97e5-0da23619b83a",
+  "id": "bdd7e598-fd0d-415f-a408-3c11c4b0d81b",
   "prevIds": [
-    "bdd7e598-fd0d-415f-a408-3c11c4b0d81b"
+    "d3c3a053-f86b-45cf-a7d4-ed14cb109cc9"
   ],
   "ddl": [
     {
@@ -365,16 +365,6 @@
       "default": null,
       "generated": null,
       "name": "session_file",
-      "entityType": "columns",
-      "table": "conversations"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "0",
-      "generated": null,
-      "name": "visible_from_position",
       "entityType": "columns",
       "table": "conversations"
     },

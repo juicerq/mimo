@@ -153,6 +153,7 @@ export function subscribeChatEvents({ client, queryClient }: { client: Pick<Engi
     void Promise.all([
       queryClient.invalidateQueries({ queryKey: client.query.conversations.history.key({ input: { botId } }) }),
       queryClient.invalidateQueries({ queryKey: client.query.tasks.key() }),
+      queryClient.invalidateQueries({ queryKey: client.query.routines.list.key({ input: { botId } }) }),
       queryClient.invalidateQueries({ queryKey: client.query.conversations.overview.key() }),
       invalidateTeam(),
       alertTurnFinished({ bot, reason: event.reason, response, ...(event.silent ? { silent: true } : {}), ...(event.error ? { error: event.error } : {}) }).catch((alertError: unknown) => {

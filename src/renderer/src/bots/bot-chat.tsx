@@ -1,8 +1,11 @@
 import { BotArchive } from "./bot-archive"
-import { useQuery } from "@tanstack/react-query"
+import { ClockIcon } from "@heroicons/react/24/outline"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
 import type { Bot } from "@src/shared/bots"
 import type { ProjectGroups } from "@src/shared/projects"
+import type { Routine } from "@src/shared/routines"
+import { chatStore } from "../chat/chat-store"
 import { ChatEdgeTab } from "../chat/chat-edge-tab"
 import { ChatWorkspace } from "../chat/chat-workspace"
 import type { EngineClient } from "../engine-client"
@@ -52,7 +55,7 @@ export function BotChat({ client, botId }: { client: EngineClient; botId: string
   return (
     <>
       <BotRouteScreen bot={bot} client={client} groups={groups} route={route} />
-      {!mobile && <BotRouteTab bot={bot} route={route} />}
+      {!mobile && <BotRouteTab bot={bot} client={client} route={route} />}
     </>
   )
 }
@@ -101,12 +104,29 @@ function BotRouteScreen({ bot, client, groups, route }: { bot: Bot; client: Engi
   return <ChatWorkspace bot={bot} client={client} />
 }
 
-function BotRouteTab({ bot, route }: { bot: Bot; route: BotRoute }) {
+function BotRouteTab({ bot, client, route }: { bot: Bot; client: EngineClient; route: BotRoute }) {
+  const { data: routines } = useQuery({ ...client.query.routines.list.queryOptions({ input: { botId: bot.id } }), enabled: !bot.temporary })
+  const favorites = routines?.filter((routine) => routine.favorite) ?? []
+
   return (
     <ChatEdgeTab>
       {botRouteActions(bot, route).map((action) => (
         <IconButton key={action.name} iconSize={16} current={action.current} type="button" label={`${action.label} de ${bot.name}`} tooltipPlacement="left" onClick={action.select}>{action.icon}</IconButton>
       ))}
+      {favorites.length > 0 && <span className="my-0.5 h-px w-5 bg-outline" aria-hidden="true" />}
+      {favorites.map((routine, index) => <RoutineShortcut key={routine.id} bot={bot} client={client} routine={routine} position={index + 1} />)}
     </ChatEdgeTab>
+  )
+}
+
+function RoutineShortcut({ bot, client, routine, position }: { bot: Bot; client: EngineClient; routine: Routine; position: number }) {
+  const working = useSelector(chatStore, (state) => !!state.runs[bot.id])
+  const { mutate: fireNow, isPending, error } = useMutation(client.query.routines.fireNow.mutationOptions({ onSuccess: () => openBotRoute({ name: "chat" }) }))
+
+  return (
+    <IconButton iconSize={16} type="button" disabled={working || isPending} label={error ? `Falha ao disparar ${routine.name}: ${error.message}` : `Disparar ${routine.name}`} tooltipPlacement="left" onClick={() => fireNow({ id: routine.id })}>
+      <ClockIcon aria-hidden="true" />
+      <span className={`absolute right-1 bottom-1 grid size-3 place-items-center rounded-full bg-surface-raised text-[9px] leading-none font-semibold tabular-nums ring-1 ring-outline ${error ? "text-status-error" : "text-secondary"}`} aria-hidden="true">{position}</span>
+    </IconButton>
   )
 }

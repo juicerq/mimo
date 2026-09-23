@@ -1,5 +1,5 @@
 import type { Bot } from "@src/shared/bots"
-import { routineSchemas, type CreateRoutineInput, type Frequency, type Routine, type UpdateRoutineInput } from "@src/shared/routines"
+import { routineSchemas, type CreateRoutineInput, type Frequency, type Routine, type UpdateFavoriteInput, type UpdateRoutineInput } from "@src/shared/routines"
 import { weekdays } from "@src/shared/weekdays"
 import type { createBots } from "../bots/bots"
 import type { Observability } from "../observability/observability"
@@ -17,6 +17,14 @@ function statusFrom(enabled: string | undefined, current: Routine["status"] | un
   }
 
   return "active"
+}
+
+function favoriteFrom(favorite: string | undefined, current?: Pick<Routine, "favorite">) {
+  if (!favorite) {
+    return !!current?.favorite
+  }
+
+  return favorite !== "no"
 }
 
 const minute = 60_000
@@ -246,7 +254,7 @@ export function createRoutines(input: {
   function create(details: CreateRoutineInput) {
     const bot = owner(details.botId)
     const now = new Date()
-    const routine: Routine = { id: crypto.randomUUID(), ...details, status: "active", timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, nextCallAt: nextCall(details.frequency, now).toISOString(), createdAt: now.toISOString() }
+    const routine: Routine = { id: crypto.randomUUID(), ...details, status: "active", timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, nextCallAt: nextCall(details.frequency, now).toISOString(), favorite: false, createdAt: now.toISOString() }
 
     return input.observability.span({ name: "routines.create", context: { botId: bot.id } }, () => {
       const created = input.database.routines.create(routine)
@@ -273,6 +281,24 @@ export function createRoutines(input: {
     })
   }
 
+  function updateFavorite({ id, favorite }: UpdateFavoriteInput) {
+    const updated = input.database.routines.update(id, { favorite })
+
+    if (!updated) {
+      throw new Error("Rotina not found")
+    }
+
+    return updated
+  }
+
+  /** Calls the Rotina once now, outside its schedule: the next scheduled call and the status stay as they are. */
+  async function fireNow(id: string) {
+    const routine = existing(id)
+
+    await input.conversations.call({ ...routine, nextCallAt: new Date().toISOString() })
+    input.observability.event({ name: "routines.fired", context: { botId: routine.botId } })
+  }
+
   function remove(id: string) {
     const routine = existing(id)
 
@@ -287,6 +313,8 @@ export function createRoutines(input: {
   return {
     create,
     update,
+    updateFavorite,
+    fireNow,
     remove,
     list(botId: string) {
       return input.database.routines.listForBot(botId)
@@ -311,6 +339,7 @@ export function createRoutines(input: {
           "inMinutes?": "Minutes from now, for a Rotina that runs once. Example: \"5\".",
           "at?": "Local time for a Rotina that runs once: \"HH:MM\" for the next such time, or \"YYYY-MM-DD HH:MM\".",
           "enabled?": "\"no\" to pause the Rotina, \"yes\" to resume it. Defaults to yes.",
+          "favorite?": "\"yes\" to add the Rotina to the person's quick calls beside the conversation, \"no\" to remove it. Omit to keep the current choice.",
         },
         async execute(params) {
           const current = params.id ? existing(params.id, bot.id) : undefined
@@ -327,11 +356,12 @@ export function createRoutines(input: {
             throw new Error("Give content: the message you receive at each call")
           }
 
-          const routine = current
+          const saved = current
             ? update({ id: current.id, name, content, frequency, status })
             : create({ botId: bot.id, name, content, frequency })
+          const routine = updateFavorite({ id: saved.id, favorite: favoriteFrom(params.favorite, current) })
 
-          return `Rotina ${routine.id} ${current ? "changed" : "created"}: "${routine.name}", ${describeFrequency(routine.frequency)}${routine.status === "paused" ? ", paused" : ""}. Next call at ${routine.nextCallAt}.`
+          return `Rotina ${routine.id} ${current ? "changed" : "created"}: "${routine.name}", ${describeFrequency(routine.frequency)}${routine.status === "paused" ? ", paused" : ""}${routine.favorite ? ", favorite" : ""}. Next call at ${routine.nextCallAt}.`
         },
       }, {
         name: "remove_routine",
@@ -351,11 +381,11 @@ export function createRoutines(input: {
       }
 
       const routines = input.database.routines.listForBot(bot.id)
-      const lines = routines.map((routine) => `- ${routine.id}: "${routine.name}" — ${routine.content}, ${describeFrequency(routine.frequency)}, ${routine.status}`)
+      const lines = routines.map((routine) => `- ${routine.id}: "${routine.name}" — ${routine.content}, ${describeFrequency(routine.frequency)}, ${routine.status}${routine.favorite ? ", favorite" : ""}`)
 
       return [
         "A turn with cause \"routine\" is a scheduled call from one of your Rotinas. Its content defines the work and notification criteria; the conversation protocol handles delivery or silent completion.",
-        ...(bot.permissionMode === "read-only" ? [] : ["Use the routine tool once when the person asks you to check or do something on a schedule. Give the Rotina a short name and express repeated calls as one schedule. A one-time Rotina remains listed as completed or failed after its call. Use remove_routine to remove one for good."]),
+        ...(bot.permissionMode === "read-only" ? [] : ["Use the routine tool once when the person asks you to check or do something on a schedule. Give the Rotina a short name and express repeated calls as one schedule. A one-time Rotina remains listed as completed or failed after its call. Use remove_routine to remove one for good. Set favorite when the person wants a Rotina among their quick calls."]),
         ...(lines.length > 0 ? ["Your Rotinas:", ...lines] : ["You have no Rotinas."]),
       ].join("\n")
     },

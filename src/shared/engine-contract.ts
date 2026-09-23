@@ -94,6 +94,8 @@ export const engineContract = {
     list: oc.input(botInput).output(routineSchemas.routineList).route({ method: "GET", path: "/bots/{botId}/routines" }),
     update: oc.input(routineSchemas.updateInput).output(routineSchemas.routine).route({ method: "POST", path: "/routines/{id}/update" }),
     remove: oc.input(idInput).route({ method: "POST", path: "/routines/{id}/remove" }),
+    updateFavorite: oc.input(routineSchemas.updateFavoriteInput).output(routineSchemas.routine).route({ method: "POST", path: "/routines/{id}/favorite" }),
+    fireNow: oc.input(idInput).route({ method: "POST", path: "/routines/{id}/fire" }),
   },
   triggers: {
     create: oc.input(triggerSchemas.createInput).output(triggerSchemas.trigger).route({ method: "POST", path: "/triggers" }),
