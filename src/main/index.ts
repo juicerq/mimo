@@ -96,6 +96,8 @@ const engine = new EngineProcess({
   },
 })
 
+// Bot pages stay parked behind a cover while the person works elsewhere; an occluded page stops rendering and cannot be clicked.
+app.commandLine.appendSwitch("disable-backgrounding-occluded-windows")
 app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1")
 app.commandLine.appendSwitch("remote-debugging-port", await browserDebuggingPort(appProfile.debuggingPort))
 

@@ -28,6 +28,7 @@ import type { Trigger, TriggerRun } from "@src/shared/triggers"
 import { triggerSchemas } from "@src/shared/triggers"
 import { accesses, accounts, bots, colleagues, conversations, curationFailures, memories, memorySettings, messages, memoryProgress, plugins, projects, routines, tasks, triggerRuns, triggers, whatsappContacts, whatsappMessages } from "./schema"
 import { parse, parseOptional } from "@src/shared/parse"
+import { jevSettings } from "./schema"
 
 const chatName = sql<string>`coalesce(${whatsappContacts.name}, ${whatsappMessages.chatId})`
 
@@ -82,6 +83,17 @@ export function openDatabase(path: string, observability: Observability) {
   }
 
   return {
+    jev: {
+      get() {
+        return database.select({ key: jevSettings.key, verification: jevSettings.verification }).from(jevSettings).where(eq(jevSettings.id, 1)).get()
+      },
+      save(value: Pick<typeof jevSettings.$inferInsert, "key" | "verification">) {
+        database.insert(jevSettings).values({ id: 1, ...value }).onConflictDoUpdate({ target: jevSettings.id, set: value }).run()
+      },
+      remove() {
+        database.delete(jevSettings).where(eq(jevSettings.id, 1)).run()
+      },
+    },
     history: {
       search(botId: string, input: HistorySearch) {
         const terms = input.query.match(/[\p{L}\p{N}]+/gu)

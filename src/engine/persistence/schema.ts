@@ -8,6 +8,13 @@ import type { StoredAccount, StoredPlugin } from "@src/shared/plugins"
 import type { Routine } from "@src/shared/routines"
 import type { Task } from "@src/shared/tasks"
 import type { Trigger, TriggerRun } from "@src/shared/triggers"
+import type { JevVerification } from "@src/shared/jev"
+
+export const jevSettings = snakeCase.table("jev_settings", {
+  id: integer().primaryKey(),
+  key: text().notNull(),
+  verification: text({ mode: "json" }).$type<JevVerification>(),
+})
 
 export const projects = snakeCase.table("projects", {
   id: text().primaryKey(),

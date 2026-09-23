@@ -97,6 +97,7 @@ const toolFinishedEvent = z.strictObject({
   denied: z.boolean().optional(),
   error: id.optional(),
 })
+const toolProgressEvent = z.strictObject({ type: z.literal("tool-progress"), callId: id, tool: id, label: id, detail: id, brief: z.string() })
 const permissionRequestedEvent = z.strictObject({ type: z.literal("permission-requested"), request: permissionSchemas.request })
 const permissionResolvedEvent = z.strictObject({ type: z.literal("permission-resolved"), requestId: id })
 const pluginRequestedEvent = z.strictObject({ type: z.literal("plugin-requested"), request: pluginSchemas.request })
@@ -115,6 +116,7 @@ const event = z.discriminatedUnion("type", [
   thinkingEvent,
   thinkingFinishedEvent,
   toolStartedEvent,
+  toolProgressEvent,
   toolFinishedEvent,
   permissionRequestedEvent,
   permissionResolvedEvent,

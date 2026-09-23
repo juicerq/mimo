@@ -88,6 +88,12 @@ export function createConversationActivityRecorder(messageId: string, message: I
         return runtimeEvent
       }
 
+      if (runtimeEvent.type === "tool-progress") {
+        steps = steps.map((step) => step.type === "tool" ? { ...step, tools: step.tools.map((tool) => tool.callId === runtimeEvent.callId ? { ...tool, label: runtimeEvent.label, detail: runtimeEvent.detail, brief: runtimeEvent.brief } : tool) } : step)
+
+        return runtimeEvent
+      }
+
       if ((runtimeEvent.type === "finished" || runtimeEvent.type === "provider-waiting") && thinkingStartedAt !== undefined) {
         finishThinking()
       }

@@ -23,6 +23,7 @@
     "bench:scroll": "bun bench/scroll.ts",
     "bench:memory": "bun bench/memory.ts",
     "bench:queue": "bun bench/queue.ts",
+    "bench:jev": "bun bench/jev-isolated.ts",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "check": "juicerq-check",
@@ -49,6 +50,7 @@
     "@orpc/tanstack-query": "1.15.0",
     "@tanstack/react-query": "5.102.8",
     "@tanstack/react-store": "0.11.1",
+    "@typesafe-ai/sdk": "0.6.0",
     "agent-browser": "0.36.0",
     "baileys": "^7.0.0-rc14",
     "blobatar": "^2.7.0",
@@ -70,6 +72,7 @@
   },
   "devDependencies": {
     "@juicerq/check": "^0.4.0",
+    "@lobomfz/ghostapi": "1.0.1",
     "@tailwindcss/vite": "^4",
     "@types/bun": "1.4.0",
     "@types/hast": "3.0.5",

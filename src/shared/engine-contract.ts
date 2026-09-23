@@ -16,6 +16,7 @@ import { routineSchemas } from "./routines"
 import { taskSchemas } from "./tasks"
 import { triggerSchemas } from "./triggers"
 import { skillList } from "./skills"
+import { jevSchemas } from "./jev"
 
 const healthOutput = z.object({
   status: z.literal("ready"),
@@ -24,6 +25,12 @@ const healthOutput = z.object({
 })
 
 export const engineContract = {
+  jev: {
+    status: oc.output(jevSchemas.status).route({ method: "GET", path: "/jev" }),
+    save: oc.input(jevSchemas.save).output(jevSchemas.result).route({ method: "POST", path: "/jev" }),
+    verify: oc.output(jevSchemas.result).route({ method: "POST", path: "/jev/verify" }),
+    remove: oc.output(jevSchemas.status).route({ method: "POST", path: "/jev/remove" }),
+  },
   health: oc.output(healthOutput).route({ method: "GET", path: "/health" }),
   diagnostics: {
     get: oc.output(diagnosticsReport).route({ method: "GET", path: "/diagnostics" }),

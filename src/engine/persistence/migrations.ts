@@ -26,6 +26,7 @@ import memberPermissions from "@drizzle/20260908135220_member-permissions/migrat
 import memoryCurationVersion from "@drizzle/20260909142116_overjoyed_stellaris/migration.sql" with { type: "text" }
 import messageMemory from "@drizzle/20260909155316_message-memory/migration.sql" with { type: "text" }
 import routineFavorite from "@drizzle/20260916152430_routine-favorite/migration.sql" with { type: "text" }
+import jevSettings from "@drizzle/20260922142502_jev-settings/migration.sql" with { type: "text" }
 import visibleSession from "@drizzle/20260923125458_purple_captain_marvel/migration.sql" with { type: "text" }
 
 export const migrations = [
@@ -55,5 +56,6 @@ export const migrations = [
   { name: "20260909142116_overjoyed_stellaris", timestamp: 1788974476000, sql: memoryCurationVersion },
   { name: "20260909155316_message-memory", timestamp: 1788978796000, sql: messageMemory },
   { name: "20260916152430_routine-favorite", timestamp: 1789572270000, sql: routineFavorite },
+  { name: "20260922142502_jev-settings", timestamp: 1790087102000, sql: jevSettings },
   { name: "20260923125458_purple_captain_marvel", timestamp: 1790168098000, sql: visibleSession },
 ] satisfies MigrationsJournal

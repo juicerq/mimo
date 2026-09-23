@@ -10,6 +10,7 @@ import {
   finishChatMessage,
   finishChatThinking,
   finishChatTool,
+  progressChatTool,
   requestChatPermission,
   requestChatPlugin,
   resolveChatPermission,
@@ -97,6 +98,11 @@ export function subscribeChatEvents({ client, queryClient }: { client: Pick<Engi
     if (event.type === "tool-finished") {
       finishChatTool(botId, event)
 
+      return
+    }
+
+    if (event.type === "tool-progress") {
+      progressChatTool(botId, event)
       return
     }
 

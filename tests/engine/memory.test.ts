@@ -284,7 +284,7 @@ test("migra Notas preservando origem e pendências sem minerar conversas já pro
   const path = join(directory, "mimo.sqlite")
   const sqlite = new Database(path)
   const legacy = drizzle({ client: sqlite })
-  migrate(legacy, migrations.slice(0, migrations.findIndex(({ name }) => name === "20260909155316_message-memory")))
+  migrate(legacy, migrations.slice(0, migrations.findIndex((migration) => migration.name === "20260909155316_message-memory")))
   const pending = newBot({ name: "Pendente", provider: "codex", function: { outcome: "Ajudar" }, leaderBotId: null, projectId: null, workingDirectoryOverride: null })
   const settled = { ...pending, id: "settled", name: "Processado" }
   legacy.insert(botTable).values([pending, settled]).run()

@@ -17,12 +17,15 @@ import { basename, join } from "node:path"
 import { createPermissionExtension } from "./pi-permissions"
 import { createMessagingExtension } from "./pi-messaging"
 import { describePiFailure } from "./pi-failures"
-import { loadPiSkills } from "./pi-skills"
+import { expandPiSkills, loadPiSkills } from "./pi-skills"
 import { sendMessageTool } from "@src/shared/conversations"
 import type { ObservationAttributes } from "@src/shared/observability/observation"
 import type { Observability } from "../observability/observability"
 import type { PiModels } from "./pi-models"
 import type { PiRuntimeEvent, PiSessionFactory, PiTool } from "./pi-agent-runtime"
+import { z } from "zod"
+
+const toolProgress = z.object({ label: z.string(), detail: z.string(), brief: z.string() })
 
 interface Measurement {
   name: string
@@ -49,8 +52,8 @@ function toPiTool(tool: PiTool) {
     label: tool.label ?? tool.name,
     description: tool.description,
     parameters: toolSchema(tool),
-    async execute(_toolCallId, params, signal) {
-      const text = "inputSchema" in tool ? await tool.execute(params as Record<string, unknown>, signal) : await tool.execute(params as Record<string, string>, signal)
+    async execute(_toolCallId, params, signal, onUpdate) {
+      const text = "inputSchema" in tool ? await tool.execute(params as Record<string, unknown>, signal, (progress) => onUpdate?.({ content: [{ type: "text", text: progress.detail }], details: { progress } })) : await tool.execute(params as Record<string, string>, signal)
 
       return { content: [{ type: "text", text }], details: {} }
     },
@@ -105,6 +108,13 @@ function normalizeMessageUpdate(event: AssistantMessageEvent): PiRuntimeEvent | 
 }
 
 function normalizeStateless(event: AgentSessionEvent): PiRuntimeEvent | undefined {
+  if (event.type === "tool_execution_update") {
+    const parsed = z.object({ details: z.object({ progress: toolProgress }) }).safeParse(event.partialResult)
+
+    if (parsed.success) {
+      return { type: "tool-progress", callId: event.toolCallId, tool: event.toolName, ...parsed.data.details.progress }
+    }
+  }
   if (event.type === "message_update") {
     return normalizeMessageUpdate(event.assistantMessageEvent)
   }
@@ -421,10 +431,10 @@ export function createPiSessionFactory(options: { agentDirectory: string; sessio
             await result.session.sendCustomMessage({ customType: "mimo.turn-context", content: `Mimo context for the next message:\n${JSON.stringify(context)}`, display: false })
           }
 
-          return result.session.prompt(content, { images: images.map((image) => ({ type: "image", ...image })) })
+          return result.session.prompt(await expandPiSkills(content, loader.getSkills().skills), { images: images.map((image) => ({ type: "image", ...image })) })
         },
         async steer({ content, images = [] }) {
-          return result.session.steer(content, images.map((image) => ({ type: "image", ...image })))
+          return result.session.steer(await expandPiSkills(content, loader.getSkills().skills), images.map((image) => ({ type: "image", ...image })))
         },
         abort() {
           clearRecovery()
