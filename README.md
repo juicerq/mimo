@@ -54,8 +54,8 @@ A corrente de perguntas para em três Bots, e um Bot que já está nela não pod
 Precisa do [Bun](https://bun.sh).
 
 ```sh
-git clone https://github.com/juicerq/mimo-tui
-cd mimo-tui
+git clone https://github.com/juicerq/mimo
+cd mimo
 bun install
 bun run build
 cd apps/desktop && bun link
